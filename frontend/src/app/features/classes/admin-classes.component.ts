@@ -747,10 +747,21 @@ type ClassTabKey =
   styles: `
     :host {
       display: block;
+      width: 100%;
+      max-width: 100%;
+      overflow-x: hidden;
     }
 
     .admin-classes-page {
+      width: 100%;
       max-width: 1480px;
+      overflow-x: hidden;
+    }
+
+    .admin-classes-page *,
+    .admin-classes-page *::before,
+    .admin-classes-page *::after {
+      box-sizing: border-box;
     }
 
     .admin-btn {
@@ -1022,11 +1033,7 @@ type ClassTabKey =
       white-space: nowrap;
     }
 
-    .status-chip.status-live {
-      background: #dcfce7;
-      color: var(--color-success);
-    }
-
+    .status-chip.status-live,
     .status-chip.status-success {
       background: #dcfce7;
       color: var(--color-success);
@@ -1161,13 +1168,14 @@ type ClassTabKey =
       background: #ffffff;
     }
 
+    /* Fixed above App Shell */
     .schedule-modal-overlay {
       position: fixed;
       inset: 0;
-      z-index: 1055;
+      z-index: 3000;
       display: grid;
       place-items: center;
-      background: rgba(15, 23, 42, 0.38);
+      background: rgba(15, 23, 42, 0.42);
       backdrop-filter: blur(8px);
       padding: 16px;
     }
@@ -1186,6 +1194,7 @@ type ClassTabKey =
 
     .schedule-header,
     .schedule-footer {
+      flex-shrink: 0;
       display: flex;
       align-items: flex-start;
       justify-content: space-between;
@@ -1228,6 +1237,7 @@ type ClassTabKey =
     }
 
     .schedule-two-steps {
+      flex-shrink: 0;
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 16px;
@@ -1268,10 +1278,13 @@ type ClassTabKey =
     }
 
     .schedule-form-grid {
+      flex: 1;
+      min-height: 0;
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 18px;
       overflow-y: auto;
+      overflow-x: hidden;
       padding: 24px 28px;
     }
 
@@ -1374,8 +1387,8 @@ type ClassTabKey =
     .drawer-backdrop {
       position: fixed;
       inset: 0;
-      z-index: 1070;
-      background: rgba(15, 23, 42, 0.38);
+      z-index: 3000;
+      background: rgba(15, 23, 42, 0.42);
       backdrop-filter: blur(8px);
     }
 
@@ -1383,14 +1396,28 @@ type ClassTabKey =
       position: fixed;
       top: 0;
       right: 0;
-      z-index: 1080;
+      bottom: 0;
+      z-index: 3010;
       width: min(460px, 100vw);
       height: 100dvh;
+      max-height: 100dvh;
       overflow-y: auto;
+      overflow-x: hidden;
       border-left: 1px solid var(--color-border);
       background: #ffffff;
-      box-shadow: -24px 0 70px rgba(15, 23, 42, 0.18);
+      box-shadow: -24px 0 70px rgba(15, 23, 42, 0.22);
       padding: 24px;
+    }
+
+    .admin-class-drawer::-webkit-scrollbar,
+    .schedule-form-grid::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .admin-class-drawer::-webkit-scrollbar-thumb,
+    .schedule-form-grid::-webkit-scrollbar-thumb {
+      border-radius: 999px;
+      background: rgba(100, 116, 139, 0.32);
     }
 
     .drawer-header {
@@ -1430,6 +1457,8 @@ type ClassTabKey =
 
     .confirm-card {
       width: min(540px, 100%);
+      max-height: calc(100dvh - 32px);
+      overflow-y: auto;
       border: 1px solid var(--color-border);
       border-radius: 22px;
       background: #ffffff;
@@ -1539,6 +1568,7 @@ type ClassTabKey =
 
       .admin-class-drawer {
         width: 100vw;
+        border-left: 0;
         padding: 18px;
       }
 
@@ -1626,6 +1656,7 @@ export class AdminClassesComponent implements OnInit {
   protected readonly cancelSubmitting = signal(false);
   protected readonly cancelMessage = signal('');
   protected cancelReason = '';
+
   protected scheduleForm = {
     teacherId: '',
     studentId: '',
@@ -1634,10 +1665,12 @@ export class AdminClassesComponent implements OnInit {
     durationMinutes: 60,
     timezone: 'Asia/Kolkata'
   };
+
   protected readonly steps = [
     { index: 1, label: 'Participants' },
     { index: 2, label: 'Date & Time' }
   ];
+
   protected readonly classTabs: Array<{ key: ClassTabKey; label: string }> = [
     { key: 'all', label: 'All Classes' },
     { key: 'today', label: 'Today' },
@@ -1662,19 +1695,27 @@ export class AdminClassesComponent implements OnInit {
       [item.title, item.teacherName, this.participantName(item), item.status].some((value) => value.toLowerCase().includes(query))
     );
   });
+
   protected readonly totalPages = computed(() => Math.max(1, Math.ceil(this.filteredClasses().length / this.pageSize)));
+
   protected readonly pageNumbers = computed(() => Array.from({ length: this.totalPages() }, (_, index) => index + 1));
+
   protected readonly pagedClasses = computed(() => {
     const page = Math.min(this.currentPage(), this.totalPages());
     const start = (page - 1) * this.pageSize;
     return this.filteredClasses().slice(start, start + this.pageSize);
   });
-  protected readonly todayCount = computed(() => this.classes().filter((item) => new Date(item.startTime).toDateString() === new Date().toDateString()).length);
+
+  protected readonly todayCount = computed(() =>
+    this.classes().filter((item) => new Date(item.startTime).toDateString() === new Date().toDateString()).length
+  );
+
   protected readonly upcomingCount = computed(() => this.classes().filter((item) => this.matchesTab(item, 'upcoming')).length);
   protected readonly liveCount = computed(() => this.classes().filter((item) => item.status === 'live').length);
   protected readonly completedCount = computed(() => this.classes().filter((item) => item.status === 'completed').length);
   protected readonly cancelledCount = computed(() => this.classes().filter((item) => item.status === 'cancelled').length);
   protected readonly noShowCount = computed(() => this.classes().filter((item) => ['failed', 'no_show', 'no-show'].includes(item.status)).length);
+
   constructor(
     private readonly classesApi: ClassesApiService,
     private readonly peopleApi: PeopleApiService,

@@ -865,11 +865,12 @@ type TeacherClassTab = 'today' | 'upcoming' | 'completed' | 'cancelled' | 'all';
       color: var(--color-text);
     }
 
+    /* Drawer fixed above App Shell */
     .teacher-drawer-backdrop {
       position: fixed;
       inset: 0;
-      z-index: 1070;
-      background: rgba(15, 23, 42, 0.38);
+      z-index: 3000;
+      background: rgba(15, 23, 42, 0.42);
       backdrop-filter: blur(8px);
     }
 
@@ -877,14 +878,26 @@ type TeacherClassTab = 'today' | 'upcoming' | 'completed' | 'cancelled' | 'all';
       position: fixed;
       top: 0;
       right: 0;
-      z-index: 1080;
+      bottom: 0;
+      z-index: 3010;
       width: min(460px, 100vw);
       height: 100dvh;
+      max-height: 100dvh;
       overflow-y: auto;
+      overflow-x: hidden;
       border-left: 1px solid var(--color-border);
       background: #ffffff;
-      box-shadow: -24px 0 70px rgba(15, 23, 42, 0.18);
+      box-shadow: -24px 0 70px rgba(15, 23, 42, 0.22);
       padding: 24px;
+    }
+
+    .teacher-drawer::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .teacher-drawer::-webkit-scrollbar-thumb {
+      border-radius: 999px;
+      background: rgba(100, 116, 139, 0.32);
     }
 
     .student-strip,
@@ -954,6 +967,7 @@ type TeacherClassTab = 'today' | 'upcoming' | 'completed' | 'cancelled' | 'all';
     @media (max-width: 991.98px) {
       .teacher-drawer {
         width: 100vw;
+        border-left: 0;
       }
     }
 
@@ -1054,29 +1068,40 @@ export class TeacherClassesComponent implements OnInit {
       [item.title, this.studentName(item), item.status].some((value) => value.toLowerCase().includes(query))
     );
   });
+
   protected readonly totalPages = computed(() => Math.max(1, Math.ceil(this.filteredClasses().length / this.pageSize)));
+
   protected readonly pageNumbers = computed(() => Array.from({ length: this.totalPages() }, (_, index) => index + 1));
+
   protected readonly pagedClasses = computed(() => {
     const page = Math.min(this.currentPage(), this.totalPages());
     const start = (page - 1) * this.pageSize;
     return this.filteredClasses().slice(start, start + this.pageSize);
   });
+
   protected readonly nextClass = computed(() =>
     this.classes()
       .filter((item) => ['live', 'scheduled', 'rescheduled'].includes(item.status) && new Date(item.endTime).getTime() >= Date.now())
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())[0] ?? null
   );
+
   protected readonly todayCount = computed(() => this.classes().filter((item) => this.isToday(item)).length);
+
   protected readonly upcomingCount = computed(() => this.classes().filter((item) => this.matchesTab(item, 'upcoming')).length);
+
   protected readonly completedCount = computed(() => this.classes().filter((item) => item.status === 'completed').length);
+
   protected readonly pendingAttendanceCount = computed(() =>
     this.classes().filter((item) => this.attendance(item).toLowerCase() === 'pending').length
   );
+
   protected readonly nextClassTime = computed(() => {
     const next = this.nextClass();
     return next ? new Date(next.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--';
   });
+
   protected readonly nextClassStatus = computed(() => this.nextClass()?.status ?? 'none');
+
   protected readonly nextClassSummary = computed(() => {
     const next = this.nextClass();
     return next ? `${next.title} with ${this.studentName(next)}` : 'No upcoming class scheduled.';

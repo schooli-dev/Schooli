@@ -596,26 +596,39 @@ type StudentClassTab = 'upcoming' | 'completed' | 'cancelled' | 'all';
       color: var(--color-text);
     }
 
+    /* Fixed above App Shell */
     .student-modal-backdrop {
       position: fixed;
       inset: 0;
-      z-index: 1055;
+      z-index: 3000;
       display: grid;
       place-items: center;
-      background: rgba(15, 23, 42, 0.38);
+      background: rgba(15, 23, 42, 0.42);
       backdrop-filter: blur(8px);
       padding: 16px;
     }
 
     .student-cancel-dialog {
+      position: relative;
+      z-index: 3010;
       width: min(560px, 100%);
       max-height: calc(100dvh - 32px);
       overflow-y: auto;
+      overflow-x: hidden;
       border: 1px solid var(--color-border);
       border-radius: 22px;
       background: #ffffff;
       box-shadow: 0 34px 90px rgba(15, 23, 42, 0.22);
       padding: 24px;
+    }
+
+    .student-cancel-dialog::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .student-cancel-dialog::-webkit-scrollbar-thumb {
+      border-radius: 999px;
+      background: rgba(100, 116, 139, 0.32);
     }
 
     .pagination .page-link {
@@ -735,18 +748,23 @@ export class StudentClassesComponent implements OnInit {
       [item.title, item.teacherName, item.status].some((value) => value.toLowerCase().includes(query))
     );
   });
+
   protected readonly totalPages = computed(() => Math.max(1, Math.ceil(this.filteredClasses().length / this.pageSize)));
+
   protected readonly pageNumbers = computed(() => Array.from({ length: this.totalPages() }, (_, index) => index + 1));
+
   protected readonly pagedClasses = computed(() => {
     const page = Math.min(this.currentPage(), this.totalPages());
     const start = (page - 1) * this.pageSize;
     return this.filteredClasses().slice(start, start + this.pageSize);
   });
+
   protected readonly nextClass = computed(() =>
     this.classes()
       .filter((item) => ['live', 'scheduled', 'rescheduled'].includes(item.status) && new Date(item.endTime).getTime() >= Date.now())
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())[0] ?? null
   );
+
   protected readonly monthCount = computed(() => {
     const now = new Date();
     return this.classes().filter((item) => {
@@ -754,11 +772,14 @@ export class StudentClassesComponent implements OnInit {
       return start.getMonth() === now.getMonth() && start.getFullYear() === now.getFullYear();
     }).length;
   });
+
   protected readonly completedCount = computed(() => this.classes().filter((item) => item.status === 'completed').length);
+
   protected readonly attendancePercent = computed(() => {
     const attended = this.classes().filter((item) => ['present', 'in session'].includes(this.attendance(item).toLowerCase())).length;
     return this.classes().length ? Math.round((attended / this.classes().length) * 100) : 0;
   });
+
   protected readonly nextClassLabel = computed(() => {
     const next = this.nextClass();
     if (!next) {
@@ -772,8 +793,11 @@ export class StudentClassesComponent implements OnInit {
     const minutes = Math.max(0, Math.round((new Date(next.startTime).getTime() - Date.now()) / 60000));
     return minutes < 60 ? `${minutes} min` : `${Math.round(minutes / 60)} hr`;
   });
+
   protected readonly nextClassTitle = computed(() => this.nextClass()?.title ?? 'No upcoming class');
+
   protected readonly nextClassStatus = computed(() => this.nextClass()?.status ?? 'None');
+
   protected readonly nextClassTeacher = computed(() => this.nextClass()?.teacherName ?? 'Your upcoming class details will appear here.');
 
   constructor(private readonly classesApi: ClassesApiService) {}
@@ -855,6 +879,7 @@ export class StudentClassesComponent implements OnInit {
 
     this.cancelRequestSubmitting.set(true);
     this.cancelRequestMessage.set('');
+
     this.classesApi
       .requestCancellation(item.id, reason)
       .pipe(finalize(() => this.cancelRequestSubmitting.set(false)))
@@ -874,6 +899,7 @@ export class StudentClassesComponent implements OnInit {
 
   private loadClasses(): void {
     this.apiWarning.set('');
+
     this.classesApi
       .listClasses({ limit: 100 })
       .pipe(finalize(() => undefined))
