@@ -1,0 +1,8 @@
+<router-outlet />
+<app-toast-container />
+
+@if (loader.isLoading()) {
+  <div class="global-loader" role="status" aria-live="polite" aria-label="Loading content">
+    <div class="global-loader__ring" aria-hidden="true"></div>
+  </div>
+}

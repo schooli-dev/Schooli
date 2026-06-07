@@ -1,0 +1,49 @@
+# Dependencies
+node_modules/
+backend/node_modules/
+frontend/node_modules/
+ui_Designs/
+project_doc
+
+# Build output
+dist/
+backend/dist/
+frontend/dist/
+out-tsc/
+
+# Local environment
+.env
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+
+# Local caches and logs
+.angular/
+frontend/.angular/
+.cache/
+coverage/
+backend/coverage/
+frontend/coverage/
+logs/
+backend/logs/
+frontend/logs/
+*.log
+*.tsbuildinfo
+
+# Local tools and editors
+.dbclient/
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# System files
+.DS_Store
+Thumbs.db
