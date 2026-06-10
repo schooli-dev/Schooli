@@ -3,7 +3,7 @@ import { authMiddleware } from "../../middlewares/auth.middleware.js";
 import { requirePermission } from "../../middlewares/permission.middleware.js";
 import { validate } from "../../middlewares/validate.middleware.js";
 import * as zoomController from "./zoom.controller.js";
-import { createZoomMeetingSchema, getZoomMeetingSchema, zoomSignatureSchema } from "./zoom.validation.js";
+import { createZoomMeetingSchema, getZoomMeetingSchema, zoomLeaveSchema, zoomSignatureSchema } from "./zoom.validation.js";
 
 export const zoomRoutes = Router();
 export const zoomClassRoutes = Router({ mergeParams: true });
@@ -30,4 +30,10 @@ zoomClassRoutes.post(
   requirePermission("class.join"),
   validate(zoomSignatureSchema),
   zoomController.signature
+);
+zoomClassRoutes.post(
+  "/leave",
+  requirePermission("class.join"),
+  validate(zoomLeaveSchema),
+  zoomController.leave
 );

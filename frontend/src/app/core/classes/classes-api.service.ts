@@ -18,9 +18,13 @@ export type ClassListItem = {
   durationMinutes: number;
   timezone: string;
   status: string;
+  notes?: string | null;
+  cancellationRequestStatus?: string | null;
+  cancellationRequestsCount?: number;
   participants: ClassParticipant[];
   zoomMeeting: {
     zoomMeetingId: string | null;
+    zoomPassword?: string | null;
     status: string;
     creationStatus: string;
     joinUrl: string | null;

@@ -3,6 +3,7 @@ import { pool } from "../../db/pool.js";
 import type { AuthenticatedUser } from "../../types/express.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { getPagination, getPaginationMeta, type PaginationMeta } from "../../utils/pagination.js";
+import { cancelZoomMeetingForClass } from "../zoom/zoom.service.js";
 import type {
   CreateCancellationRequestInput,
   ListCancellationRequestsInput,
@@ -192,8 +193,10 @@ export async function updateCancellationRequestStatus(
       [input.status, input.adminNote ?? null, user.id, id]
     );
 
-    if (input.status === "approved") {
+  if (input.status === "approved") {
       await cancelClassForApprovedRequest(client, request.class_id, input.adminNote ?? "Cancellation request approved");
+      await cancelZoomMeetingForClass(request.class_id, client);
+      await updateTeacherWorkSessionStatus(client, request.class_id, "cancelled");
     }
 
     await client.query("COMMIT");
@@ -287,6 +290,22 @@ async function cancelClassForApprovedRequest(
   if (result.rowCount === 0) {
     throw new ApiError(409, "Class can no longer be cancelled", "CLASS_NOT_CANCELLABLE");
   }
+}
+
+async function updateTeacherWorkSessionStatus(
+  client: PoolClient,
+  classId: string,
+  status: "cancelled"
+): Promise<void> {
+  await client.query(
+    `
+      UPDATE teacher_work_sessions
+      SET status = $1,
+          updated_at = NOW()
+      WHERE class_id = $2
+    `,
+    [status, classId]
+  );
 }
 
 function baseCancellationRequestSelect(): string {

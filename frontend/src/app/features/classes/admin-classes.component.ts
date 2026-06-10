@@ -464,6 +464,20 @@ type ClassTabKey =
               />
             </label>
 
+            <label class="full-field">
+              <span class="field-label">
+                <i class="bi bi-card-text"></i>
+                Meeting Description
+              </span>
+
+              <textarea
+                name="description"
+                [(ngModel)]="scheduleForm.description"
+                rows="4"
+                placeholder="Add agenda, preparation notes, learning goals, or anything the student should know."
+              ></textarea>
+            </label>
+
             @if (scheduleMessage()) {
               <article class="info-card full" [class.conflict-card]="scheduleMessageType() === 'error'">
                 <i class="bi bi-info-circle me-2"></i>
@@ -946,6 +960,13 @@ type ClassTabKey =
       color: var(--color-text);
       padding: 0 14px;
       outline: 0;
+    }
+
+    .schedule-form-grid textarea {
+      min-height: 96px;
+      padding-top: 12px;
+      padding-bottom: 12px;
+      resize: vertical;
     }
 
     .form-control:focus,
@@ -1661,6 +1682,7 @@ export class AdminClassesComponent implements OnInit {
     teacherId: '',
     studentId: '',
     title: '',
+    description: '',
     startTime: '',
     durationMinutes: 60,
     timezone: 'Asia/Kolkata'
@@ -2011,6 +2033,7 @@ export class AdminClassesComponent implements OnInit {
         startTime,
         durationMinutes: Number(this.scheduleForm.durationMinutes),
         timezone: this.scheduleForm.timezone,
+        notes: this.scheduleForm.description.trim() || undefined,
         overrideConflicts: false
       })
       .pipe(finalize(() => this.scheduleSubmitting.set(false)))
@@ -2063,6 +2086,7 @@ export class AdminClassesComponent implements OnInit {
       teacherId: '',
       studentId: '',
       title: '',
+      description: '',
       startTime: '',
       durationMinutes: 60,
       timezone: 'Asia/Kolkata'

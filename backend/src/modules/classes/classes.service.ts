@@ -29,6 +29,8 @@ export type ClassItem = {
   notes: string | null;
   cancelledAt: Date | null;
   cancellationReason: string | null;
+  cancellationRequestStatus: string | null;
+  cancellationRequestsCount: number;
   participants: Array<{
     studentId: string;
     studentName: string;
@@ -38,6 +40,7 @@ export type ClassItem = {
   zoomMeeting: {
     id: string;
     zoomMeetingId: string | null;
+    zoomPassword?: string | null;
     status: string;
     creationStatus: string;
     joinUrl: string | null;
@@ -62,6 +65,8 @@ type ClassRow = {
   notes: string | null;
   cancelled_at: Date | null;
   cancellation_reason: string | null;
+  cancellation_request_status: string | null;
+  cancellation_requests_count: number;
   participants: ClassItem["participants"];
   zoom_meeting: ClassItem["zoomMeeting"];
   created_at: Date;
@@ -483,6 +488,20 @@ function baseClassSelect(): string {
       c.notes,
       c.cancelled_at,
       c.cancellation_reason,
+      (
+        SELECT ccr.status::TEXT
+        FROM class_cancellation_requests ccr
+        WHERE ccr.class_id = c.id
+          AND ccr.status = 'pending'
+        ORDER BY ccr.created_at DESC
+        LIMIT 1
+      ) AS cancellation_request_status,
+      (
+        SELECT COUNT(*)::INT
+        FROM class_cancellation_requests ccr
+        WHERE ccr.class_id = c.id
+          AND ccr.status = 'pending'
+      ) AS cancellation_requests_count,
       COALESCE(
         jsonb_agg(
           DISTINCT jsonb_build_object(
@@ -499,6 +518,7 @@ function baseClassSelect(): string {
         ELSE jsonb_build_object(
           'id', zm.id,
           'zoomMeetingId', zm.zoom_meeting_id,
+          'zoomPassword', zm.zoom_password,
           'status', zm.status,
           'creationStatus', zm.creation_status,
           'joinUrl', zm.zoom_join_url,
@@ -621,6 +641,8 @@ function mapClass(row: ClassRow): ClassItem {
     notes: row.notes,
     cancelledAt: row.cancelled_at,
     cancellationReason: row.cancellation_reason,
+    cancellationRequestStatus: row.cancellation_request_status,
+    cancellationRequestsCount: Number(row.cancellation_requests_count ?? 0),
     participants: row.participants ?? [],
     zoomMeeting: row.zoom_meeting,
     createdAt: row.created_at,

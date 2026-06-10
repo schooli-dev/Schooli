@@ -18,6 +18,10 @@ type ZoomMeetingResponse = {
   status?: string;
 };
 
+type ZoomZakResponse = {
+  token: string;
+};
+
 type CreateZoomMeetingInput = {
   classId: string;
   topic: string;
@@ -39,6 +43,12 @@ type ZoomMeetingRow = {
   raw_payload: unknown;
   created_at: Date;
   updated_at: Date;
+};
+
+type LiveZoomClassRow = {
+  id: string;
+  title: string;
+  zoom_meeting_id: string | null;
 };
 
 let cachedToken: { token: string; expiresAt: number } | null = null;
@@ -251,6 +261,26 @@ export async function getZoomMeetingByClassId(classId: string): Promise<ReturnTy
   return mapZoomMeeting(meeting);
 }
 
+export async function getJoinableZoomMeetingByClassId(classId: string): Promise<ReturnType<typeof mapZoomMeeting>> {
+  const meeting = await getZoomMeetingByClassId(classId);
+
+  if (!meeting.zoomMeetingId || meeting.creationStatus !== "created") {
+    return meeting;
+  }
+
+  if (!zoomConfig.autoCreateMeetings || !isZoomServerConfigured()) {
+    return meeting;
+  }
+
+  const exists = await verifyZoomMeetingExists(meeting.zoomMeetingId);
+
+  if (exists) {
+    return meeting;
+  }
+
+  return await createZoomMeetingByClassId(classId);
+}
+
 export function verifyZoomWebhook(headers: Record<string, unknown>, rawBody: unknown): void {
   if (!zoomConfig.webhookSecretToken) {
     return;
@@ -318,7 +348,6 @@ export function createMeetingSdkSignature(meetingNumber: string, role: 0 | 1): {
   const header = base64UrlEncode(JSON.stringify({ alg: "HS256", typ: "JWT" }));
   const payload = base64UrlEncode(
     JSON.stringify({
-      sdkKey: zoomConfig.meetingSdkKey,
       mn: meetingNumber,
       role,
       iat,
@@ -336,6 +365,143 @@ export function createMeetingSdkSignature(meetingNumber: string, role: 0 | 1): {
     sdkKey: zoomConfig.meetingSdkKey!,
     signature: `${header}.${payload}.${signature}`
   };
+}
+
+export async function getZoomHostZak(): Promise<string> {
+  if (!isZoomServerConfigured()) {
+    throw new ApiError(503, "Zoom server credentials are not configured", "ZOOM_NOT_CONFIGURED");
+  }
+
+  const token = await getZoomAccessToken();
+  const response = await fetch(
+    `https://api.zoom.us/v2/users/${encodeURIComponent(zoomConfig.defaultHostEmail!)}/token?type=zak`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }
+  );
+  const payload = (await response.json()) as ZoomZakResponse & { message?: string };
+
+  if (!response.ok || !payload.token) {
+    throw new ApiError(502, "Zoom ZAK token request failed", "ZOOM_ZAK_FAILED", payload);
+  }
+
+  return payload.token;
+}
+
+export async function markClassLiveForMeetingSdk(classId: string): Promise<void> {
+  await pool.query(
+    `
+      UPDATE classes
+      SET status = 'live',
+          updated_at = NOW()
+      WHERE id = $1
+        AND status IN ('scheduled', 'rescheduled', 'live')
+    `,
+    [classId]
+  );
+
+  await pool.query(
+    `
+      UPDATE teacher_work_sessions
+      SET status = 'live',
+          updated_at = NOW()
+      WHERE class_id = $1
+        AND status IN ('scheduled', 'rescheduled', 'live')
+    `,
+    [classId]
+  );
+
+  await pool.query(
+    `
+      UPDATE zoom_meetings
+      SET status = 'started',
+          updated_at = NOW()
+      WHERE class_id = $1
+        AND status IN ('pending', 'scheduled', 'started')
+    `,
+    [classId]
+  );
+}
+
+export async function releaseClassroomForMeetingSdk(
+  classId: string,
+  userId: string,
+  role: 0 | 1
+): Promise<void> {
+  if (role === 1) {
+    await pool.query(
+      `
+        UPDATE classes
+        SET status = CASE WHEN end_time <= NOW() THEN 'completed'::class_status ELSE 'scheduled'::class_status END,
+            updated_at = NOW()
+        WHERE id = $1
+          AND status = 'live'
+      `,
+      [classId]
+    );
+
+    await pool.query(
+      `
+        UPDATE teacher_work_sessions
+        SET status = CASE WHEN end_time <= NOW() THEN 'completed' ELSE 'scheduled' END,
+            updated_at = NOW()
+        WHERE class_id = $1
+          AND status = 'live'
+      `,
+      [classId]
+    );
+
+    await pool.query(
+      `
+        UPDATE zoom_meetings
+        SET status = CASE
+              WHEN EXISTS (SELECT 1 FROM classes c WHERE c.id = $1 AND c.end_time <= NOW()) THEN 'ended'::zoom_meeting_status
+              ELSE 'scheduled'::zoom_meeting_status
+            END,
+            updated_at = NOW()
+        WHERE class_id = $1
+          AND status = 'started'
+      `,
+      [classId]
+    );
+
+    return;
+  }
+
+  await pool.query(
+    `
+      UPDATE class_participants
+      SET left_at = NOW(),
+          updated_at = NOW()
+      WHERE class_id = $1
+        AND student_id = $2
+    `,
+    [classId, userId]
+  );
+}
+
+export async function getOtherLiveDefaultHostClass(classId: string): Promise<LiveZoomClassRow | null> {
+  const result = await pool.query<LiveZoomClassRow>(
+    `
+      SELECT c.id,
+             c.title,
+             zm.zoom_meeting_id
+      FROM classes c
+      JOIN zoom_meetings zm ON zm.class_id = c.id
+      WHERE c.id <> $1
+        AND c.status = 'live'
+        AND c.end_time > NOW() - INTERVAL '2 hours'
+        AND zm.creation_status = 'created'
+      ORDER BY c.updated_at DESC
+      LIMIT 1
+    `,
+    [classId]
+  );
+
+  return result.rows[0] ?? null;
 }
 
 async function getZoomAccessToken(): Promise<string> {
@@ -371,6 +537,27 @@ async function getZoomAccessToken(): Promise<string> {
   };
 
   return cachedToken.token;
+}
+
+async function verifyZoomMeetingExists(meetingNumber: string): Promise<boolean> {
+  const token = await getZoomAccessToken();
+  const response = await fetch(`https://api.zoom.us/v2/meetings/${encodeURIComponent(meetingNumber)}`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+
+  if (response.status === 404) {
+    return false;
+  }
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({ message: "Zoom meeting verification failed" }));
+    throw new ApiError(502, "Zoom meeting verification failed", "ZOOM_VERIFY_FAILED", payload);
+  }
+
+  return true;
 }
 
 async function ensureZoomPlaceholder(classId: string, db: PoolClient | typeof pool): Promise<void> {

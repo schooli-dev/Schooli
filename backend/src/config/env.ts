@@ -23,8 +23,8 @@ const envSchema = z.object({
   ZOOM_MEETING_JOIN_BEFORE_HOST: z.coerce.boolean().default(false),
   ZOOM_MEETING_PASSWORD_REQUIRED: z.coerce.boolean().default(true),
   ZOOM_MEETING_AUTO_RECORDING: z.enum(["none", "local", "cloud"]).default("none"),
-  ZOOM_MEETING_SDK_KEY: z.string().optional(),
-  ZOOM_MEETING_SDK_SECRET: z.string().optional()
+  ZOOM_MEETING_SDK_KEY: z.string().trim().optional(),
+  ZOOM_MEETING_SDK_SECRET: z.string().trim().optional()
 });
 
 const parsed = envSchema.safeParse(process.env);

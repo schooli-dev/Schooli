@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { AdminClassesComponent } from './features/classes/admin-classes.component';
+import { ClassroomComponent } from './features/classes/classroom.component';
 import { StudentClassesComponent } from './features/classes/student-classes.component';
 import { TeacherClassesComponent } from './features/classes/teacher-classes.component';
 import { AdminUsersComponent } from './features/users/admin-users.component';
@@ -68,6 +69,13 @@ export const routes: Routes = [
         title: 'My Classes | SchooliEdu'
       },
       {
+        path: 'teacher/classes/:id/room',
+        component: ClassroomComponent,
+        canActivate: [authGuard],
+        data: { roles: ['teacher'], permission: 'class.join' },
+        title: 'Live Classroom | SchooliEdu'
+      },
+      {
         path: 'student/dashboard',
         component: StudentDashboardComponent,
         canActivate: [authGuard],
@@ -80,6 +88,13 @@ export const routes: Routes = [
         canActivate: [authGuard],
         data: { roles: ['student'], permission: 'class.view' },
         title: 'My Classes | SchooliEdu'
+      },
+      {
+        path: 'student/classes/:id/room',
+        component: ClassroomComponent,
+        canActivate: [authGuard],
+        data: { roles: ['student'], permission: 'class.join' },
+        title: 'Live Classroom | SchooliEdu'
       }
     ]
   }

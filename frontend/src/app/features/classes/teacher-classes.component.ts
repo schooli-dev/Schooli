@@ -1,6 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { Component, OnInit, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { ClassListItem, ClassesApiService } from '../../core/classes/classes-api.service';
 
 type TeacherClassTab = 'today' | 'upcoming' | 'completed' | 'cancelled' | 'all';
@@ -1107,7 +1108,10 @@ export class TeacherClassesComponent implements OnInit {
     return next ? `${next.title} with ${this.studentName(next)}` : 'No upcoming class scheduled.';
   });
 
-  constructor(private readonly classesApi: ClassesApiService) {}
+  constructor(
+    private readonly classesApi: ClassesApiService,
+    private readonly router: Router
+  ) {}
 
   ngOnInit(): void {
     this.loadClasses();
@@ -1167,18 +1171,11 @@ export class TeacherClassesComponent implements OnInit {
   }
 
   protected canJoin(item: ClassListItem): boolean {
-    return ['live', 'scheduled', 'rescheduled'].includes(item.status) && Boolean(item.zoomMeeting?.joinUrl || item.zoomMeeting?.startUrl);
+    return ['live', 'scheduled', 'rescheduled'].includes(item.status) && Boolean(item.zoomMeeting?.zoomMeetingId);
   }
 
   protected joinClass(item: ClassListItem): void {
-    this.classesApi.joinClass(item.id).subscribe({
-      next: (response) => {
-        const zoomUrl = response.data.zoom.startUrl ?? response.data.zoom.joinUrl;
-        if (zoomUrl) {
-          window.open(zoomUrl, '_blank', 'noopener,noreferrer');
-        }
-      }
-    });
+    void this.router.navigate(['/teacher/classes', item.id, 'room']);
   }
 
   private loadClasses(): void {

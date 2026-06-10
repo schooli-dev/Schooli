@@ -23,5 +23,14 @@ export const zoomSignatureSchema = z.object({
   })
 });
 
+export const zoomLeaveSchema = z.object({
+  params: z.object({
+    id: uuid
+  }),
+  body: z.object({
+    role: z.union([z.literal(0), z.literal(1)]).optional()
+  })
+});
+
 export type CreateZoomMeetingInput = z.infer<typeof createZoomMeetingSchema>["body"];
 export type ZoomSignatureInput = z.infer<typeof zoomSignatureSchema>["body"];

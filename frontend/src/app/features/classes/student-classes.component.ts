@@ -1,6 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { Component, OnInit, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { finalize } from 'rxjs';
 import { ClassListItem, ClassesApiService } from '../../core/classes/classes-api.service';
 
@@ -206,6 +207,13 @@ type StudentClassTab = 'upcoming' | 'completed' | 'cancelled' | 'all';
                           <i class="bi bi-calendar-event"></i>
                           {{ item.startTime | date: 'MMM d, h:mm a' }} - {{ item.endTime | date: 'h:mm a' }}
                         </span>
+
+                        @if (hasPendingCancellationRequest(item)) {
+                          <span class="badge rounded-pill text-bg-warning d-inline-flex align-items-center gap-1">
+                            <i class="bi bi-hourglass-split"></i>
+                            Cancellation requested
+                          </span>
+                        }
                       </div>
 
                       <h2 class="h5 fw-bold mb-2 class-title">{{ item.title }}</h2>
@@ -242,6 +250,7 @@ type StudentClassTab = 'upcoming' | 'completed' | 'cancelled' | 'all';
                       <button
                         class="btn btn-outline-secondary fw-bold d-inline-flex align-items-center justify-content-center gap-2"
                         type="button"
+                        (click)="openClassDetails(item)"
                       >
                         <i class="bi bi-eye"></i>
                         View Details
@@ -415,6 +424,93 @@ type StudentClassTab = 'upcoming' | 'completed' | 'cancelled' | 'all';
               }
 
               {{ cancelRequestSubmitting() ? 'Requesting...' : 'Request' }}
+            </button>
+          </footer>
+
+        </div>
+      </section>
+    }
+
+    @if (detailsOpen() && selectedClass()) {
+      <section class="student-modal-backdrop" role="dialog" aria-modal="true">
+        <div class="student-cancel-dialog class-details-dialog">
+
+          <header class="d-flex align-items-start justify-content-between gap-3 mb-3">
+            <div class="d-flex align-items-start gap-3 min-w-0">
+              <span class="icon-box icon-box-lg bg-primary-subtle text-primary flex-shrink-0">
+                <i class="bi bi-calendar-event"></i>
+              </span>
+
+              <div class="min-w-0">
+                <p class="section-kicker text-uppercase fw-bold small mb-1">Class Details</p>
+                <h2 class="h4 fw-bold mb-0 text-break">{{ selectedClass()!.title }}</h2>
+              </div>
+            </div>
+
+            <button class="btn-close" type="button" aria-label="Close" (click)="closeClassDetails()"></button>
+          </header>
+
+          <div class="row g-3 mb-3">
+            <div class="col-12 col-sm-6">
+              <div class="detail-tile">
+                <span><i class="bi bi-person-video3"></i> Teacher</span>
+                <strong>{{ selectedClass()!.teacherName }}</strong>
+              </div>
+            </div>
+
+            <div class="col-12 col-sm-6">
+              <div class="detail-tile">
+                <span><i class="bi bi-clock"></i> Schedule</span>
+                <strong>{{ selectedClass()!.startTime | date: 'MMM d, y, h:mm a' }}</strong>
+              </div>
+            </div>
+
+            <div class="col-12 col-sm-6">
+              <div class="detail-tile">
+                <span><i class="bi bi-hourglass-split"></i> Duration</span>
+                <strong>{{ selectedClass()!.durationMinutes }} min</strong>
+              </div>
+            </div>
+
+            <div class="col-12 col-sm-6">
+              <div class="detail-tile">
+                <span><i class="bi bi-person-check"></i> Attendance</span>
+                <strong>{{ attendanceLabel(selectedClass()!) }}</strong>
+              </div>
+            </div>
+          </div>
+
+          <article class="description-panel mb-3">
+            <span class="fw-bold d-inline-flex align-items-center gap-2 mb-2">
+              <i class="bi bi-card-text text-primary"></i>
+              Description
+            </span>
+            <p class="mb-0 text-muted">{{ selectedClass()!.notes || 'No description added for this class.' }}</p>
+          </article>
+
+          <article class="description-panel">
+            <span class="fw-bold d-inline-flex align-items-center gap-2 mb-2">
+              <i class="bi bi-camera-video text-primary"></i>
+              Zoom
+            </span>
+            <p class="mb-0 text-muted">
+              Meeting status: <strong>{{ selectedClass()!.zoomMeeting?.creationStatus ?? 'pending' }}</strong>
+            </p>
+          </article>
+
+          <footer class="d-flex flex-column flex-sm-row justify-content-end gap-2 mt-4">
+            <button class="btn btn-outline-secondary fw-bold" type="button" (click)="closeClassDetails()">
+              Close
+            </button>
+
+            <button
+              class="btn btn-primary fw-bold d-inline-flex align-items-center justify-content-center gap-2"
+              type="button"
+              [disabled]="!canJoin(selectedClass()!)"
+              (click)="joinClass(selectedClass()!)"
+            >
+              <i class="bi bi-camera-video"></i>
+              Join Class
             </button>
           </footer>
 
@@ -631,6 +727,34 @@ type StudentClassTab = 'upcoming' | 'completed' | 'cancelled' | 'all';
       background: rgba(100, 116, 139, 0.32);
     }
 
+    .class-details-dialog {
+      width: min(720px, 100%);
+    }
+
+    .detail-tile,
+    .description-panel {
+      border: 1px solid var(--color-border-soft);
+      border-radius: 16px;
+      background: var(--color-surface-soft);
+      padding: 14px;
+    }
+
+    .detail-tile span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 6px;
+      color: var(--color-muted);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .detail-tile strong,
+    .description-panel p {
+      overflow-wrap: anywhere;
+    }
+
     .pagination .page-link {
       color: var(--color-primary);
     }
@@ -728,6 +852,8 @@ export class StudentClassesComponent implements OnInit {
   protected readonly cancelRequestSubmitting = signal(false);
   protected readonly cancelRequestMessage = signal('');
   protected readonly cancelRequestMessageType = signal<'success' | 'error'>('success');
+  protected readonly detailsOpen = signal(false);
+  protected readonly selectedClass = signal<ClassListItem | null>(null);
   protected cancelReason = '';
   protected readonly tabs: Array<{ key: StudentClassTab; label: string }> = [
     { key: 'upcoming', label: 'Upcoming' },
@@ -800,7 +926,10 @@ export class StudentClassesComponent implements OnInit {
 
   protected readonly nextClassTeacher = computed(() => this.nextClass()?.teacherName ?? 'Your upcoming class details will appear here.');
 
-  constructor(private readonly classesApi: ClassesApiService) {}
+  constructor(
+    private readonly classesApi: ClassesApiService,
+    private readonly router: Router
+  ) {}
 
   ngOnInit(): void {
     this.loadClasses();
@@ -834,22 +963,28 @@ export class StudentClassesComponent implements OnInit {
   }
 
   protected canJoin(item: ClassListItem): boolean {
-    return ['live', 'scheduled', 'rescheduled'].includes(item.status) && Boolean(item.zoomMeeting?.joinUrl);
+    return ['live', 'scheduled', 'rescheduled'].includes(item.status) && Boolean(item.zoomMeeting?.zoomMeetingId);
   }
 
   protected joinClass(item: ClassListItem): void {
-    this.classesApi.joinClass(item.id).subscribe({
-      next: (response) => {
-        const joinUrl = response.data.zoom.joinUrl;
-        if (joinUrl) {
-          window.open(joinUrl, '_blank', 'noopener,noreferrer');
-        }
-      }
+    void this.router.navigate(['/student/classes', item.id, 'room']);
+  }
+
+  protected openClassDetails(item: ClassListItem): void {
+    this.selectedClass.set(item);
+    this.detailsOpen.set(true);
+    this.classesApi.getClass(item.id).subscribe({
+      next: (response) => this.selectedClass.set(response.data),
+      error: () => undefined
     });
   }
 
+  protected closeClassDetails(): void {
+    this.detailsOpen.set(false);
+  }
+
   protected canRequestCancellation(item: ClassListItem): boolean {
-    return item.status === 'scheduled' && new Date(item.startTime).getTime() > Date.now();
+    return item.status === 'scheduled' && new Date(item.startTime).getTime() > Date.now() && !this.hasPendingCancellationRequest(item);
   }
 
   protected openCancelRequest(item: ClassListItem): void {
@@ -887,7 +1022,21 @@ export class StudentClassesComponent implements OnInit {
         next: () => {
           this.cancelRequestMessageType.set('success');
           this.cancelRequestMessage.set('Cancellation request submitted successfully.');
-          setTimeout(() => this.closeCancelRequest(), 700);
+          this.classes.update((classes) =>
+            classes.map((classItem) =>
+              classItem.id === item.id
+                ? {
+                    ...classItem,
+                    cancellationRequestStatus: 'pending',
+                    cancellationRequestsCount: Math.max(1, classItem.cancellationRequestsCount ?? 0)
+                  }
+                : classItem
+            )
+          );
+          setTimeout(() => {
+            this.closeCancelRequest();
+            this.loadClasses();
+          }, 700);
         },
         error: (error) => {
           const message = error?.error?.message ?? error?.error?.error?.message;
@@ -930,5 +1079,9 @@ export class StudentClassesComponent implements OnInit {
 
   protected attendanceLabel(item: ClassListItem): string {
     return this.attendance(item);
+  }
+
+  protected hasPendingCancellationRequest(item: ClassListItem): boolean {
+    return item.cancellationRequestStatus === 'pending' || Boolean(item.cancellationRequestsCount);
   }
 }
