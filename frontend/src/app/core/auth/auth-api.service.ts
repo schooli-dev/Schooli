@@ -22,6 +22,11 @@ export type LoginResponse = {
   };
 };
 
+export type ForgotPasswordResponse = {
+  resetToken?: string;
+  expiresAt?: string;
+};
+
 @Injectable({ providedIn: 'root' })
 export class AuthApiService {
   constructor(
@@ -35,6 +40,14 @@ export class AuthApiService {
         this.tokens.setSession(response.data.accessToken, response.data.refreshToken, response.data.user);
       })
     );
+  }
+
+  forgotPassword(identifier: string) {
+    return this.api.post<ForgotPasswordResponse>('/auth/forgot-password', { identifier });
+  }
+
+  resetPassword(token: string, password: string) {
+    return this.api.post<null>('/auth/reset-password', { token, password });
   }
 
   logout() {

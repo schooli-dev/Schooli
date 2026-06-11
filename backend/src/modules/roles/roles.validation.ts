@@ -29,3 +29,7 @@ export const updateRoleSchema = z.object({
     permissions: permissionKeys
   })
 });
+
+export const deleteRoleSchema = z.object({
+  params: uuidParam
+});

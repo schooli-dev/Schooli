@@ -133,6 +133,16 @@ export async function updateRole(
   }
 }
 
+export async function deleteRole(id: string): Promise<void> {
+  const existing = await getRoleById(id);
+
+  if (existing.name === "admin") {
+    throw new ApiError(403, "Admin role cannot be deleted", "PROTECTED_ROLE");
+  }
+
+  await pool.query("DELETE FROM roles WHERE id = $1", [id]);
+}
+
 async function getRoleById(id: string): Promise<RoleListItem> {
   const result = await pool.query<RoleRow>(
     `

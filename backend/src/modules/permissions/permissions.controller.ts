@@ -11,3 +11,12 @@ export const listPermissions: RequestHandler = asyncHandler(async (_req, res) =>
     data: permissions
   });
 });
+
+export const listPagePermissions: RequestHandler = asyncHandler(async (_req, res) => {
+  const pages = permissionsService.listPagePermissions();
+
+  sendSuccess(res, {
+    message: "Page permissions fetched",
+    data: pages
+  });
+});

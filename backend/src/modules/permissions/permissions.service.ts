@@ -1,4 +1,5 @@
 import { pool } from "../../db/pool.js";
+import { getPagePermissionCatalog, type PagePermissionGroup } from "../navigation/navigation.policy.js";
 
 export type PermissionListItem = {
   id: string;
@@ -32,4 +33,8 @@ export async function listPermissions(): Promise<PermissionListItem[]> {
     createdAt: row.created_at,
     updatedAt: row.updated_at
   }));
+}
+
+export function listPagePermissions(): PagePermissionGroup[] {
+  return getPagePermissionCatalog();
 }

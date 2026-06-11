@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthTokenService } from './auth-token.service';
+import { getDefaultRoute } from './auth.guard';
 
 @Component({
   selector: 'app-role-redirect',
@@ -14,23 +15,6 @@ export class RoleRedirectComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    const roles = this.tokens.getRoles();
-
-    if (roles.includes('admin')) {
-      void this.router.navigateByUrl('/admin/dashboard');
-      return;
-    }
-
-    if (roles.includes('teacher')) {
-      void this.router.navigateByUrl('/teacher/dashboard');
-      return;
-    }
-
-    if (roles.includes('student')) {
-      void this.router.navigateByUrl('/student/dashboard');
-      return;
-    }
-
-    void this.router.navigateByUrl('/login');
+    void this.router.navigateByUrl(getDefaultRoute(this.tokens.getRoles(), this.tokens.getPermissions()));
   }
 }

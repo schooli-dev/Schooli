@@ -391,23 +391,57 @@ const iconPaths: Record<string, string> = {
     <!-- View/Edit Dialog -->
     @if (dialogOpen() && selectedUser()) {
       <section class="dialog-backdrop">
-        <div class="user-dialog shadow-lg">
+        <div class="user-dialog user-profile-dialog shadow-lg">
 
-          <header class="dialog-header">
-            <div class="d-flex align-items-center gap-3 min-w-0">
-              <span class="user-avatar dialog-avatar">{{ initials(selectedUser()!) }}</span>
-              <div class="min-w-0">
-                <h2 class="h4 mb-1">
-                  {{ dialogMode() === 'edit' ? 'Edit User Role' : 'User Details' }}
-                </h2>
-                <p class="text-muted mb-0 text-truncate">{{ fullName(selectedUser()!) }}</p>
+          <header class="dialog-header profile-dialog-header">
+            <div class="profile-hero">
+              <span class="user-avatar profile-avatar-xl">{{ initials(selectedUser()!) }}</span>
+
+              <div class="profile-hero-content min-w-0">
+                <div class="profile-title-row">
+                  <div class="min-w-0">
+                    <span class="profile-kicker">
+                      {{ dialogMode() === 'edit' ? 'MANAGE USER ACCESS' : 'USER PROFILE' }}
+                    </span>
+
+                    <h2 class="profile-title text-truncate">
+                      {{ fullName(selectedUser()!) }}
+                    </h2>
+                  </div>
+
+                  <span
+                    class="status-chip profile-status"
+                    [class.status-active]="selectedUser()!.status === 'active'"
+                    [class.status-inactive]="selectedUser()!.status !== 'active'"
+                  >
+                    <span class="status-dot"></span>
+                    {{ titleCase(selectedUser()!.status) }}
+                  </span>
+                </div>
+
+                <div class="profile-contact-row">
+                  <span class="profile-chip text-truncate">
+                    <i class="bi bi-envelope"></i>
+                    {{ selectedUser()!.email }}
+                  </span>
+
+                  <span class="profile-chip">
+                    <i class="bi bi-telephone"></i>
+                    {{ selectedUser()!.phone ?? 'Phone not set' }}
+                  </span>
+
+                  <span class="profile-chip role-soft-chip">
+                    <i class="bi bi-shield-check"></i>
+                    {{ primaryRole(selectedUser()!) }}
+                  </span>
+                </div>
               </div>
             </div>
 
-            <button class="btn-close" type="button" aria-label="Close" (click)="closeDialog()"></button>
+            <button class="btn-close profile-close" type="button" aria-label="Close" (click)="closeDialog()"></button>
           </header>
 
-          <ul class="nav nav-pills dialog-tabs mt-3">
+          <ul class="nav nav-pills dialog-tabs profile-tabs">
             <li class="nav-item">
               <button
                 class="nav-link"
@@ -433,143 +467,209 @@ const iconPaths: Record<string, string> = {
             </li>
           </ul>
 
-          <div class="dialog-body">
+          <div class="dialog-body profile-dialog-body">
             @if (dialogTab() === 'details') {
-              <div class="row g-3">
-                <div class="col-12 col-md-6">
-                  <div class="detail-card">
+              <section class="profile-overview-grid">
+                <article class="insight-card primary">
+                  <span class="insight-icon"><i class="bi bi-shield-check"></i></span>
+                  <span>Primary Role</span>
+                  <strong>{{ primaryRole(selectedUser()!) }}</strong>
+                </article>
+
+                <article class="insight-card">
+                  <span class="insight-icon green"><i class="bi bi-person-check"></i></span>
+                  <span>Account Status</span>
+                  <strong>{{ titleCase(selectedUser()!.status) }}</strong>
+                </article>
+
+                <article class="insight-card">
+                  <span class="insight-icon purple"><i class="bi bi-calendar-plus"></i></span>
+                  <span>Created On</span>
+                  <strong>{{ selectedUser()!.createdAt | date: 'MMM d, y' }}</strong>
+                </article>
+
+                <article class="insight-card">
+                  <span class="insight-icon orange"><i class="bi bi-clock-history"></i></span>
+                  <span>Last Login</span>
+                  <strong>{{ selectedUser()!.lastLoginAt ? (selectedUser()!.lastLoginAt | date: 'MMM d, hh:mm a') : 'Never' }}</strong>
+                </article>
+              </section>
+
+              <section class="profile-section-card mt-3">
+                <div class="profile-section-title">
+                  <span><i class="bi bi-person-vcard"></i></span>
+                  <div>
+                    <strong>Personal Information</strong>
+                    <small>Basic identity and contact details</small>
+                  </div>
+                </div>
+
+                <div class="info-grid mt-3">
+                  <article class="info-tile">
                     <span>Full Name</span>
                     <strong>{{ fullName(selectedUser()!) }}</strong>
-                  </div>
-                </div>
+                  </article>
 
-                <div class="col-12 col-md-6">
-                  <div class="detail-card">
+                  <article class="info-tile">
                     <span>Username</span>
                     <strong>{{ selectedUser()!.username ?? 'Not set' }}</strong>
-                  </div>
-                </div>
+                  </article>
 
-                <div class="col-12 col-md-6">
-                  <div class="detail-card">
-                    <span>Email</span>
+                  <article class="info-tile wide">
+                    <span>Email Address</span>
                     <strong class="text-truncate">
                       <i class="bi bi-envelope me-1"></i>
                       {{ selectedUser()!.email }}
                     </strong>
-                  </div>
-                </div>
+                  </article>
 
-                <div class="col-12 col-md-6">
-                  <div class="detail-card">
-                    <span>Phone</span>
+                  <article class="info-tile">
+                    <span>Phone Number</span>
                     <strong>
                       <i class="bi bi-telephone me-1"></i>
                       {{ selectedUser()!.phone ?? 'Not set' }}
                     </strong>
-                  </div>
+                  </article>
+
+                  <article class="info-tile">
+                    <span>Assigned Roles</span>
+                    <strong>{{ selectedUser()!.roles.length || 0 }}</strong>
+                  </article>
                 </div>
+              </section>
 
-                <div class="col-12 col-md-6">
-                  <div class="detail-card">
-                    <span>Status</span>
-                    <strong>{{ titleCase(selectedUser()!.status) }}</strong>
-                  </div>
-                </div>
-
-                <div class="col-12 col-md-6">
-                  <div class="detail-card">
-                    <span>Created</span>
-                    <strong>{{ selectedUser()!.createdAt | date: 'MMM d, y' }}</strong>
-                  </div>
-                </div>
-
-                @if (selectedUser()!.teacherAvailability) {
-                  <div class="col-12">
-                    <div class="detail-card">
-                      <span>Teacher Availability</span>
-
-                      <div class="availability-grid mt-2">
-                        @for (slot of selectedUser()!.teacherAvailability!.availability; track slot.id) {
-                          <span>
-                            <i class="bi bi-calendar-check"></i>
-                            {{ titleCase(slot.dayOfWeek) }}: {{ slot.startTime }} - {{ slot.endTime }}
-                          </span>
-                        } @empty {
-                          <span>No working hours configured.</span>
-                        }
-                      </div>
+              @if (selectedUser()!.teacherAvailability) {
+                <section class="profile-section-card mt-3 teacher-section-card">
+                  <div class="profile-section-title">
+                    <span><i class="bi bi-calendar-week"></i></span>
+                    <div>
+                      <strong>Teacher Availability</strong>
+                      <small>Weekly working hours and blocked dates</small>
                     </div>
                   </div>
 
-                  <div class="col-12">
-                    <div class="detail-card">
-                      <span>Unavailable Dates</span>
-
-                      <div class="availability-grid mt-2">
-                        @for (block of selectedUser()!.teacherAvailability!.unavailableDates; track block.id) {
-                          <span>
-                            <i class="bi bi-calendar-x"></i>
-                            {{ block.unavailableDate | date: 'MMM d, y' }}
-                            {{ block.reason ? '- ' + block.reason : '' }}
-                          </span>
-                        } @empty {
-                          <span>No unavailable dates configured.</span>
-                        }
+                  <div class="availability-summary mt-3">
+                    <article>
+                      <i class="bi bi-calendar-check"></i>
+                      <div>
+                        <span>Weekly Slots</span>
+                        <strong>{{ selectedUser()!.teacherAvailability!.availability.length }}</strong>
                       </div>
+                    </article>
+
+                    <article>
+                      <i class="bi bi-calendar-x"></i>
+                      <div>
+                        <span>Unavailable Dates</span>
+                        <strong>{{ selectedUser()!.teacherAvailability!.unavailableDates.length }}</strong>
+                      </div>
+                    </article>
+                  </div>
+
+                  <div class="teacher-slot-grid mt-3">
+                    @for (slot of selectedUser()!.teacherAvailability!.availability; track slot.id) {
+                      <article class="teacher-slot-card">
+                        <span class="slot-day">{{ titleCase(slot.dayOfWeek) }}</span>
+                        <strong>
+                          <i class="bi bi-clock"></i>
+                          {{ slot.startTime }} - {{ slot.endTime }}
+                        </strong>
+                      </article>
+                    } @empty {
+                      <article class="soft-empty-card">
+                        <i class="bi bi-calendar-minus"></i>
+                        <strong>No working hours configured.</strong>
+                      </article>
+                    }
+                  </div>
+
+                  <div class="profile-subtitle mt-4">
+                    <i class="bi bi-calendar-x"></i>
+                    Unavailable Dates
+                  </div>
+
+                  <div class="unavailable-grid mt-2">
+                    @for (block of selectedUser()!.teacherAvailability!.unavailableDates; track block.id) {
+                      <article class="unavailable-card">
+                        <strong>{{ block.unavailableDate | date: 'MMM d, y' }}</strong>
+                        <span>{{ block.reason || 'No reason added' }}</span>
+                      </article>
+                    } @empty {
+                      <article class="soft-empty-card compact">
+                        <i class="bi bi-check2-circle"></i>
+                        <strong>No unavailable dates configured.</strong>
+                      </article>
+                    }
+                  </div>
+                </section>
+              }
+
+              @if (selectedUser()!.supportStats) {
+                <section class="profile-section-card mt-3">
+                  <div class="profile-section-title">
+                    <span><i class="bi bi-headset"></i></span>
+                    <div>
+                      <strong>Support Performance</strong>
+                      <small>Ticket ownership and resolution summary</small>
                     </div>
                   </div>
-                }
 
-                @if (selectedUser()!.supportStats) {
-                  <div class="col-12 col-md-6">
-                    <div class="detail-card">
+                  <div class="support-grid mt-3">
+                    <article>
                       <span>Tickets Assigned</span>
                       <strong>{{ selectedUser()!.supportStats!.assignedTickets }}</strong>
-                    </div>
-                  </div>
+                    </article>
 
-                  <div class="col-12 col-md-6">
-                    <div class="detail-card">
+                    <article>
                       <span>Tickets Solved</span>
                       <strong>{{ selectedUser()!.supportStats!.solvedTickets }}</strong>
-                    </div>
+                    </article>
                   </div>
-                }
-              </div>
+                </section>
+              }
             } @else {
-              <div class="role-list">
-                @for (role of roles(); track role.id) {
-                  <label class="role-option">
-                    <input
-                      class="form-check-input"
-                      type="checkbox"
-                      [checked]="selectedRole() === role.name"
-                      [disabled]="dialogMode() === 'view' || role.name === 'admin'"
-                      (change)="selectRole(role.name)"
-                    />
+              <section class="profile-section-card">
+                <div class="profile-section-title">
+                  <span><i class="bi bi-shield-lock"></i></span>
+                  <div>
+                    <strong>Role Assignment</strong>
+                    <small>{{ dialogMode() === 'view' ? 'View assigned access level' : 'Select one role for this user' }}</small>
+                  </div>
+                </div>
 
-                    <span class="role-option-icon">
-                      <i class="bi bi-shield-check"></i>
-                    </span>
+                <div class="role-list modern-role-list mt-3">
+                  @for (role of roles(); track role.id) {
+                    <label class="role-option modern-role-option">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        [checked]="selectedRole() === role.name"
+                        [disabled]="dialogMode() === 'view' || role.name === 'admin'"
+                        (change)="selectRole(role.name)"
+                      />
 
-                    <span class="role-option-text">
-                      <strong>{{ titleCase(role.name) }}</strong>
-                      @if (role.name === 'admin') {
-                        <small>Protected role</small>
-                      } @else {
-                        <small>Assignable role</small>
-                      }
-                    </span>
-                  </label>
-                }
-              </div>
+                      <span class="role-option-icon">
+                        <i class="bi" [class.bi-shield-lock]="role.name === 'admin'" [class.bi-shield-check]="role.name !== 'admin'"></i>
+                      </span>
+
+                      <span class="role-option-text min-w-0">
+                        <strong>{{ titleCase(role.name) }}</strong>
+                        @if (role.name === 'admin') {
+                          <small>Protected role</small>
+                        } @else {
+                          <small>Assignable role</small>
+                        }
+                      </span>
+                    </label>
+                  }
+                </div>
+              </section>
             }
           </div>
 
-          <footer class="dialog-footer">
+          <footer class="dialog-footer profile-dialog-footer">
             <button class="btn btn-outline-secondary" type="button" (click)="closeDialog()">
-              Cancel
+              {{ dialogMode() === 'view' ? 'Close' : 'Cancel' }}
             </button>
 
             @if (dialogMode() === 'edit') {
@@ -1202,7 +1302,7 @@ const iconPaths: Record<string, string> = {
     .dialog-backdrop {
       position: fixed;
       inset: 0;
-      z-index: 1100;
+      z-index: 3000;
       display: grid;
       place-items: center;
       background: rgba(15, 23, 42, 0.42);
@@ -1418,6 +1518,444 @@ const iconPaths: Record<string, string> = {
       color: #ffffff;
     }
 
+    /* Upgraded View/Edit User Dialog UI */
+    .user-profile-dialog {
+      width: min(980px, 100%);
+      border-radius: 28px;
+      background: #f8fafc;
+    }
+
+    .user-profile-dialog .profile-dialog-header {
+      position: relative;
+      padding: 24px;
+      border-bottom: 1px solid rgba(226, 232, 240, 0.92);
+      background:
+        radial-gradient(circle at top left, rgba(37, 99, 235, 0.16), transparent 32%),
+        linear-gradient(135deg, #ffffff 0%, #f8fbff 56%, #f4f7ff 100%);
+    }
+
+    .profile-hero {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      padding-right: 42px;
+    }
+
+    .profile-avatar-xl {
+      width: 72px;
+      height: 72px;
+      flex: 0 0 72px;
+      border: 4px solid rgba(255, 255, 255, 0.86);
+      border-radius: 22px;
+      font-size: 21px;
+      box-shadow: 0 18px 34px rgba(37, 99, 235, 0.28);
+    }
+
+    .profile-hero-content {
+      flex: 1;
+    }
+
+    .profile-title-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .profile-kicker {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--color-primary);
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+    }
+
+    .profile-title {
+      margin: 0;
+      color: var(--color-text);
+      font-size: clamp(24px, 3.2vw, 34px);
+      font-weight: 950;
+      letter-spacing: -0.04em;
+    }
+
+    .profile-status {
+      min-height: 34px;
+      padding: 0 13px;
+      box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
+    }
+
+    .profile-contact-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 9px;
+      margin-top: 14px;
+    }
+
+    .profile-chip {
+      min-width: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      max-width: 100%;
+      min-height: 32px;
+      border: 1px solid rgba(226, 232, 240, 0.9);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.8);
+      color: var(--color-text-soft);
+      padding: 0 12px;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .role-soft-chip {
+      border-color: rgba(37, 99, 235, 0.18);
+      background: #eef4ff;
+      color: var(--color-primary);
+    }
+
+    .profile-close {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      border-radius: 999px;
+      background-color: rgba(255, 255, 255, 0.72);
+      padding: 10px;
+    }
+
+    .user-profile-dialog .profile-tabs {
+      margin-top: 0 !important;
+      border-bottom: 1px solid rgba(226, 232, 240, 0.92);
+      background: #ffffff;
+      padding: 14px 24px;
+    }
+
+    .profile-dialog-body {
+      background: #f8fafc;
+      padding: 20px 24px 24px;
+    }
+
+    .profile-overview-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .insight-card {
+      min-width: 0;
+      display: grid;
+      gap: 7px;
+      border: 1px solid rgba(226, 232, 240, 0.94);
+      border-radius: 18px;
+      background: #ffffff;
+      padding: 15px;
+      box-shadow: 0 12px 26px rgba(30, 64, 175, 0.06);
+    }
+
+    .insight-card.primary {
+      border-color: rgba(37, 99, 235, 0.2);
+      background: linear-gradient(180deg, #ffffff 0%, #f4f8ff 100%);
+    }
+
+    .insight-icon {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border-radius: 13px;
+      background: #eef4ff;
+      color: var(--color-primary);
+      font-size: 17px;
+    }
+
+    .insight-icon.green {
+      background: #dcfce7;
+      color: var(--color-success);
+    }
+
+    .insight-icon.purple {
+      background: #f2eaff;
+      color: var(--color-secondary);
+    }
+
+    .insight-icon.orange {
+      background: #ffedd5;
+      color: #9a3412;
+    }
+
+    .insight-card > span:not(.insight-icon) {
+      color: var(--color-muted);
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .insight-card strong {
+      min-width: 0;
+      overflow: hidden;
+      color: var(--color-text);
+      font-size: 14px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .profile-section-card {
+      border: 1px solid rgba(226, 232, 240, 0.96);
+      border-radius: 22px;
+      background: #ffffff;
+      padding: 18px;
+      box-shadow: 0 14px 34px rgba(30, 64, 175, 0.07);
+    }
+
+    .teacher-section-card {
+      background:
+        radial-gradient(circle at top right, rgba(37, 99, 235, 0.08), transparent 28%),
+        #ffffff;
+    }
+
+    .profile-section-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .profile-section-title > span {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      flex: 0 0 42px;
+      border-radius: 14px;
+      background: #eef4ff;
+      color: var(--color-primary);
+      font-size: 18px;
+    }
+
+    .profile-section-title strong {
+      display: block;
+      color: var(--color-text);
+      font-size: 17px;
+      font-weight: 900;
+    }
+
+    .profile-section-title small {
+      display: block;
+      color: var(--color-muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .info-tile {
+      min-width: 0;
+      display: grid;
+      gap: 5px;
+      border: 1px solid var(--color-border-soft);
+      border-radius: 16px;
+      background: #fbfdff;
+      padding: 14px;
+    }
+
+    .info-tile.wide {
+      grid-column: span 2;
+    }
+
+    .info-tile span {
+      color: var(--color-muted);
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .info-tile strong {
+      min-width: 0;
+      color: var(--color-text);
+      font-size: 14px;
+    }
+
+    .availability-summary {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .availability-summary article,
+    .support-grid article {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border: 1px solid var(--color-border-soft);
+      border-radius: 18px;
+      background: #f8fbff;
+      padding: 14px;
+    }
+
+    .availability-summary i {
+      width: 40px;
+      height: 40px;
+      display: grid;
+      place-items: center;
+      flex: 0 0 40px;
+      border-radius: 13px;
+      background: #eef4ff;
+      color: var(--color-primary);
+      font-size: 18px;
+    }
+
+    .availability-summary span,
+    .support-grid span {
+      display: block;
+      color: var(--color-muted);
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .availability-summary strong,
+    .support-grid strong {
+      color: var(--color-text);
+      font-size: 19px;
+      font-weight: 950;
+    }
+
+    .teacher-slot-grid,
+    .unavailable-grid,
+    .support-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .teacher-slot-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border: 1px solid rgba(37, 99, 235, 0.13);
+      border-radius: 16px;
+      background: linear-gradient(180deg, #ffffff 0%, #f7faff 100%);
+      padding: 13px 14px;
+    }
+
+    .slot-day {
+      min-width: 102px;
+      color: var(--color-text);
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .teacher-slot-card strong {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--color-primary);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .profile-subtitle {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--color-text-soft);
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .unavailable-card,
+    .soft-empty-card {
+      display: grid;
+      gap: 4px;
+      border: 1px solid var(--color-border-soft);
+      border-radius: 16px;
+      background: #fff7ed;
+      padding: 13px 14px;
+    }
+
+    .unavailable-card strong,
+    .soft-empty-card strong {
+      color: var(--color-text);
+      font-size: 13px;
+    }
+
+    .unavailable-card span {
+      color: var(--color-muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .soft-empty-card {
+      grid-column: 1 / -1;
+      place-items: center;
+      min-height: 86px;
+      background: #f8fafc;
+      color: var(--color-muted);
+      text-align: center;
+    }
+
+    .soft-empty-card.compact {
+      min-height: 64px;
+    }
+
+    .soft-empty-card i {
+      color: var(--color-primary);
+      font-size: 20px;
+    }
+
+    .support-grid article {
+      display: grid;
+      gap: 4px;
+      background: #fbfdff;
+    }
+
+    .user-profile-dialog .modern-role-list {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .user-profile-dialog .modern-role-option {
+      position: relative;
+      min-height: 76px;
+      border-radius: 18px;
+      background: #fbfdff;
+      transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+    }
+
+    .user-profile-dialog .modern-role-option:hover {
+      transform: translateY(-1px);
+    }
+
+    .user-profile-dialog .modern-role-option:has(input:checked) {
+      border-color: rgba(37, 99, 235, 0.42);
+      background: #eef4ff;
+      box-shadow: 0 12px 28px rgba(37, 99, 235, 0.1);
+    }
+
+    .user-profile-dialog .modern-role-option .form-check-input {
+      width: 18px;
+      height: 18px;
+      margin: 0;
+      cursor: pointer;
+    }
+
+    .user-profile-dialog .profile-dialog-footer {
+      background: #ffffff;
+    }
+
+    @media (max-width: 991.98px) {
+      .profile-overview-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
     @media (max-width: 767.98px) {
       .heading-actions {
         width: 100%;
@@ -1484,6 +2022,93 @@ const iconPaths: Record<string, string> = {
         padding: 22px;
         border-radius: 20px;
       }
+
+      .user-profile-dialog {
+        border-radius: 22px;
+      }
+
+      .user-profile-dialog .profile-dialog-header {
+        padding: 18px;
+      }
+
+      .profile-hero {
+        align-items: flex-start;
+        gap: 14px;
+        padding-right: 36px;
+      }
+
+      .profile-avatar-xl {
+        width: 58px;
+        height: 58px;
+        flex-basis: 58px;
+        border-radius: 18px;
+        font-size: 17px;
+      }
+
+      .profile-title-row {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 9px;
+      }
+
+      .profile-title {
+        font-size: 24px;
+      }
+
+      .profile-contact-row {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .profile-chip {
+        width: 100%;
+        justify-content: flex-start;
+      }
+
+      .profile-close {
+        top: 16px;
+        right: 16px;
+      }
+
+      .user-profile-dialog .profile-tabs {
+        padding: 12px 18px;
+      }
+
+      .profile-dialog-body {
+        padding: 16px;
+      }
+
+      .profile-overview-grid,
+      .info-grid,
+      .availability-summary,
+      .teacher-slot-grid,
+      .unavailable-grid,
+      .support-grid,
+      .user-profile-dialog .modern-role-list {
+        grid-template-columns: 1fr;
+      }
+
+      .info-tile.wide {
+        grid-column: auto;
+      }
+
+      .teacher-slot-card {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .slot-day {
+        min-width: 0;
+      }
+
+      .teacher-slot-card strong {
+        white-space: normal;
+      }
+
+      .profile-section-card {
+        padding: 15px;
+        border-radius: 20px;
+      }
     }
 
     @media (max-width: 420px) {
@@ -1505,6 +2130,20 @@ const iconPaths: Record<string, string> = {
       .role-chip,
       .status-chip {
         font-size: 11px;
+      }
+
+      .profile-hero {
+        flex-direction: column;
+      }
+
+      .profile-avatar-xl {
+        width: 64px;
+        height: 64px;
+        flex-basis: 64px;
+      }
+
+      .profile-section-title {
+        align-items: flex-start;
       }
     }
   `

@@ -31,3 +31,13 @@ export const updateRole: RequestHandler = asyncHandler(async (req, res) => {
     data: role
   });
 });
+
+export const deleteRole: RequestHandler = asyncHandler(async (req, res) => {
+  const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  await rolesService.deleteRole(id);
+
+  sendSuccess(res, {
+    message: "Role deleted",
+    data: { id }
+  });
+});

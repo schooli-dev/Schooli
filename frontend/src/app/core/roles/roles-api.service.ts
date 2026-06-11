@@ -32,4 +32,8 @@ export class RolesApiService {
   updateRole(id: string, payload: SaveRoleRequest) {
     return this.api.patch<RoleListItem>(`/roles/${id}`, payload);
   }
+
+  deleteRole(id: string) {
+    return this.api.delete<{ id: string }>(`/roles/${id}`);
+  }
 }

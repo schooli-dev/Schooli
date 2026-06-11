@@ -30,6 +30,23 @@ export const logout: RequestHandler = asyncHandler(async (req, res) => {
   });
 });
 
+export const forgotPassword: RequestHandler = asyncHandler(async (req, res) => {
+  const data = await authService.forgotPassword(req.body);
+
+  sendSuccess(res, {
+    message: "If the account exists, password reset instructions are ready.",
+    data
+  });
+});
+
+export const resetPassword: RequestHandler = asyncHandler(async (req, res) => {
+  await authService.resetPassword(req.body);
+
+  sendSuccess(res, {
+    message: "Password reset successful"
+  });
+});
+
 export const me: RequestHandler = asyncHandler(async (req, res) => {
   if (!req.user) {
     throw new ApiError(401, "Authentication required", "UNAUTHORIZED");

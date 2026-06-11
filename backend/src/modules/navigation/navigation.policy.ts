@@ -5,6 +5,14 @@ export type PageAction = {
   permission: string;
 };
 
+export type CrudActionKey = "create" | "read" | "update" | "delete";
+
+export type PagePermissionAction = {
+  key: CrudActionKey;
+  label: string;
+  permissions: string[];
+};
+
 export type NavigationPage = {
   key: string;
   label: string;
@@ -14,6 +22,10 @@ export type NavigationPage = {
   roles: string[];
   anyPermissions: string[];
   actions: PageAction[];
+};
+
+export type PagePermissionGroup = Pick<NavigationPage, "key" | "label" | "path" | "icon" | "section" | "roles"> & {
+  actions: PagePermissionAction[];
 };
 
 export type NavigationPolicyResponse = {
@@ -54,10 +66,12 @@ const pages: NavigationPage[] = [
     icon: "shield",
     section: "operations",
     roles: ["admin"],
-    anyPermissions: ["role.view", "permission.view"],
+    anyPermissions: ["role.view", "permission.view", "settings.update"],
     actions: [
       { key: "read", permission: "role.view" },
-      { key: "update", permission: "permission.view" }
+      { key: "read", permission: "permission.view" },
+      { key: "create", permission: "settings.update" },
+      { key: "update", permission: "settings.update" }
     ]
   },
   {
@@ -257,12 +271,21 @@ const pages: NavigationPage[] = [
   }
 ];
 
+const crudActionLabels: Record<CrudActionKey, string> = {
+  create: "Create",
+  read: "Read",
+  update: "Update",
+  delete: "Delete"
+};
+
+const crudActionOrder: CrudActionKey[] = ["create", "read", "update", "delete"];
+
 export function getNavigationPolicy(user: AuthenticatedUser): NavigationPolicyResponse {
   const userRoles = new Set(user.roles);
   const userPermissions = new Set(user.permissions);
   const visiblePages = pages.filter(
     (page) =>
-      page.roles.some((role) => userRoles.has(role)) &&
+      pageAppliesToUser(page, userRoles) &&
       page.anyPermissions.some((permission) => userPermissions.has(permission))
   );
   const defaultRoute = getDefaultRoute(user, visiblePages);
@@ -274,6 +297,49 @@ export function getNavigationPolicy(user: AuthenticatedUser): NavigationPolicyRe
       actions: page.actions.filter((action) => userPermissions.has(action.permission))
     }))
   };
+}
+
+export function getPagePermissionCatalog(): PagePermissionGroup[] {
+  return pages.map((page) => {
+    const actions = new Map<CrudActionKey, Set<string>>();
+
+    for (const action of page.actions) {
+      const crudKey = mapActionToCrud(action.key);
+      const permissions = actions.get(crudKey) ?? new Set<string>();
+      permissions.add(action.permission);
+      actions.set(crudKey, permissions);
+    }
+
+    return {
+      key: page.key,
+      label: page.label,
+      path: page.path,
+      icon: page.icon,
+      section: page.section,
+      roles: page.roles,
+      actions: crudActionOrder
+        .filter((key) => actions.has(key))
+        .map((key) => ({
+          key,
+          label: crudActionLabels[key],
+          permissions: [...actions.get(key)!]
+        }))
+    };
+  });
+}
+
+function pageAppliesToUser(page: NavigationPage, userRoles: Set<string>): boolean {
+  if (page.roles.some((role) => userRoles.has(role))) {
+    return true;
+  }
+
+  const hasKnownPortalRole = ["admin", "teacher", "student"].some((role) => userRoles.has(role));
+
+  if (hasKnownPortalRole) {
+    return false;
+  }
+
+  return page.path.startsWith("/admin/");
 }
 
 function getDefaultRoute(user: AuthenticatedUser, visiblePages: NavigationPage[]): string {
@@ -290,4 +356,20 @@ function getDefaultRoute(user: AuthenticatedUser, visiblePages: NavigationPage[]
   }
 
   return visiblePages[0]?.path ?? "/api/health";
+}
+
+function mapActionToCrud(action: PageAction["key"]): CrudActionKey {
+  if (action === "join" || action === "export") {
+    return "read";
+  }
+
+  if (action === "mark" || action === "override") {
+    return "update";
+  }
+
+  if (action === "cancel") {
+    return "delete";
+  }
+
+  return action;
 }

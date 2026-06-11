@@ -6,6 +6,13 @@ import * as permissionsController from "./permissions.controller.js";
 export const permissionsRoutes = Router();
 
 permissionsRoutes.get(
+  "/pages",
+  authMiddleware,
+  requirePermission("permission.view"),
+  permissionsController.listPagePermissions
+);
+
+permissionsRoutes.get(
   "/",
   authMiddleware,
   requirePermission("permission.view"),

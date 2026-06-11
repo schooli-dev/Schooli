@@ -3,6 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { finalize } from 'rxjs';
 import { AuthApiService } from '../../core/auth/auth-api.service';
+import { getDefaultRoute } from '../../core/auth/auth.guard';
 
 @Component({
   selector: 'app-login-page',
@@ -147,9 +148,9 @@ import { AuthApiService } from '../../core/auth/auth-api.service';
                       Password
                     </label>
 
-                    <a href="#" class="small text-decoration-none fw-semibold">
+                    <button class="btn btn-link btn-sm p-0 text-decoration-none fw-semibold" type="button" (click)="openForgotPassword()">
                       Forgot password?
-                    </a>
+                    </button>
                   </div>
 
                   <div class="input-group input-group-lg">
@@ -212,6 +213,120 @@ import { AuthApiService } from '../../core/auth/auth-api.service';
       </div>
     </div>
   </main>
+
+  @if (resetDialogOpen()) {
+    <section class="reset-backdrop" aria-hidden="true"></section>
+
+    <section class="reset-dialog" role="dialog" aria-modal="true" aria-labelledby="resetPasswordTitle">
+      <div class="reset-header">
+        <span class="reset-icon">
+          <i class="bi bi-shield-lock"></i>
+        </span>
+
+        <div class="min-w-0">
+          <h2 id="resetPasswordTitle">{{ resetStep() === 'request' ? 'Reset password' : 'Create new password' }}</h2>
+          <p>{{ resetStep() === 'request' ? 'Enter your email, username, or phone to generate a reset token.' : 'Enter the reset token and your new password.' }}</p>
+        </div>
+
+        <button class="btn-close" type="button" aria-label="Close" [disabled]="resetLoading()" (click)="closeResetDialog()"></button>
+      </div>
+
+      @if (resetStep() === 'request') {
+        <div class="reset-body">
+          <label class="form-label fw-semibold">Email, Username, or Phone</label>
+          <input
+            class="form-control form-control-lg"
+            name="resetIdentifier"
+            [(ngModel)]="resetIdentifier"
+            placeholder="Enter account identifier"
+            autocomplete="username"
+          />
+        </div>
+      } @else {
+        <div class="reset-body">
+          @if (resetTokenFromApi()) {
+            <div class="alert alert-info small">
+              <strong>Development reset token:</strong>
+              <span class="d-block text-break mt-1">{{ resetTokenFromApi() }}</span>
+            </div>
+          }
+
+          <label class="form-label fw-semibold">Reset Token</label>
+          <input
+            class="form-control"
+            name="resetToken"
+            [(ngModel)]="resetToken"
+            placeholder="Paste reset token"
+          />
+
+          <label class="form-label fw-semibold mt-3">New Password</label>
+          <div class="input-group">
+            <input
+              class="form-control"
+              name="newPassword"
+              [(ngModel)]="newPassword"
+              [type]="showResetPassword() ? 'text' : 'password'"
+              placeholder="Enter new password"
+              autocomplete="new-password"
+            />
+            <button class="btn btn-outline-secondary" type="button" (click)="toggleResetPassword()">
+              <i class="bi" [class.bi-eye]="!showResetPassword()" [class.bi-eye-slash]="showResetPassword()"></i>
+            </button>
+          </div>
+
+          <small class="text-muted d-block mt-2">
+            Minimum 8 characters with uppercase, lowercase, number, and special character.
+          </small>
+
+          <label class="form-label fw-semibold mt-3">Confirm Password</label>
+          <input
+            class="form-control"
+            name="confirmNewPassword"
+            [(ngModel)]="confirmNewPassword"
+            type="password"
+            placeholder="Confirm new password"
+            autocomplete="new-password"
+          />
+        </div>
+      }
+
+      @if (resetMessage()) {
+        <div class="alert alert-success mx-4 mb-0">
+          <i class="bi bi-check-circle me-2"></i>
+          {{ resetMessage() }}
+        </div>
+      }
+
+      @if (resetError()) {
+        <div class="alert alert-danger mx-4 mb-0">
+          <i class="bi bi-exclamation-triangle me-2"></i>
+          {{ resetError() }}
+        </div>
+      }
+
+      <div class="reset-footer">
+        <button class="btn btn-outline-secondary" type="button" [disabled]="resetLoading()" (click)="closeResetDialog()">
+          Cancel
+        </button>
+
+        @if (resetStep() === 'request') {
+          <button class="btn btn-primary" type="button" [disabled]="resetLoading() || !resetIdentifier.trim()" (click)="requestPasswordReset()">
+            @if (resetLoading()) {
+              <span class="spinner-border spinner-border-sm me-2"></span>
+            }
+            Send reset token
+          </button>
+        } @else {
+          <button class="btn btn-primary" type="button" [disabled]="resetLoading()" (click)="submitPasswordReset()">
+            @if (resetLoading()) {
+              <span class="spinner-border spinner-border-sm me-2"></span>
+            }
+            Reset password
+          </button>
+        }
+      </div>
+    </section>
+  }
   `,
   styles: `
   :host {
@@ -370,6 +485,82 @@ import { AuthApiService } from '../../core/auth/auth-api.service';
     min-height: 52px;
   }
 
+  .min-w-0 {
+    min-width: 0;
+  }
+
+  .reset-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 4000;
+    background: rgba(15, 23, 42, 0.52);
+    backdrop-filter: blur(8px);
+  }
+
+  .reset-dialog {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    z-index: 4010;
+    width: min(94vw, 520px);
+    max-height: min(92dvh, 720px);
+    display: flex;
+    flex-direction: column;
+    transform: translate(-50%, -50%);
+    overflow: hidden;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    border-radius: 1.25rem;
+    background: #ffffff;
+    box-shadow: 0 28px 80px rgba(15, 23, 42, 0.26);
+  }
+
+  .reset-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    border-bottom: 1px solid var(--login-border);
+    padding: 1.25rem;
+  }
+
+  .reset-icon {
+    width: 48px;
+    height: 48px;
+    display: grid;
+    place-items: center;
+    flex: 0 0 48px;
+    border-radius: 1rem;
+    background: #eff6ff;
+    color: var(--login-primary);
+    font-size: 1.25rem;
+  }
+
+  .reset-header h2 {
+    margin: 0;
+    color: var(--login-text);
+    font-size: 1.35rem;
+    font-weight: 900;
+  }
+
+  .reset-header p {
+    margin: 0.25rem 0 0;
+    color: var(--login-muted);
+    line-height: 1.45;
+  }
+
+  .reset-body {
+    overflow-y: auto;
+    padding: 1.25rem;
+  }
+
+  .reset-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    border-top: 1px solid var(--login-border);
+    background: #f8fafc;
+    padding: 1rem 1.25rem;
+  }
+
   @media (max-width: 991.98px) {
     .login-panel {
       align-items: flex-start !important;
@@ -396,6 +587,11 @@ import { AuthApiService } from '../../core/auth/auth-api.service';
       font-size: 1.5rem;
     }
 
+    .reset-footer {
+      display: grid;
+      grid-template-columns: 1fr;
+    }
+
     .input-group-lg > .form-control,
     .input-group-lg > .btn,
     .form-control-lg {
@@ -408,8 +604,19 @@ import { AuthApiService } from '../../core/auth/auth-api.service';
 export class LoginPageComponent {
   protected identifier = 'admin';
   protected password = '';
+  protected resetIdentifier = '';
+  protected resetToken = '';
+  protected newPassword = '';
+  protected confirmNewPassword = '';
   protected readonly showPassword = signal(false);
+  protected readonly showResetPassword = signal(false);
   protected readonly loading = signal(false);
+  protected readonly resetLoading = signal(false);
+  protected readonly resetDialogOpen = signal(false);
+  protected readonly resetStep = signal<'request' | 'reset'>('request');
+  protected readonly resetTokenFromApi = signal('');
+  protected readonly resetMessage = signal('');
+  protected readonly resetError = signal('');
   protected readonly error = signal('');
 
   constructor(
@@ -429,19 +636,7 @@ export class LoginPageComponent {
       .pipe(finalize(() => this.loading.set(false)))
       .subscribe({
         next: (response) => {
-          const roles = response.data.user.roles;
-
-          if (roles.includes('teacher')) {
-            void this.router.navigateByUrl('/teacher/dashboard');
-            return;
-          }
-
-          if (roles.includes('student')) {
-            void this.router.navigateByUrl('/student/dashboard');
-            return;
-          }
-
-          void this.router.navigateByUrl('/admin/dashboard');
+          void this.router.navigateByUrl(getDefaultRoute(response.data.user.roles, response.data.user.permissions));
         },
         error: () => {
           this.error.set('Login failed. Check your credentials and ensure the backend is running.');
@@ -451,5 +646,96 @@ export class LoginPageComponent {
 
   protected togglePassword(): void {
     this.showPassword.update((visible) => !visible);
+  }
+
+  protected toggleResetPassword(): void {
+    this.showResetPassword.update((visible) => !visible);
+  }
+
+  protected openForgotPassword(): void {
+    this.resetIdentifier = this.identifier || '';
+    this.resetToken = '';
+    this.newPassword = '';
+    this.confirmNewPassword = '';
+    this.resetStep.set('request');
+    this.resetTokenFromApi.set('');
+    this.resetMessage.set('');
+    this.resetError.set('');
+    this.resetDialogOpen.set(true);
+  }
+
+  protected closeResetDialog(): void {
+    if (this.resetLoading()) {
+      return;
+    }
+
+    this.resetDialogOpen.set(false);
+  }
+
+  protected requestPasswordReset(): void {
+    const identifier = this.resetIdentifier.trim();
+
+    if (!identifier) {
+      this.resetError.set('Enter your email, username, or phone.');
+      return;
+    }
+
+    this.resetLoading.set(true);
+    this.resetError.set('');
+    this.resetMessage.set('');
+    this.auth
+      .forgotPassword(identifier)
+      .pipe(finalize(() => this.resetLoading.set(false)))
+      .subscribe({
+        next: (response) => {
+          const token = response.data.resetToken ?? '';
+          this.resetTokenFromApi.set(token);
+          this.resetToken = token;
+          this.resetStep.set('reset');
+          this.resetMessage.set('Reset token generated. Enter a new password to continue.');
+        },
+        error: () => {
+          this.resetError.set('Could not start password reset. Please try again.');
+        }
+      });
+  }
+
+  protected submitPasswordReset(): void {
+    this.resetError.set('');
+    this.resetMessage.set('');
+
+    if (!this.resetToken.trim()) {
+      this.resetError.set('Reset token is required.');
+      return;
+    }
+
+    if (!this.isStrongResetPassword()) {
+      this.resetError.set('Password must include uppercase, lowercase, number, special character, and be at least 8 characters.');
+      return;
+    }
+
+    if (this.newPassword !== this.confirmNewPassword) {
+      this.resetError.set('Passwords do not match.');
+      return;
+    }
+
+    this.resetLoading.set(true);
+    this.auth
+      .resetPassword(this.resetToken.trim(), this.newPassword)
+      .pipe(finalize(() => this.resetLoading.set(false)))
+      .subscribe({
+        next: () => {
+          this.password = '';
+          this.resetMessage.set('Password reset successful. You can now sign in with the new password.');
+          window.setTimeout(() => this.resetDialogOpen.set(false), 1400);
+        },
+        error: () => {
+          this.resetError.set('Password reset failed. Check the token and password rules.');
+        }
+      });
+  }
+
+  private isStrongResetPassword(): boolean {
+    return /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,128}$/.test(this.newPassword);
   }
 }

@@ -30,7 +30,7 @@ export const routes: Routes = [
         path: 'admin/dashboard',
         component: AdminDashboardComponent,
         canActivate: [authGuard],
-        data: { roles: ['admin'], permission: 'report.view' },
+        data: { permission: 'report.view' },
         title: 'Admin Dashboard | SchooliEdu'
       },
       {
@@ -44,14 +44,14 @@ export const routes: Routes = [
         path: 'admin/users',
         component: AdminUsersComponent,
         canActivate: [authGuard],
-        data: { roles: ['admin'], permission: 'user.view' },
+        data: { permission: 'user.view' },
         title: 'User Management | SchooliEdu'
       },
       {
         path: 'admin/roles',
         component: AdminRolesComponent,
         canActivate: [authGuard],
-        data: { roles: ['admin'], permission: 'role.view' },
+        data: { permission: 'role.view' },
         title: 'Roles & Permissions | SchooliEdu'
       },
       {

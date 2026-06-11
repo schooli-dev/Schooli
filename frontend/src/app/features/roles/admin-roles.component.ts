@@ -1,7 +1,7 @@
 import { CommonModule, DatePipe, DecimalPipe } from '@angular/common';
 import { Component, OnInit, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { PermissionListItem, PermissionsApiService } from '../../core/permissions/permissions-api.service';
+import { PagePermissionAction, PagePermissionGroup, PermissionListItem, PermissionsApiService } from '../../core/permissions/permissions-api.service';
 import { RoleListItem, RolesApiService } from '../../core/roles/roles-api.service';
 
 type RoleDialogMode = 'create' | 'view' | 'edit';
@@ -14,6 +14,27 @@ type RoleForm = {
 };
 
 const systemRoles = new Set(['admin', 'teacher', 'student', 'support']);
+const crudActionLabels: Record<PagePermissionAction['key'], string> = {
+  create: 'Create',
+  read: 'Read',
+  update: 'Update',
+  delete: 'Delete'
+};
+const pagePermissionIconClasses: Record<string, string> = {
+  grid: 'bi-grid-1x2',
+  users: 'bi-people',
+  shield: 'bi-shield-check',
+  link: 'bi-link-45deg',
+  calendar: 'bi-calendar-event',
+  check: 'bi-check2-circle',
+  credit: 'bi-credit-card',
+  ticket: 'bi-ticket-detailed',
+  bell: 'bi-bell',
+  doc: 'bi-file-earmark-text',
+  award: 'bi-award',
+  chart: 'bi-bar-chart',
+  gear: 'bi-gear'
+};
 
 @Component({
   selector: 'app-admin-roles',
@@ -217,6 +238,17 @@ const systemRoles = new Set(['admin', 'teacher', 'student', 'support']);
                     >
                       <i class="bi bi-pencil-square"></i>
                     </button>
+
+                    <button
+                      class="btn btn-light action-btn danger"
+                      type="button"
+                      title="Delete role"
+                      aria-label="Delete role"
+                      [disabled]="role.name === 'admin'"
+                      (click)="deleteRole(role)"
+                    >
+                      <i class="bi bi-trash"></i>
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -292,6 +324,16 @@ const systemRoles = new Set(['admin', 'teacher', 'student', 'support']);
             >
               <i class="bi bi-pencil-square"></i>
               Edit
+            </button>
+
+            <button
+              class="btn btn-outline-danger btn-sm"
+              type="button"
+              [disabled]="role.name === 'admin'"
+              (click)="deleteRole(role)"
+            >
+              <i class="bi bi-trash"></i>
+              Delete
             </button>
           </div>
         </article>
@@ -464,54 +506,61 @@ const systemRoles = new Set(['admin', 'teacher', 'student', 'support']);
               </div>
             </div>
 
-            @for (group of permissionGroups(); track group.name) {
-              <section class="permission-group">
-                <header>
-                  <div>
-                    <strong>{{ group.label }}</strong>
-                    <small>{{ group.permissions.length }} permissions</small>
+            <div class="page-permission-table">
+              <div class="page-permission-head" aria-hidden="true">
+                <span class="page-head-cell">Page</span>
+                @for (action of crudActions; track action) {
+                  <span class="permission-head-cell">{{ pageActionLabel(action) }}</span>
+                }
+              </div>
+
+              @for (page of filteredPagePermissions(); track page.key) {
+                <div class="page-permission-row">
+                  <div class="page-cell">
+                    <span class="page-icon">
+                      <i class="bi" [ngClass]="pagePermissionIcon(page.icon)"></i>
+                    </span>
+
+                    <span class="min-w-0">
+                      <strong class="d-block text-truncate">{{ page.label }}</strong>
+                      <small class="d-block text-muted text-truncate">{{ page.path }}</small>
+                    </span>
                   </div>
 
-                  @if (drawerMode() !== 'view') {
-                    <span class="permission-actions">
-                      <button class="link-btn" type="button" (click)="selectGroup(group.permissions)">
-                        Select All
-                      </button>
-                      <button class="link-btn" type="button" (click)="clearGroup(group.permissions)">
-                        Clear
-                      </button>
-                    </span>
-                  }
-                </header>
+                  @for (action of crudActions; track action) {
+                    <div class="action-cell" [attr.data-label]="pageActionLabel(action)">
+                      @if (pageAction(page, action); as pageActionItem) {
+                        <label
+                          class="permission-check permission-check-only"
+                          [title]="pageActionLabel(action) + ': ' + pageActionItem.permissions.join(', ')"
+                          [attr.aria-label]="page.label + ' ' + pageActionLabel(action) + ' permission'"
+                        >
+                          <input
+                            class="permission-native-check"
+                            type="checkbox"
+                            [checked]="hasPageAction(pageActionItem)"
+                            [disabled]="drawerMode() === 'view'"
+                            (change)="togglePageAction(page, pageActionItem)"
+                          />
 
-                <div class="permission-grid">
-                  @for (permission of group.permissions; track permission.id) {
-                    <label class="permission-option">
-                      <input
-                        class="form-check-input"
-                        type="checkbox"
-                        [checked]="roleForm.permissions.includes(permission.key)"
-                        [disabled]="drawerMode() === 'view'"
-                        (change)="togglePermission(permission.key)"
-                      />
-
-                      <span class="permission-icon">
-                        <i class="bi bi-key"></i>
-                      </span>
-
-                      <span class="permission-text">
-                        <strong>{{ permission.key }}</strong>
-                        <small>{{ permission.description }}</small>
-                      </span>
-                    </label>
+                          <span class="permission-box" aria-hidden="true">
+                            <i class="bi bi-check-lg"></i>
+                          </span>
+                        </label>
+                      } @else {
+                        <span class="permission-missing" title="Permission not available">—</span>
+                      }
+                    </div>
                   }
                 </div>
-              </section>
-            } @empty {
+              }
+            </div>
+
+            @if (!filteredPagePermissions().length) {
               <div class="empty-state permission-empty">
-                <i class="bi bi-key"></i>
-                <strong>No permissions found</strong>
-                <span>Try clearing the permission search filter.</span>
+                <i class="bi bi-layout-sidebar"></i>
+                <strong>No pages found</strong>
+                <span>Try clearing the page search filter.</span>
               </div>
             }
           </section>
@@ -540,6 +589,37 @@ const systemRoles = new Set(['admin', 'teacher', 'student', 'support']);
         }
       </footer>
     </aside>
+  }
+
+  @if (rolePendingDelete()) {
+    <section class="confirm-backdrop" aria-hidden="true"></section>
+
+    <section class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="deleteRoleTitle">
+      <div class="confirm-icon">
+        <i class="bi bi-trash"></i>
+      </div>
+
+      <div class="confirm-content">
+        <h2 id="deleteRoleTitle">Delete role?</h2>
+        <p>
+          This will delete <strong>{{ titleCase(rolePendingDelete()!.name) }}</strong> and remove it from
+          <strong>{{ rolePendingDelete()!.usersAssigned | number }}</strong> assigned user(s). Those users will become roleless until another role is assigned.
+        </p>
+      </div>
+
+      <div class="confirm-actions">
+        <button class="btn btn-outline-secondary" type="button" [disabled]="deleting()" (click)="cancelDeleteRole()">
+          Cancel
+        </button>
+
+        <button class="btn btn-danger" type="button" [disabled]="deleting()" (click)="confirmDeleteRole()">
+          @if (deleting()) {
+            <span class="spinner-border spinner-border-sm me-2"></span>
+          }
+          Yes, delete
+        </button>
+      </div>
+    </section>
   }
   `,
   styles: `
@@ -799,6 +879,11 @@ const systemRoles = new Set(['admin', 'teacher', 'student', 'support']);
     background: #eef4ff;
   }
 
+  .action-btn.danger:hover:not(:disabled) {
+    color: #dc2626;
+    background: #fef2f2;
+  }
+
   .action-btn:disabled {
     opacity: 0.45;
   }
@@ -1021,6 +1106,163 @@ const systemRoles = new Set(['admin', 'teacher', 'student', 'support']);
     max-width: 280px;
   }
 
+  .page-permission-table {
+    width: 100%;
+    border: 1px solid var(--color-border);
+    border-radius: 18px;
+    overflow: hidden;
+    background: #ffffff;
+    box-shadow: 0 14px 38px rgba(30, 64, 175, 0.06);
+  }
+
+  .page-permission-head,
+  .page-permission-row {
+    display: grid;
+    grid-template-columns: minmax(230px, 1fr) repeat(4, minmax(72px, 96px));
+    align-items: stretch;
+  }
+
+  .page-permission-head {
+    min-height: 48px;
+    border-bottom: 1px solid var(--color-border);
+    background: linear-gradient(180deg, #f8fbff 0%, #f1f5ff 100%);
+    color: var(--color-muted);
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .page-head-cell,
+  .permission-head-cell {
+    display: flex;
+    align-items: center;
+    padding: 13px 16px;
+  }
+
+  .permission-head-cell {
+    justify-content: center;
+    border-left: 1px solid rgba(226, 232, 240, 0.9);
+  }
+
+  .page-permission-row {
+    min-height: 72px;
+    border-bottom: 1px solid var(--color-border-soft);
+    transition: background 0.16s ease;
+  }
+
+  .page-permission-row:last-child {
+    border-bottom: 0;
+  }
+
+  .page-permission-row:hover {
+    background: #f8fbff;
+  }
+
+  .page-cell {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+  }
+
+  .page-icon {
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    flex: 0 0 38px;
+    border-radius: 12px;
+    background: #eef4ff;
+    color: var(--color-primary);
+    font-size: 17px;
+  }
+
+  .action-cell {
+    position: relative;
+    min-height: 72px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-left: 1px solid var(--color-border-soft);
+    padding: 12px;
+  }
+
+  .permission-check {
+    margin: 0;
+  }
+
+  .permission-check-only {
+    width: 42px;
+    height: 42px;
+    display: inline-grid;
+    place-items: center;
+    border-radius: 14px;
+    cursor: pointer;
+  }
+
+  .permission-native-check {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .permission-box {
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    border: 2px solid #cbd5e1;
+    border-radius: 11px;
+    background: #ffffff;
+    color: #ffffff;
+    font-size: 17px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 6px 16px rgba(15, 23, 42, 0.06);
+    transition: background 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+  }
+
+  .permission-check-only:hover .permission-box {
+    border-color: rgba(37, 99, 235, 0.62);
+    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.16);
+    transform: translateY(-1px);
+  }
+
+  .permission-native-check:checked + .permission-box {
+    border-color: var(--color-primary);
+    background: var(--color-primary);
+    color: #ffffff;
+  }
+
+  .permission-native-check:focus-visible + .permission-box {
+    outline: 3px solid rgba(37, 99, 235, 0.22);
+    outline-offset: 3px;
+  }
+
+  .permission-native-check:disabled + .permission-box {
+    cursor: default;
+    opacity: 0.72;
+    transform: none;
+  }
+
+  .permission-native-check:disabled:not(:checked) + .permission-box {
+    background: #f8fafc;
+    color: transparent;
+  }
+
+  .permission-missing {
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    border-radius: 11px;
+    background: #f8fafc;
+    color: #cbd5e1;
+    font-weight: 900;
+  }
+
   .permission-group {
     border: 1px solid var(--color-border);
     border-radius: 16px;
@@ -1124,6 +1366,60 @@ const systemRoles = new Set(['admin', 'teacher', 'student', 'support']);
     padding: 18px 24px;
   }
 
+  .confirm-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 4100;
+    background: rgba(15, 23, 42, 0.52);
+    backdrop-filter: blur(8px);
+  }
+
+  .confirm-dialog {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    z-index: 4110;
+    width: min(94vw, 460px);
+    display: grid;
+    gap: 18px;
+    transform: translate(-50%, -50%);
+    border: 1px solid rgba(220, 38, 38, 0.2);
+    border-radius: 22px;
+    background: #ffffff;
+    box-shadow: 0 28px 80px rgba(15, 23, 42, 0.24);
+    padding: 24px;
+  }
+
+  .confirm-icon {
+    width: 54px;
+    height: 54px;
+    display: grid;
+    place-items: center;
+    border-radius: 16px;
+    background: #fef2f2;
+    color: #dc2626;
+    font-size: 24px;
+  }
+
+  .confirm-content h2 {
+    margin: 0 0 8px;
+    color: var(--color-text);
+    font-size: 24px;
+    font-weight: 900;
+  }
+
+  .confirm-content p {
+    margin: 0;
+    color: var(--color-muted);
+    line-height: 1.55;
+  }
+
+  .confirm-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+
   .pagination .page-link {
     color: var(--color-primary);
     font-weight: 700;
@@ -1206,6 +1502,92 @@ const systemRoles = new Set(['admin', 'teacher', 'student', 'support']);
       max-width: 100%;
     }
 
+    .page-permission-table {
+      display: grid;
+      gap: 12px;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
+      overflow: visible;
+    }
+
+    .page-permission-head {
+      display: none;
+    }
+
+    .page-permission-row {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      overflow: hidden;
+      min-height: auto;
+      border: 1px solid var(--color-border);
+      border-radius: 16px;
+      background: #ffffff;
+      box-shadow: 0 12px 30px rgba(30, 64, 175, 0.07);
+    }
+
+    .page-permission-row:hover {
+      background: #ffffff;
+    }
+
+    .page-cell {
+      grid-column: 1 / -1;
+      border-bottom: 1px solid var(--color-border-soft);
+      background: #fbfcff;
+      padding: 14px;
+    }
+
+    .page-icon {
+      width: 36px;
+      height: 36px;
+      flex-basis: 36px;
+      border-radius: 11px;
+    }
+
+    .action-cell {
+      min-height: 74px;
+      align-items: flex-end;
+      border-left: 0;
+      border-right: 1px solid var(--color-border-soft);
+      padding: 22px 8px 10px;
+    }
+
+    .action-cell:nth-child(5) {
+      border-right: 0;
+    }
+
+    .action-cell::before {
+      content: attr(data-label);
+      position: absolute;
+      top: 8px;
+      left: 4px;
+      right: 4px;
+      overflow: hidden;
+      color: var(--color-muted);
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      line-height: 1.1;
+      text-align: center;
+      text-overflow: ellipsis;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .permission-check-only {
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+    }
+
+    .permission-box,
+    .permission-missing {
+      width: 31px;
+      height: 31px;
+      border-radius: 10px;
+    }
+
+
     .permission-group header {
       align-items: flex-start;
       flex-direction: column;
@@ -1224,6 +1606,15 @@ const systemRoles = new Set(['admin', 'teacher', 'student', 'support']);
 
     .drawer-footer .btn {
       width: 100%;
+    }
+
+    .confirm-dialog {
+      padding: 20px;
+    }
+
+    .confirm-actions {
+      display: grid;
+      grid-template-columns: 1fr;
     }
   }
 
@@ -1260,18 +1651,22 @@ const systemRoles = new Set(['admin', 'teacher', 'student', 'support']);
 export class AdminRolesComponent implements OnInit {
   protected readonly roles = signal<RoleListItem[]>([]);
   protected readonly permissions = signal<PermissionListItem[]>([]);
+  protected readonly pagePermissions = signal<PagePermissionGroup[]>([]);
   protected readonly drawerOpen = signal(false);
   protected readonly drawerMode = signal<RoleDialogMode>('view');
   protected readonly dialogTab = signal<RoleDialogTab>('basic');
   protected readonly selectedRole = signal<RoleListItem | null>(null);
+  protected readonly rolePendingDelete = signal<RoleListItem | null>(null);
   protected readonly currentPage = signal(1);
   protected readonly pageSize = 5;
   protected readonly saving = signal(false);
+  protected readonly deleting = signal(false);
   protected readonly formError = signal('');
   protected searchText = '';
   protected typeFilter = '';
   protected permissionSearch = '';
   protected roleForm: RoleForm = { name: '', description: '', permissions: [] };
+  protected readonly crudActions: PagePermissionAction['key'][] = ['create', 'read', 'update', 'delete'];
 
   protected readonly filteredRoles = computed(() => {
     const query = this.searchText.trim().toLowerCase();
@@ -1290,20 +1685,16 @@ export class AdminRolesComponent implements OnInit {
   protected readonly systemCount = computed(() => this.roles().filter((role) => this.isSystem(role)).length);
   protected readonly customCount = computed(() => this.roles().filter((role) => !this.isSystem(role)).length);
   protected readonly totalUsersAssigned = computed(() => this.roles().reduce((total, role) => total + role.usersAssigned, 0));
-  protected readonly permissionGroups = computed(() => {
+  protected readonly filteredPagePermissions = computed(() => {
     const query = this.permissionSearch.trim().toLowerCase();
-    const map = new Map<string, PermissionListItem[]>();
-
-    for (const permission of this.permissions()) {
-      if (query && !permission.key.toLowerCase().includes(query) && !(permission.description ?? '').toLowerCase().includes(query)) {
-        continue;
+    return this.pagePermissions().filter((page) => {
+      if (!query) {
+        return true;
       }
 
-      const group = permission.key.split('.')[0];
-      map.set(group, [...(map.get(group) ?? []), permission]);
-    }
-
-    return [...map.entries()].map(([name, permissions]) => ({ name, label: this.titleCase(name), permissions }));
+      const permissionText = page.actions.flatMap((action) => action.permissions).join(' ');
+      return [page.label, page.path, page.key, permissionText].some((value) => value.toLowerCase().includes(query));
+    });
   });
 
   constructor(
@@ -1318,6 +1709,7 @@ export class AdminRolesComponent implements OnInit {
   protected loadAll(): void {
     this.rolesApi.listRoles().subscribe((response) => this.roles.set(response.data));
     this.permissionsApi.listPermissions().subscribe((response) => this.permissions.set(response.data));
+    this.permissionsApi.listPagePermissions().subscribe((response) => this.pagePermissions.set(response.data));
   }
 
   protected openCreate(): void {
@@ -1380,6 +1772,46 @@ export class AdminRolesComponent implements OnInit {
     });
   }
 
+  protected deleteRole(role: RoleListItem): void {
+    if (role.name === 'admin') {
+      this.formError.set('Admin role cannot be deleted.');
+      return;
+    }
+
+    this.formError.set('');
+    this.rolePendingDelete.set(role);
+  }
+
+  protected cancelDeleteRole(): void {
+    if (this.deleting()) {
+      return;
+    }
+
+    this.rolePendingDelete.set(null);
+  }
+
+  protected confirmDeleteRole(): void {
+    const role = this.rolePendingDelete();
+
+    if (!role || role.name === 'admin') {
+      return;
+    }
+
+    this.deleting.set(true);
+    this.rolesApi.deleteRole(role.id).subscribe({
+      next: () => {
+        this.deleting.set(false);
+        this.rolePendingDelete.set(null);
+        this.closeDrawer();
+        this.loadAll();
+      },
+      error: () => {
+        this.deleting.set(false);
+        this.formError.set('Could not delete role. Please try again.');
+      }
+    });
+  }
+
   protected togglePermission(key: string): void {
     if (this.drawerMode() === 'view') {
       return;
@@ -1390,17 +1822,61 @@ export class AdminRolesComponent implements OnInit {
       : [...this.roleForm.permissions, key];
   }
 
-  protected selectGroup(permissions: PermissionListItem[]): void {
-    this.roleForm.permissions = [...new Set([...this.roleForm.permissions, ...permissions.map((permission) => permission.key)])];
-  }
-
-  protected clearGroup(permissions: PermissionListItem[]): void {
-    const groupKeys = new Set(permissions.map((permission) => permission.key));
-    this.roleForm.permissions = this.roleForm.permissions.filter((permission) => !groupKeys.has(permission));
-  }
-
   protected setPage(page: number): void {
     this.currentPage.set(Math.min(Math.max(page, 1), this.totalPages()));
+  }
+
+  protected pageAction(page: PagePermissionGroup, action: PagePermissionAction['key']): PagePermissionAction | undefined {
+    return page.actions.find((item) => item.key === action);
+  }
+
+  protected pageActionLabel(action: PagePermissionAction['key']): string {
+    return crudActionLabels[action];
+  }
+
+  protected hasPageAction(action: PagePermissionAction): boolean {
+    return action.permissions.every((permission) => this.roleForm.permissions.includes(permission));
+  }
+
+  protected togglePageAction(page: PagePermissionGroup, action: PagePermissionAction): void {
+    if (this.drawerMode() === 'view') {
+      return;
+    }
+
+    const selectedPermissions = new Set(this.roleForm.permissions);
+    const actionSelected = this.hasPageAction(action);
+
+    if (actionSelected) {
+      for (const permission of action.permissions) {
+        selectedPermissions.delete(permission);
+      }
+
+      if (action.key === 'read') {
+        for (const pageAction of page.actions) {
+          for (const permission of pageAction.permissions) {
+            selectedPermissions.delete(permission);
+          }
+        }
+      }
+    } else {
+      const readAction = this.pageAction(page, 'read');
+
+      if (readAction && action.key !== 'read') {
+        for (const permission of readAction.permissions) {
+          selectedPermissions.add(permission);
+        }
+      }
+
+      for (const permission of action.permissions) {
+        selectedPermissions.add(permission);
+      }
+    }
+
+    this.roleForm.permissions = [...selectedPermissions];
+  }
+
+  protected pagePermissionIcon(icon: string): string {
+    return pagePermissionIconClasses[icon] ?? 'bi-layout-sidebar';
   }
 
   protected isSystem(role: RoleListItem): boolean {

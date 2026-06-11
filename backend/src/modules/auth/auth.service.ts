@@ -1,11 +1,12 @@
 import crypto from "node:crypto";
 import type { PoolClient } from "pg";
+import { env } from "../../config/env.js";
 import { pool } from "../../db/pool.js";
 import type { AuthenticatedUser } from "../../types/express.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from "../../utils/jwt.js";
 import { hashPassword, verifyPassword } from "../../utils/password.js";
-import type { LoginInput, LogoutInput, RefreshInput } from "./auth.validation.js";
+import type { ForgotPasswordInput, LoginInput, LogoutInput, RefreshInput, ResetPasswordInput } from "./auth.validation.js";
 
 type UserAuthRow = {
   id: string;
@@ -27,6 +28,13 @@ type RefreshTokenRow = {
   revoked_at: Date | null;
 };
 
+type PasswordResetTokenRow = {
+  id: string;
+  user_id: string;
+  expires_at: Date;
+  used_at: Date | null;
+};
+
 type AuthResponse = {
   accessToken: string;
   refreshToken: string;
@@ -34,6 +42,8 @@ type AuthResponse = {
   roles: string[];
   permissions: string[];
 };
+
+const PASSWORD_RESET_TOKEN_MINUTES = 30;
 
 export async function login(input: LoginInput): Promise<AuthResponse> {
   const user = await findActiveUserByIdentifier(input.identifier);
@@ -134,6 +144,113 @@ export async function logout(input: LogoutInput): Promise<void> {
   );
 }
 
+export async function forgotPassword(input: ForgotPasswordInput): Promise<{
+  resetToken?: string;
+  expiresAt?: Date;
+}> {
+  const user = await findActiveUserByIdentifier(input.identifier);
+
+  if (!user) {
+    return {};
+  }
+
+  const resetToken = crypto.randomBytes(32).toString("base64url");
+  const tokenHash = hashResetToken(resetToken);
+  const expiresAt = new Date(Date.now() + PASSWORD_RESET_TOKEN_MINUTES * 60 * 1000);
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+    await client.query(
+      `
+        UPDATE password_reset_tokens
+        SET used_at = NOW()
+        WHERE user_id = $1
+          AND used_at IS NULL
+      `,
+      [user.id]
+    );
+    await client.query(
+      `
+        INSERT INTO password_reset_tokens (user_id, token_hash, expires_at)
+        VALUES ($1, $2, $3)
+      `,
+      [user.id, tokenHash, expiresAt]
+    );
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+
+  if (env.NODE_ENV === "production") {
+    return {};
+  }
+
+  return { resetToken, expiresAt };
+}
+
+export async function resetPassword(input: ResetPasswordInput): Promise<void> {
+  const tokenHash = hashResetToken(input.token);
+  const passwordHash = await hashPassword(input.password);
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const tokenResult = await client.query<PasswordResetTokenRow>(
+      `
+        SELECT id, user_id, expires_at, used_at
+        FROM password_reset_tokens
+        WHERE token_hash = $1
+        FOR UPDATE
+      `,
+      [tokenHash]
+    );
+    const token = tokenResult.rows[0];
+
+    if (!token || token.used_at || token.expires_at.getTime() <= Date.now()) {
+      throw new ApiError(400, "Reset link is invalid or expired", "PASSWORD_RESET_TOKEN_INVALID");
+    }
+
+    const user = await findActiveUserById(token.user_id, client);
+
+    if (!user) {
+      throw new ApiError(400, "Reset link is invalid or expired", "PASSWORD_RESET_TOKEN_INVALID");
+    }
+
+    await client.query(
+      `
+        UPDATE users
+        SET password_hash = $1,
+            updated_at = NOW()
+        WHERE id = $2
+      `,
+      [passwordHash, token.user_id]
+    );
+    await client.query("UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1", [token.id]);
+    await client.query(
+      `
+        UPDATE refresh_tokens
+        SET revoked_at = NOW()
+        WHERE user_id = $1
+          AND revoked_at IS NULL
+      `,
+      [token.user_id]
+    );
+
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 export async function getMe(userId: string): Promise<{
   user: AuthenticatedUser;
   roles: string[];
@@ -150,6 +267,10 @@ export async function getMe(userId: string): Promise<{
     roles: user.roles,
     permissions: user.permissions
   };
+}
+
+function hashResetToken(token: string): string {
+  return crypto.createHash("sha256").update(token).digest("hex");
 }
 
 async function issueTokenPair(userId: string, client?: PoolClient): Promise<{

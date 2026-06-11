@@ -9,11 +9,31 @@ export type PermissionListItem = {
   updatedAt: string;
 };
 
+export type PagePermissionAction = {
+  key: 'create' | 'read' | 'update' | 'delete';
+  label: string;
+  permissions: string[];
+};
+
+export type PagePermissionGroup = {
+  key: string;
+  label: string;
+  path: string;
+  icon: string;
+  section: 'main' | 'teaching' | 'operations' | 'account';
+  roles: string[];
+  actions: PagePermissionAction[];
+};
+
 @Injectable({ providedIn: 'root' })
 export class PermissionsApiService {
   constructor(private readonly api: ApiClientService) {}
 
   listPermissions() {
     return this.api.get<PermissionListItem[]>('/permissions');
+  }
+
+  listPagePermissions() {
+    return this.api.get<PagePermissionGroup[]>('/permissions/pages');
   }
 }
