@@ -6,6 +6,7 @@ import { AuthTokenService } from './auth-token.service';
 export type LoginRequest = {
   identifier: string;
   password: string;
+  remember?: boolean;
 };
 
 export type LoginResponse = {
@@ -20,6 +21,7 @@ export type LoginResponse = {
     roles: string[];
     permissions: string[];
   };
+  mustChangePassword: boolean;
 };
 
 export type ForgotPasswordResponse = {
@@ -37,7 +39,13 @@ export class AuthApiService {
   login(payload: LoginRequest) {
     return this.api.post<LoginResponse>('/auth/login', payload).pipe(
       tap((response) => {
-        this.tokens.setSession(response.data.accessToken, response.data.refreshToken, response.data.user);
+        this.tokens.setSession(
+          response.data.accessToken,
+          response.data.refreshToken,
+          response.data.user,
+          payload.remember ?? true,
+          response.data.mustChangePassword
+        );
       })
     );
   }
@@ -48,6 +56,12 @@ export class AuthApiService {
 
   resetPassword(token: string, password: string) {
     return this.api.post<null>('/auth/reset-password', { token, password });
+  }
+
+  changePassword(password: string) {
+    return this.api.post<null>('/auth/change-password', { password }).pipe(
+      tap(() => this.tokens.setMustChangePassword(false))
+    );
   }
 
   logout() {

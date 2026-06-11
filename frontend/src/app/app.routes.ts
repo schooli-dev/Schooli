@@ -6,6 +6,7 @@ import { TeacherClassesComponent } from './features/classes/teacher-classes.comp
 import { AdminUsersComponent } from './features/users/admin-users.component';
 import { AdminRolesComponent } from './features/roles/admin-roles.component';
 import { LoginPageComponent } from './features/auth/login-page.component';
+import { ChangePasswordPageComponent } from './features/auth/change-password-page.component';
 import { AdminDashboardComponent } from './features/dashboards/admin-dashboard.component';
 import { StudentDashboardComponent } from './features/dashboards/student-dashboard.component';
 import { TeacherDashboardComponent } from './features/dashboards/teacher-dashboard.component';
@@ -19,6 +20,12 @@ export const routes: Routes = [
     component: LoginPageComponent,
     canActivate: [loginRedirectGuard],
     title: 'Sign in | SchooliEdu'
+  },
+  {
+    path: 'change-password',
+    component: ChangePasswordPageComponent,
+    canActivate: [authGuard],
+    title: 'Change Password | SchooliEdu'
   },
   {
     path: '',

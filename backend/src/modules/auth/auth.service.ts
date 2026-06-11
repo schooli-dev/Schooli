@@ -6,7 +6,14 @@ import type { AuthenticatedUser } from "../../types/express.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from "../../utils/jwt.js";
 import { hashPassword, verifyPassword } from "../../utils/password.js";
-import type { ForgotPasswordInput, LoginInput, LogoutInput, RefreshInput, ResetPasswordInput } from "./auth.validation.js";
+import type {
+  ChangePasswordInput,
+  ForgotPasswordInput,
+  LoginInput,
+  LogoutInput,
+  RefreshInput,
+  ResetPasswordInput
+} from "./auth.validation.js";
 
 type UserAuthRow = {
   id: string;
@@ -16,6 +23,8 @@ type UserAuthRow = {
   email: string;
   phone: string | null;
   password_hash: string;
+  last_login_at: Date | null;
+  must_change_password: boolean;
   roles: string[];
   permissions: string[];
 };
@@ -41,6 +50,7 @@ type AuthResponse = {
   user: AuthenticatedUser;
   roles: string[];
   permissions: string[];
+  mustChangePassword: boolean;
 };
 
 const PASSWORD_RESET_TOKEN_MINUTES = 30;
@@ -59,14 +69,25 @@ export async function login(input: LoginInput): Promise<AuthResponse> {
   }
 
   const authResponse = await issueTokenPair(user.id);
+  const mustChangePassword = shouldRequirePasswordChange(user);
 
-  await pool.query("UPDATE users SET last_login_at = NOW(), updated_at = NOW() WHERE id = $1", [user.id]);
+  await pool.query(
+    `
+      UPDATE users
+      SET last_login_at = NOW(),
+          must_change_password = CASE WHEN $2 THEN TRUE ELSE must_change_password END,
+          updated_at = NOW()
+      WHERE id = $1
+    `,
+    [user.id, mustChangePassword]
+  );
 
   return {
     ...authResponse,
     user: mapUser(user),
     roles: user.roles,
-    permissions: user.permissions
+    permissions: user.permissions,
+    mustChangePassword
   };
 }
 
@@ -119,7 +140,8 @@ export async function refresh(input: RefreshInput): Promise<AuthResponse> {
       ...authResponse,
       user: mapUser(user),
       roles: user.roles,
-      permissions: user.permissions
+      permissions: user.permissions,
+      mustChangePassword: shouldRequirePasswordChange(user)
     };
   } catch (error) {
     await client.query("ROLLBACK");
@@ -251,6 +273,23 @@ export async function resetPassword(input: ResetPasswordInput): Promise<void> {
   }
 }
 
+export async function changePassword(userId: string, input: ChangePasswordInput): Promise<void> {
+  const passwordHash = await hashPassword(input.password);
+
+  await pool.query(
+    `
+      UPDATE users
+      SET password_hash = $1,
+          must_change_password = FALSE,
+          updated_at = NOW()
+      WHERE id = $2
+        AND is_active = TRUE
+        AND status = 'active'
+    `,
+    [passwordHash, userId]
+  );
+}
+
 export async function getMe(userId: string): Promise<{
   user: AuthenticatedUser;
   roles: string[];
@@ -321,6 +360,8 @@ function userAuthQuery(whereClause: string): string {
       u.email,
       u.phone,
       u.password_hash,
+      u.last_login_at,
+      u.must_change_password,
       COALESCE(array_agg(DISTINCT r.name) FILTER (WHERE r.name IS NOT NULL), '{}') AS roles,
       COALESCE(array_agg(DISTINCT p.key) FILTER (WHERE p.key IS NOT NULL), '{}') AS permissions
     FROM users u
@@ -333,6 +374,10 @@ function userAuthQuery(whereClause: string): string {
       AND u.status = 'active'
     GROUP BY u.id
   `;
+}
+
+function shouldRequirePasswordChange(user: Pick<UserAuthRow, "roles" | "last_login_at" | "must_change_password">): boolean {
+  return !user.roles.includes("admin") && (user.must_change_password || !user.last_login_at);
 }
 
 function mapUser(user: UserAuthRow): AuthenticatedUser {

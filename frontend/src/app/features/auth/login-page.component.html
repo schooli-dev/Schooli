@@ -1,0 +1,330 @@
+<main class="login-page min-vh-100">
+  <div class="container-fluid min-vh-100">
+    <div class="row min-vh-100">
+
+      <!-- Left Brand / Hero Section -->
+      <section class="col-lg-7 d-none d-lg-flex login-hero text-white">
+        <div class="hero-content w-100 d-flex flex-column justify-content-between">
+
+          <div>
+            <div class="d-flex align-items-center gap-3 mb-5">
+              <div class="brand-mark">S</div>
+              <span class="fs-4 fw-bold">Schooli</span>
+            </div>
+
+            <div class="hero-copy">
+              <span class="badge rounded-pill text-bg-light text-primary px-3 py-2 mb-4">
+                Learning Management Platform
+              </span>
+
+              <h1 class="display-5 fw-bold mb-3">
+                The platform built for serious learning.
+              </h1>
+
+              <p class="lead text-white-50 mb-4">
+                Live classes, homework, attendance, and progress — managed from one unified dashboard.
+              </p>
+
+              <div class="row g-3 mt-4">
+                <div class="col-md-6">
+                  <div class="feature-card">
+                    <div class="feature-icon">✓</div>
+                    <div>
+                      <h3 class="h6 mb-1">Live Classes</h3>
+                      <p class="small mb-0 text-white-50">Zoom class integration</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="col-md-6">
+                  <div class="feature-card">
+                    <div class="feature-icon">✓</div>
+                    <div>
+                      <h3 class="h6 mb-1">Progress Tracking</h3>
+                      <p class="small mb-0 text-white-50">Homework and reports</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="col-md-6">
+                  <div class="feature-card">
+                    <div class="feature-icon">✓</div>
+                    <div>
+                      <h3 class="h6 mb-1">Role Dashboards</h3>
+                      <p class="small mb-0 text-white-50">Admin, teacher, student</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="col-md-6">
+                  <div class="feature-card">
+                    <div class="feature-icon">✓</div>
+                    <div>
+                      <h3 class="h6 mb-1">Secure Access</h3>
+                      <p class="small mb-0 text-white-50">Protected login system</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="hero-bottom-card mt-5">
+            <div class="d-flex align-items-center justify-content-between">
+              <div>
+                <p class="small text-white-50 mb-1">Today’s overview</p>
+                <h3 class="h6 mb-0">Classes, users, and progress in one place</h3>
+              </div>
+              <span class="badge rounded-pill bg-success-subtle text-success-emphasis">
+                Active
+              </span>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- Login Section -->
+      <section class="col-12 col-lg-5 login-panel d-flex align-items-center justify-content-center">
+        <div class="login-wrapper w-100">
+
+          <!-- Mobile Logo -->
+          <div class="d-flex d-lg-none align-items-center justify-content-center gap-3 mb-4">
+            <div class="brand-mark mobile">S</div>
+            <span class="fs-4 fw-bold text-dark">Schooli</span>
+          </div>
+
+          <form
+            class="card auth-card border-0 shadow-lg"
+            #loginForm="ngForm"
+            (ngSubmit)="submit()"
+            novalidate
+          >
+            <div class="card-body p-4 p-sm-5">
+
+              <div class="text-center mb-4">
+                <div class="lock-circle mx-auto mb-3">
+                  <i class="bi bi-shield-lock"></i>
+                </div>
+
+                <h2 class="fw-bold mb-2">Welcome back</h2>
+                <p class="text-muted mb-0">
+                  Sign in to continue to your dashboard
+                </p>
+              </div>
+
+              <div class="mb-3">
+                <label for="identifier" class="form-label fw-semibold">
+                  Email or Username
+                </label>
+
+                <input
+                  id="identifier"
+                  type="text"
+                  class="form-control form-control-lg"
+                  name="identifier"
+                  [(ngModel)]="identifier"
+                  placeholder="Enter email or username"
+                  autocomplete="username"
+                  required
+                />
+              </div>
+
+              <div class="mb-2">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <label for="password" class="form-label fw-semibold mb-0">
+                    Password
+                  </label>
+
+                  <button class="btn btn-link btn-sm p-0 text-decoration-none fw-semibold" type="button" (click)="openForgotPassword()">
+                    Forgot password?
+                  </button>
+                </div>
+
+                <div class="input-group input-group-lg">
+                  <input
+                    id="password"
+                    class="form-control"
+                    name="password"
+                    [(ngModel)]="password"
+                    [type]="showPassword() ? 'text' : 'password'"
+                    placeholder="Enter your password"
+                    autocomplete="current-password"
+                    required
+                  />
+
+                  <button
+                    class="btn btn-outline-secondary px-3 password-toggle-btn"
+                    type="button"
+                    [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'"
+                    (click)="togglePassword()"
+                  >
+                    <i
+                      class="bi"
+                      [class.bi-eye]="!showPassword()"
+                      [class.bi-eye-slash]="showPassword()"
+                    ></i>
+                  </button>
+                </div>
+              </div>
+
+              <div class="form-check mt-3">
+                <input
+                  id="rememberMe"
+                  class="form-check-input"
+                  type="checkbox"
+                  name="rememberMe"
+                  [(ngModel)]="rememberMe"
+                />
+                <label class="form-check-label text-muted" for="rememberMe">
+                  Remember me on this device
+                </label>
+              </div>
+
+              @if (error()) {
+                <div class="alert alert-danger d-flex align-items-start gap-2 mt-4 mb-0" role="alert">
+                  <i class="bi bi-exclamation-triangle-fill flex-shrink-0"></i>
+                  <span>{{ error() }}</span>
+                </div>
+              }
+
+              <button
+                class="btn btn-primary btn-lg w-100 mt-4 fw-bold"
+                type="submit"
+                [disabled]="loginForm.invalid || loading()"
+              >
+                @if (loading()) {
+                  <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
+                  Signing in…
+                } @else {
+                  Sign In
+                }
+              </button>
+
+              <p class="text-center text-muted small mt-4 mb-0">
+                Secure access for all authorised users
+              </p>
+
+            </div>
+          </form>
+
+        </div>
+      </section>
+
+    </div>
+  </div>
+</main>
+
+@if (resetDialogOpen()) {
+  <section class="reset-backdrop" aria-hidden="true"></section>
+
+  <section class="reset-dialog" role="dialog" aria-modal="true" aria-labelledby="resetPasswordTitle">
+    <div class="reset-header">
+      <span class="reset-icon">
+        <i class="bi bi-shield-lock"></i>
+      </span>
+
+      <div class="min-w-0">
+        <h2 id="resetPasswordTitle">{{ resetStep() === 'request' ? 'Reset password' : 'Create new password' }}</h2>
+        <p>{{ resetStep() === 'request' ? 'Enter your email, username, or phone to generate a reset token.' : 'Enter the reset token and your new password.' }}</p>
+      </div>
+
+      <button class="btn-close" type="button" aria-label="Close" [disabled]="resetLoading()" (click)="closeResetDialog()"></button>
+    </div>
+
+    @if (resetStep() === 'request') {
+      <div class="reset-body">
+        <label class="form-label fw-semibold">Email, Username, or Phone</label>
+        <input
+          class="form-control form-control-lg"
+          name="resetIdentifier"
+          [(ngModel)]="resetIdentifier"
+          placeholder="Enter account identifier"
+          autocomplete="username"
+        />
+      </div>
+    } @else {
+      <div class="reset-body">
+        @if (resetTokenFromApi()) {
+          <div class="alert alert-info small">
+            <strong>Development reset token:</strong>
+            <span class="d-block text-break mt-1">{{ resetTokenFromApi() }}</span>
+          </div>
+        }
+
+        <label class="form-label fw-semibold">Reset Token</label>
+        <input
+          class="form-control"
+          name="resetToken"
+          [(ngModel)]="resetToken"
+          placeholder="Paste reset token"
+        />
+
+        <label class="form-label fw-semibold mt-3">New Password</label>
+        <div class="input-group">
+          <input
+            class="form-control"
+            name="newPassword"
+            [(ngModel)]="newPassword"
+            [type]="showResetPassword() ? 'text' : 'password'"
+            placeholder="Enter new password"
+            autocomplete="new-password"
+          />
+          <button class="btn btn-outline-secondary" type="button" (click)="toggleResetPassword()">
+            <i class="bi" [class.bi-eye]="!showResetPassword()" [class.bi-eye-slash]="showResetPassword()"></i>
+          </button>
+        </div>
+
+        <small class="text-muted d-block mt-2">
+          Minimum 8 characters with uppercase, lowercase, number, and special character.
+        </small>
+
+        <label class="form-label fw-semibold mt-3">Confirm Password</label>
+        <input
+          class="form-control"
+          name="confirmNewPassword"
+          [(ngModel)]="confirmNewPassword"
+          type="password"
+          placeholder="Confirm new password"
+          autocomplete="new-password"
+        />
+      </div>
+    }
+
+    @if (resetMessage()) {
+      <div class="alert alert-success mx-4 mb-0">
+        <i class="bi bi-check-circle me-2"></i>
+        {{ resetMessage() }}
+      </div>
+    }
+
+    @if (resetError()) {
+      <div class="alert alert-danger mx-4 mb-0">
+        <i class="bi bi-exclamation-triangle me-2"></i>
+        {{ resetError() }}
+      </div>
+    }
+
+    <div class="reset-footer">
+      <button class="btn btn-outline-secondary" type="button" [disabled]="resetLoading()" (click)="closeResetDialog()">
+        Cancel
+      </button>
+
+      @if (resetStep() === 'request') {
+        <button class="btn btn-primary" type="button" [disabled]="resetLoading() || !resetIdentifier.trim()" (click)="requestPasswordReset()">
+          @if (resetLoading()) {
+            <span class="spinner-border spinner-border-sm me-2"></span>
+          }
+          Send reset token
+        </button>
+      } @else {
+        <button class="btn btn-primary" type="button" [disabled]="resetLoading()" (click)="submitPasswordReset()">
+          @if (resetLoading()) {
+            <span class="spinner-border spinner-border-sm me-2"></span>
+          }
+          Reset password
+        </button>
+      }
+    </div>
+  </section>
+}

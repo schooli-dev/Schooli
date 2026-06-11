@@ -10,6 +10,10 @@ export const authGuard: CanActivateFn = (route, state): boolean | UrlTree => {
     return router.createUrlTree(['/login'], { queryParams: { returnUrl: state.url } });
   }
 
+  if (tokens.mustChangePassword() && state.url !== '/change-password') {
+    return router.createUrlTree(['/change-password']);
+  }
+
   const allowedRoles = route.data['roles'] as string[] | undefined;
   const requiredPermission = route.data['permission'] as string | undefined;
   const hasRequiredPermission = !requiredPermission || tokens.getPermissions().includes(requiredPermission);
@@ -32,6 +36,10 @@ export const loginRedirectGuard: CanActivateFn = (): boolean | UrlTree => {
 
   if (!tokens.isAuthenticated()) {
     return true;
+  }
+
+  if (tokens.mustChangePassword()) {
+    return router.createUrlTree(['/change-password']);
   }
 
   return router.createUrlTree([getDefaultRoute(tokens.getRoles(), tokens.getPermissions())]);

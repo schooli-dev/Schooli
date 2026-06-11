@@ -1,0 +1,735 @@
+<div class="admin-classes-page">
+
+  <!-- Header -->
+  <div class="page-heading row align-items-start mb-4">
+    <div>
+      <span class="section-kicker">ADMIN PANEL</span>
+      <h1>Classes</h1>
+      <p>Schedule, manage, and track live one-to-one learning sessions.</p>
+    </div>
+
+    <div class="heading-actions mt-3 mt-lg-0">
+      <button class="btn btn-outline-secondary admin-btn" type="button">
+        <i class="bi bi-download"></i>
+        <span>Export</span>
+      </button>
+
+      <button class="btn btn-outline-secondary admin-btn" type="button">
+        <i class="bi bi-calendar3"></i>
+        <span>Calendar View</span>
+      </button>
+
+      <button class="btn btn-primary admin-btn" type="button" (click)="openSchedule()">
+        <i class="bi bi-calendar-plus"></i>
+        <span>Schedule Class</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Metrics -->
+  <section class="class-metrics-grid mb-4">
+    <article class="class-metric-card">
+      <span class="metric-icon blue"><i class="bi bi-calendar-day"></i></span>
+      <span>Classes Today</span>
+      <strong>{{ todayCount() }}</strong>
+      <small>Scheduled today</small>
+    </article>
+
+    <article class="class-metric-card">
+      <span class="metric-icon purple"><i class="bi bi-calendar-event"></i></span>
+      <span>Upcoming</span>
+      <strong>{{ upcomingCount() }}</strong>
+      <small>Next sessions</small>
+    </article>
+
+    <article class="class-metric-card active">
+      <span class="metric-icon green"><i class="bi bi-broadcast"></i></span>
+      <span>Live Now</span>
+      <strong>{{ liveCount() }}</strong>
+      <small>Active sessions</small>
+    </article>
+
+    <article class="class-metric-card">
+      <span class="metric-icon green"><i class="bi bi-check2-circle"></i></span>
+      <span>Completed</span>
+      <strong>{{ completedCount() }}</strong>
+      <small>Completed records</small>
+    </article>
+
+    <article class="class-metric-card">
+      <span class="metric-icon orange"><i class="bi bi-calendar-x"></i></span>
+      <span>Cancelled</span>
+      <strong>{{ cancelledCount() }}</strong>
+      <small>Cancelled records</small>
+    </article>
+
+    <article class="class-metric-card">
+      <span class="metric-icon red"><i class="bi bi-exclamation-triangle"></i></span>
+      <span>No Shows</span>
+      <strong class="danger-text">{{ noShowCount() }}</strong>
+      <small class="danger-text">Needs attention</small>
+    </article>
+  </section>
+
+  <!-- Classes Panel -->
+  <section class="panel classes-panel">
+
+    <!-- Tabs -->
+    <div class="class-tabs scroll-row">
+      @for (tab of classTabs; track tab.key) {
+        <button
+          type="button"
+          [class.is-active]="activeTab() === tab.key"
+          (click)="setActiveTab(tab.key)"
+        >
+          <span>{{ tab.label }}</span>
+
+          @if (tabCount(tab.key) > 0) {
+            <span class="tab-count">{{ tabCount(tab.key) }}</span>
+          }
+        </button>
+      }
+    </div>
+
+    <!-- Filters -->
+    <div class="class-filters">
+      <div class="input-group">
+        <span class="input-group-text">
+          <i class="bi bi-search"></i>
+        </span>
+        <input
+          class="form-control"
+          placeholder="Filter by title, teacher, student..."
+          [ngModel]="searchText()"
+          (ngModelChange)="searchText.set($event)"
+        />
+      </div>
+
+      <select class="form-select">
+        <option>Teacher: All</option>
+      </select>
+
+      <select class="form-select">
+        <option>Student: All</option>
+      </select>
+
+      <select
+        class="form-select"
+        [ngModel]="activeTab()"
+        (ngModelChange)="setActiveTab($event)"
+      >
+        @for (tab of classTabs; track tab.key) {
+          <option [ngValue]="tab.key">{{ tab.label }}</option>
+        }
+      </select>
+    </div>
+
+    @if (loading()) {
+      <div class="state-strip">
+        <i class="bi bi-arrow-repeat me-2"></i>
+        Loading classes from backend...
+      </div>
+    } @else if (apiWarning()) {
+      <div class="state-strip warning">
+        <i class="bi bi-exclamation-triangle me-2"></i>
+        {{ apiWarning() }}
+      </div>
+    }
+
+    <!-- Desktop Table -->
+    <div class="table-responsive d-none d-lg-block">
+      <table class="table align-middle mb-0 class-table">
+        <thead>
+          <tr>
+            <th>Class Title</th>
+            <th>Teacher</th>
+            <th>Student</th>
+            <th>Schedule</th>
+            <th>Status</th>
+            <th>Zoom</th>
+            <th>Attendance</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          @for (item of pagedClasses(); track item.id) {
+            <tr>
+              <td>
+                <div class="d-flex align-items-center gap-3">
+                  <span class="class-avatar">
+                    <i class="bi bi-camera-video"></i>
+                  </span>
+
+                  <div class="min-w-0">
+                    <strong class="d-block text-truncate">{{ item.title }}</strong>
+                    <span class="d-block text-muted small">Session #{{ shortId(item.id) }}</span>
+                  </div>
+                </div>
+              </td>
+
+              <td>
+                <span class="person-cell">
+                  <i class="bi bi-person-video3"></i>
+                  {{ item.teacherName }}
+                </span>
+              </td>
+
+              <td>
+                <span class="person-cell">
+                  <i class="bi bi-person"></i>
+                  {{ participantName(item) }}
+                </span>
+              </td>
+
+              <td>
+                <div class="date-cell">
+                  <strong>{{ item.startTime | date: 'MMM d' }}</strong>
+                  <span>{{ item.startTime | date: 'hh:mm a' }} · {{ item.durationMinutes }} min</span>
+                </div>
+              </td>
+
+              <td>
+                <span
+                  class="status-chip"
+                  [class.status-live]="item.status === 'live'"
+                  [class.status-success]="item.status === 'completed'"
+                  [class.status-danger]="item.status === 'cancelled'"
+                >
+                  {{ item.status }}
+                </span>
+              </td>
+
+              <td>
+                <span class="zoom-chip">
+                  <i class="bi bi-camera-video"></i>
+                  {{ item.zoomMeeting?.creationStatus ?? 'pending' }}
+                </span>
+              </td>
+
+              <td>
+                <strong
+                  class="attendance-text"
+                  [class.success-text]="participantAttendance(item) === 'present'"
+                >
+                  {{ participantAttendance(item) }}
+                </strong>
+              </td>
+
+              <td class="text-end">
+                <div class="action-group">
+                  <button
+                    class="btn btn-light action-btn"
+                    type="button"
+                    title="View class"
+                    aria-label="View class"
+                    (click)="openClassDrawer(item)"
+                  >
+                    <i class="bi bi-eye"></i>
+                  </button>
+
+                  <button
+                    class="btn btn-light action-btn text-danger"
+                    type="button"
+                    title="Cancel class"
+                    aria-label="Cancel class"
+                    [disabled]="item.status === 'cancelled'"
+                    (click)="openCancelConfirm(item)"
+                  >
+                    <i class="bi bi-calendar-x"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="8">
+                <div class="empty-state">
+                  <i class="bi bi-calendar2-x"></i>
+                  <strong>No classes found</strong>
+                  <span>Try changing your tab or search filter.</span>
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Mobile Cards -->
+    <div class="mobile-class-list d-lg-none">
+      @for (item of pagedClasses(); track item.id) {
+        <article class="mobile-class-card">
+          <div class="d-flex align-items-start gap-3">
+            <span class="class-avatar">
+              <i class="bi bi-camera-video"></i>
+            </span>
+
+            <div class="min-w-0 flex-grow-1">
+              <strong class="d-block text-truncate">{{ item.title }}</strong>
+              <span class="d-block text-muted small">Session #{{ shortId(item.id) }}</span>
+
+              <div class="mobile-class-meta mt-3">
+                <span>
+                  <i class="bi bi-person-video3"></i>
+                  {{ item.teacherName }}
+                </span>
+
+                <span>
+                  <i class="bi bi-person"></i>
+                  {{ participantName(item) }}
+                </span>
+
+                <span>
+                  <i class="bi bi-clock"></i>
+                  {{ item.startTime | date: 'MMM d, hh:mm a' }}
+                </span>
+
+                <span>
+                  <i class="bi bi-hourglass-split"></i>
+                  {{ item.durationMinutes }} min
+                </span>
+              </div>
+
+              <div class="d-flex flex-wrap gap-2 mt-3">
+                <span
+                  class="status-chip"
+                  [class.status-live]="item.status === 'live'"
+                  [class.status-success]="item.status === 'completed'"
+                  [class.status-danger]="item.status === 'cancelled'"
+                >
+                  {{ item.status }}
+                </span>
+
+                <span class="zoom-chip">
+                  <i class="bi bi-camera-video"></i>
+                  {{ item.zoomMeeting?.creationStatus ?? 'pending' }}
+                </span>
+
+                <span class="zoom-chip">
+                  <i class="bi bi-person-check"></i>
+                  {{ participantAttendance(item) }}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="mobile-actions mt-3">
+            <button class="btn btn-outline-primary btn-sm" type="button" (click)="openClassDrawer(item)">
+              <i class="bi bi-eye"></i>
+              View
+            </button>
+
+            <button
+              class="btn btn-outline-danger btn-sm"
+              type="button"
+              [disabled]="item.status === 'cancelled'"
+              (click)="openCancelConfirm(item)"
+            >
+              <i class="bi bi-calendar-x"></i>
+              Cancel
+            </button>
+          </div>
+        </article>
+      } @empty {
+        <div class="empty-state mobile-empty">
+          <i class="bi bi-calendar2-x"></i>
+          <strong>No classes found</strong>
+          <span>Try changing your tab or search filter.</span>
+        </div>
+      }
+    </div>
+
+    <!-- Footer -->
+    <div class="class-table-footer">
+      <span class="text-muted small">Showing {{ filteredClasses().length }} classes</span>
+
+      <nav aria-label="Classes pagination">
+        <ul class="pagination pagination-sm mb-0 flex-wrap">
+          <li class="page-item" [class.disabled]="currentPage() === 1">
+            <button class="page-link" type="button" (click)="previousPage()">Prev</button>
+          </li>
+
+          @for (page of pageNumbers(); track page) {
+            <li class="page-item" [class.active]="currentPage() === page">
+              <button class="page-link" type="button" (click)="setPage(page)">{{ page }}</button>
+            </li>
+          }
+
+          <li class="page-item" [class.disabled]="currentPage() === totalPages()">
+            <button class="page-link" type="button" (click)="nextPage()">Next</button>
+          </li>
+        </ul>
+      </nav>
+    </div>
+  </section>
+</div>
+
+<!-- Schedule Modal -->
+@if (scheduleOpen()) {
+  <section class="schedule-modal-overlay" role="dialog" aria-modal="true">
+    <div class="class-schedule-modal">
+
+      <header class="schedule-header">
+        <div class="d-flex align-items-start gap-3 min-w-0">
+          <span class="modal-icon">
+            <i class="bi bi-calendar-plus"></i>
+          </span>
+
+          <div>
+            <p class="section-kicker mb-1">Class scheduling</p>
+            <h2>Schedule New Class</h2>
+          </div>
+        </div>
+
+        <button class="btn-close" type="button" aria-label="Close" (click)="closeSchedule()"></button>
+      </header>
+
+      <div class="wizard-steps schedule-two-steps">
+        @for (step of steps; track step.index) {
+          <div [class.is-active]="step.index === scheduleStep()">
+            <span>{{ step.index }}</span>
+            <strong>{{ step.label }}</strong>
+          </div>
+        }
+      </div>
+
+      @if (scheduleStep() === 1) {
+        <form class="schedule-form-grid" id="participantsForm" (ngSubmit)="nextFromParticipants()">
+          <label>
+            <span class="field-label">
+              <i class="bi bi-person-video3"></i>
+              Teacher <b>*</b>
+            </span>
+
+            <select name="teacherId" [(ngModel)]="scheduleForm.teacherId" required (ngModelChange)="onTeacherChanged()">
+              <option value="">Select teacher</option>
+
+              @for (teacher of teachers(); track teacher.id) {
+                <option [value]="teacher.id">{{ fullName(teacher) }}</option>
+              }
+            </select>
+          </label>
+
+          <label>
+            <span class="field-label">
+              <i class="bi bi-person"></i>
+              Student <b>*</b>
+            </span>
+
+            <select name="studentId" [(ngModel)]="scheduleForm.studentId" required (ngModelChange)="refreshBusySlots()">
+              <option value="">Select student</option>
+
+              @for (student of students(); track student.id) {
+                <option [value]="student.id">{{ fullName(student) }}</option>
+              }
+            </select>
+          </label>
+
+          <label class="full-field">
+            <span class="field-label">
+              <i class="bi bi-type"></i>
+              Class Title <b>*</b>
+            </span>
+
+            <input
+              name="title"
+              [(ngModel)]="scheduleForm.title"
+              required
+              placeholder="Example: Advanced Algebra - Doubt Session"
+            />
+          </label>
+
+          <label class="full-field">
+            <span class="field-label">
+              <i class="bi bi-card-text"></i>
+              Meeting Description
+            </span>
+
+            <textarea
+              name="description"
+              [(ngModel)]="scheduleForm.description"
+              rows="4"
+              placeholder="Add agenda, preparation notes, learning goals, or anything the student should know."
+            ></textarea>
+          </label>
+
+          @if (scheduleMessage()) {
+            <article class="info-card full" [class.conflict-card]="scheduleMessageType() === 'error'">
+              <i class="bi bi-info-circle me-2"></i>
+              {{ scheduleMessage() }}
+            </article>
+          }
+        </form>
+      } @else {
+        <form class="schedule-form-grid" id="dateTimeForm" (ngSubmit)="validateAndSchedule()">
+          <label>
+            <span class="field-label">
+              <i class="bi bi-calendar-event"></i>
+              Start Date & Time <b>*</b>
+            </span>
+
+            <input
+              name="startTime"
+              type="datetime-local"
+              [(ngModel)]="scheduleForm.startTime"
+              required
+              (ngModelChange)="refreshBusySlots()"
+            />
+          </label>
+
+          <label>
+            <span class="field-label">
+              <i class="bi bi-hourglass-split"></i>
+              Duration <b>*</b>
+            </span>
+
+            <select name="durationMinutes" [(ngModel)]="scheduleForm.durationMinutes" (ngModelChange)="clearConflicts()">
+              <option [ngValue]="30">30 min</option>
+              <option [ngValue]="45">45 min</option>
+              <option [ngValue]="60">60 min</option>
+              <option [ngValue]="90">90 min</option>
+            </select>
+          </label>
+
+          <article class="schedule-side-card">
+            <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
+              <strong>
+                <i class="bi bi-calendar-check me-2"></i>
+                Teacher working hours
+              </strong>
+              <span class="status-chip">{{ selectedTeacherAvailability().length }}</span>
+            </div>
+
+            <div class="slot-list">
+              @for (slot of selectedTeacherAvailability(); track slot.id) {
+                <span [class.is-match]="slot.dayOfWeek === selectedDayOfWeek()">
+                  {{ dayLabel(slot.dayOfWeek) }} {{ slot.startTime }} - {{ slot.endTime }}
+                </span>
+              } @empty {
+                <span class="text-muted">No active availability found for this teacher.</span>
+              }
+            </div>
+          </article>
+
+          <article class="schedule-side-card">
+            <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
+              <strong>
+                <i class="bi bi-calendar-x me-2"></i>
+                Busy on selected day
+              </strong>
+              <span class="status-chip">{{ busySlots().length }}</span>
+            </div>
+
+            <div class="slot-list">
+              @for (slot of busySlots(); track slot.id) {
+                <span>{{ slot.startTime | date: 'hh:mm a' }} - {{ slot.endTime | date: 'hh:mm a' }} · {{ slot.title }}</span>
+              } @empty {
+                <span class="success-text">No teacher/student overlap found for this day.</span>
+              }
+            </div>
+          </article>
+
+          @if (conflicts().length) {
+            <article class="info-card full conflict-card">
+              <strong>
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                Schedule conflicts
+              </strong>
+
+              <ul class="mb-0 mt-2">
+                @for (conflict of conflicts(); track conflict.message) {
+                  <li>{{ conflict.message }}{{ conflictDetail(conflict) }}</li>
+                }
+              </ul>
+            </article>
+          } @else if (scheduleMessage()) {
+            <article
+              class="info-card full"
+              [class.conflict-card]="scheduleMessageType() === 'error'"
+              [class.success-card]="scheduleMessageType() === 'success'"
+            >
+              <strong>
+                <i class="bi bi-check-circle me-2"></i>
+                {{ scheduleMessage() }}
+              </strong>
+
+              @if (scheduledClass()?.zoomMeeting?.joinUrl) {
+                <div class="zoom-link-box mt-3">
+                  <span>Student / Teacher Join Link</span>
+                  <a [href]="scheduledClass()!.zoomMeeting!.joinUrl!" target="_blank" rel="noopener noreferrer">
+                    {{ scheduledClass()!.zoomMeeting!.joinUrl }}
+                  </a>
+                </div>
+              } @else if (scheduledClass()) {
+                <p class="mb-0 mt-2">Zoom link is not available yet. Check Zoom configuration or refresh the class details.</p>
+              }
+            </article>
+          }
+        </form>
+      }
+
+      <footer class="schedule-footer">
+        <button class="btn btn-outline-secondary" type="button" (click)="scheduleStep() === 1 ? closeSchedule() : previousStep()">
+          {{ scheduleStep() === 1 ? 'Cancel' : 'Previous' }}
+        </button>
+
+        <button
+          class="btn btn-primary"
+          type="submit"
+          [attr.form]="scheduleStep() === 1 ? 'participantsForm' : 'dateTimeForm'"
+          [disabled]="scheduleSubmitting()"
+        >
+          @if (scheduleSubmitting()) {
+            <span class="spinner-border spinner-border-sm me-2"></span>
+          }
+          {{ scheduleStep() === 1 ? 'Next' : scheduledClass() ? 'Done' : scheduleSubmitting() ? 'Scheduling...' : 'Validate & Schedule' }}
+        </button>
+      </footer>
+    </div>
+  </section>
+}
+
+<!-- Class Drawer -->
+@if (classDrawerOpen() && selectedClass()) {
+  <section class="drawer-backdrop" (click)="closeClassDrawer()"></section>
+
+  <aside class="meeting-drawer admin-class-drawer">
+    <header class="drawer-header">
+      <div class="d-flex align-items-start gap-3 min-w-0">
+        <span class="modal-icon">
+          <i class="bi bi-camera-video"></i>
+        </span>
+
+        <div class="min-w-0">
+          <p class="section-kicker mb-1">Meeting details</p>
+          <h2>{{ selectedClass()!.title }}</h2>
+        </div>
+      </div>
+
+      <button class="btn-close" type="button" aria-label="Close" (click)="closeClassDrawer()"></button>
+    </header>
+
+    <div class="detail-list">
+      <div>
+        <span><i class="bi bi-person-video3 me-1"></i> Teacher</span>
+        <strong>{{ selectedClass()!.teacherName }}</strong>
+      </div>
+
+      <div>
+        <span><i class="bi bi-person me-1"></i> Student</span>
+        <strong>{{ participantName(selectedClass()!) }}</strong>
+      </div>
+
+      <div>
+        <span><i class="bi bi-calendar-event me-1"></i> Schedule</span>
+        <strong>{{ selectedClass()!.startTime | date: 'MMM d, y, hh:mm a' }}</strong>
+      </div>
+
+      <div>
+        <span><i class="bi bi-hourglass-split me-1"></i> Duration</span>
+        <strong>{{ selectedClass()!.durationMinutes }} minutes</strong>
+      </div>
+
+      <div>
+        <span><i class="bi bi-activity me-1"></i> Status</span>
+        <strong>{{ selectedClass()!.status }}</strong>
+      </div>
+
+      <div>
+        <span><i class="bi bi-camera-video me-1"></i> Zoom</span>
+        <strong>{{ selectedClass()!.zoomMeeting?.creationStatus ?? 'pending' }}</strong>
+      </div>
+    </div>
+
+    <div class="zoom-link-box mt-3">
+      <span>Join Link</span>
+
+      @if (selectedClass()!.zoomMeeting?.joinUrl) {
+        <a [href]="selectedClass()!.zoomMeeting!.joinUrl!" target="_blank" rel="noopener noreferrer">
+          {{ selectedClass()!.zoomMeeting!.joinUrl }}
+        </a>
+      } @else {
+        <p class="mb-0">No Zoom join link available.</p>
+      }
+    </div>
+
+    <div class="d-grid gap-2 mt-4">
+      @if (selectedClass()!.zoomMeeting?.joinUrl) {
+        <a class="btn btn-primary" [href]="selectedClass()!.zoomMeeting!.joinUrl!" target="_blank" rel="noopener noreferrer">
+          <i class="bi bi-box-arrow-up-right me-2"></i>
+          Open Zoom Link
+        </a>
+      }
+
+      <button
+        class="btn btn-outline-danger"
+        type="button"
+        [disabled]="selectedClass()!.status === 'cancelled'"
+        (click)="openCancelConfirm(selectedClass()!)"
+      >
+        <i class="bi bi-calendar-x me-2"></i>
+        Cancel Class
+      </button>
+    </div>
+  </aside>
+}
+
+<!-- Cancel Confirm -->
+@if (cancelConfirmOpen() && classToCancel()) {
+  <section class="schedule-modal-overlay" role="dialog" aria-modal="true">
+    <div class="confirm-card">
+      <header>
+        <div class="d-flex align-items-start gap-3">
+          <span class="confirm-icon">
+            <i class="bi bi-calendar-x"></i>
+          </span>
+
+          <div>
+            <p class="section-kicker mb-1">Confirm cancellation</p>
+            <h2>Cancel this class?</h2>
+          </div>
+        </div>
+
+        <button class="btn-close" type="button" aria-label="Close" (click)="closeCancelConfirm()"></button>
+      </header>
+
+      <p class="mb-3">
+        This will cancel <strong>{{ classToCancel()!.title }}</strong>. If a real Zoom meeting exists, it will be cancelled in Zoom as well.
+      </p>
+
+      <label class="w-100">
+        <span class="field-label">
+          <i class="bi bi-chat-left-text"></i>
+          Cancellation Reason <b>*</b>
+        </span>
+
+        <textarea
+          class="form-control mt-2"
+          rows="3"
+          [(ngModel)]="cancelReason"
+          name="cancelReason"
+          placeholder="Add a clear reason for audit and notification"
+        ></textarea>
+      </label>
+
+      @if (cancelMessage()) {
+        <div class="alert alert-danger mt-3 mb-0">
+          <i class="bi bi-exclamation-triangle me-2"></i>
+          {{ cancelMessage() }}
+        </div>
+      }
+
+      <footer>
+        <button class="btn btn-outline-secondary" type="button" (click)="closeCancelConfirm()">Keep Class</button>
+
+        <button class="btn btn-danger fw-bold" type="button" [disabled]="cancelSubmitting()" (click)="confirmCancelClass()">
+          @if (cancelSubmitting()) {
+            <span class="spinner-border spinner-border-sm me-2"></span>
+          }
+          {{ cancelSubmitting() ? 'Cancelling...' : 'Cancel Class' }}
+        </button>
+      </footer>
+    </div>
+  </section>
+}

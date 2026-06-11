@@ -159,9 +159,10 @@ export async function createUser(input: CreateUserInput): Promise<UserListItem> 
           password_hash,
           avatar_url,
           status,
-          is_active
+          is_active,
+          must_change_password
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, 'active', TRUE)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, 'active', TRUE, $8)
         RETURNING id
       `,
       [
@@ -171,7 +172,8 @@ export async function createUser(input: CreateUserInput): Promise<UserListItem> 
         input.email,
         input.phone ?? null,
         passwordHash,
-        input.avatarUrl ?? null
+        input.avatarUrl ?? null,
+        !(input.roles ?? []).includes("admin")
       ]
     );
 

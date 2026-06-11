@@ -41,8 +41,15 @@ export const resetPasswordSchema = z.object({
   })
 });
 
+export const changePasswordSchema = z.object({
+  body: z.object({
+    password: strongPassword
+  })
+});
+
 export type LoginInput = z.infer<typeof loginSchema>["body"];
 export type RefreshInput = z.infer<typeof refreshSchema>["body"];
 export type LogoutInput = z.infer<typeof logoutSchema>["body"];
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>["body"];
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>["body"];
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>["body"];

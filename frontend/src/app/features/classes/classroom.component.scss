@@ -1,0 +1,142 @@
+:host {
+  display: block;
+  min-height: calc(100dvh - 136px);
+}
+
+.classroom-shell {
+  display: grid;
+  gap: 18px;
+}
+
+.classroom-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.classroom-header h1 {
+  margin: 0;
+  font-size: clamp(28px, 3vw, 40px);
+}
+
+.classroom-header p:last-child {
+  margin: 6px 0 0;
+  color: var(--color-muted);
+}
+
+.classroom-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  gap: 18px;
+  align-items: stretch;
+}
+
+.meeting-panel {
+  position: relative;
+  min-height: min(720px, calc(100dvh - 210px));
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 18px;
+  background: #0f172a;
+}
+
+.zoom-root {
+  width: 100%;
+  height: 100%;
+  min-height: inherit;
+  background: #111827;
+}
+
+.zoom-root :global(.meeting-client),
+.zoom-root :global(.meeting-client-inner),
+.zoom-root :global(.meeting-app),
+.zoom-root :global(.meeting-app__meeting),
+.zoom-root :global(.video-layout),
+.zoom-root :global(.video-avatar__avatar),
+.zoom-root :global(.gallery-video-container__main-view),
+.zoom-root :global(.speaker-active-container__main-view) {
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 100% !important;
+  min-height: 100% !important;
+}
+
+.zoom-root.is-hidden {
+  display: none;
+}
+
+.meeting-state {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 12px;
+  padding: 24px;
+  color: #fff;
+  text-align: center;
+  background: rgba(15, 23, 42, 0.9);
+}
+
+.meeting-state p {
+  max-width: 520px;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.class-side-panel {
+  display: grid;
+  align-content: start;
+  gap: 18px;
+}
+
+.room-detail {
+  display: grid;
+  gap: 4px;
+  border-bottom: 1px solid var(--color-border-soft);
+  padding: 14px 18px;
+}
+
+.room-detail span {
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.attendance-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 18px;
+}
+
+.notes-label {
+  display: grid;
+  gap: 8px;
+  padding: 0 18px 18px;
+  font-weight: 800;
+}
+
+@media (max-width: 991.98px) {
+  .classroom-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .meeting-panel {
+    min-height: 72dvh;
+  }
+}
+
+@media (max-width: 560px) {
+  .classroom-header {
+    display: grid;
+  }
+
+  .meeting-panel {
+    min-height: 68dvh;
+    border-radius: 12px;
+  }
+}

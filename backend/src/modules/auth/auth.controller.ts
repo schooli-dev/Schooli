@@ -47,6 +47,18 @@ export const resetPassword: RequestHandler = asyncHandler(async (req, res) => {
   });
 });
 
+export const changePassword: RequestHandler = asyncHandler(async (req, res) => {
+  if (!req.user) {
+    throw new ApiError(401, "Authentication required", "UNAUTHORIZED");
+  }
+
+  await authService.changePassword(req.user.id, req.body);
+
+  sendSuccess(res, {
+    message: "Password changed successfully"
+  });
+});
+
 export const me: RequestHandler = asyncHandler(async (req, res) => {
   if (!req.user) {
     throw new ApiError(401, "Authentication required", "UNAUTHORIZED");

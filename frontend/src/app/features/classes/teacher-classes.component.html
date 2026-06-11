@@ -1,0 +1,556 @@
+<div class="teacher-classes-page w-100 overflow-hidden">
+
+  <!-- Header -->
+  <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-start gap-3 mb-4">
+    <div class="min-w-0">
+      <p class="section-kicker text-uppercase fw-bold small mb-2">Teacher Classes</p>
+      <h1 class="fw-bold mb-2 page-title">My Classes</h1>
+      <p class="text-muted mb-0 page-subtitle">
+        View, join, and manage your scheduled teaching sessions.
+      </p>
+    </div>
+
+    <button class="btn btn-outline-primary fw-bold d-inline-flex align-items-center justify-content-center gap-2" type="button">
+      <i class="bi bi-download"></i>
+      Export
+    </button>
+  </div>
+
+  <!-- Metrics -->
+  <section class="row g-3 mb-4">
+    <div class="col-12 col-sm-6 col-xl">
+      <article class="card h-100 border metric-card-modern active-metric">
+        <div class="card-body">
+          <span class="icon-box bg-primary-subtle text-primary mb-3">
+            <i class="bi bi-calendar-day"></i>
+          </span>
+          <p class="small fw-bold text-muted mb-2">Today's Classes</p>
+          <h3 class="fw-bold mb-1">{{ todayCount() }}</h3>
+          <p class="small text-primary fw-semibold mb-0">Scheduled today</p>
+        </div>
+      </article>
+    </div>
+
+    <div class="col-12 col-sm-6 col-xl">
+      <article class="card h-100 border metric-card-modern">
+        <div class="card-body">
+          <span class="icon-box bg-success-subtle text-success mb-3">
+            <i class="bi bi-clock"></i>
+          </span>
+          <p class="small fw-bold text-muted mb-2">Next Class</p>
+          <h3 class="fw-bold mb-1 metric-title">{{ nextClassTime() }}</h3>
+          <p class="small text-primary fw-semibold mb-0 text-truncate">{{ nextClassStatus() }}</p>
+        </div>
+      </article>
+    </div>
+
+    <div class="col-12 col-sm-6 col-xl">
+      <article class="card h-100 border metric-card-modern">
+        <div class="card-body">
+          <span class="icon-box bg-purple-subtle text-purple mb-3">
+            <i class="bi bi-calendar-event"></i>
+          </span>
+          <p class="small fw-bold text-muted mb-2">Upcoming Classes</p>
+          <h3 class="fw-bold mb-1">{{ upcomingCount() }}</h3>
+          <p class="small text-primary fw-semibold mb-0">Future sessions</p>
+        </div>
+      </article>
+    </div>
+
+    <div class="col-12 col-sm-6 col-xl">
+      <article class="card h-100 border metric-card-modern">
+        <div class="card-body">
+          <span class="icon-box bg-danger-subtle text-danger mb-3">
+            <i class="bi bi-exclamation-circle"></i>
+          </span>
+          <p class="small fw-bold text-muted mb-2">Pending Attendance</p>
+          <h3 class="fw-bold mb-1 text-danger">{{ pendingAttendanceCount() }}</h3>
+          <p class="small text-danger fw-semibold mb-0">Needs update</p>
+        </div>
+      </article>
+    </div>
+
+    <div class="col-12 col-sm-6 col-xl">
+      <article class="card h-100 border metric-card-modern">
+        <div class="card-body">
+          <span class="icon-box bg-warning-subtle text-warning-emphasis mb-3">
+            <i class="bi bi-check2-circle"></i>
+          </span>
+          <p class="small fw-bold text-muted mb-2">Completed</p>
+          <h3 class="fw-bold mb-1">{{ completedCount() }}</h3>
+          <p class="small text-primary fw-semibold mb-0">Finished sessions</p>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <!-- Main Layout -->
+  <section class="row g-4">
+
+    <!-- Left Column -->
+    <div class="col-12 col-xl-8">
+
+      <!-- Filters -->
+      <article class="card border rounded-4 overflow-hidden mb-4">
+        <div class="card-body p-3 p-md-4">
+
+          <!-- Tabs -->
+          <div class="tabs-scroll d-flex gap-2 overflow-auto pb-2 mb-3">
+            @for (tab of tabs; track tab.key) {
+              <button
+                class="btn tab-btn d-inline-flex align-items-center gap-2 rounded-pill fw-bold"
+                type="button"
+                [class.btn-primary]="activeTab() === tab.key"
+                [class.btn-light]="activeTab() !== tab.key"
+                (click)="setActiveTab(tab.key)"
+              >
+                <span>{{ tab.label }}</span>
+                <span
+                  class="badge rounded-pill"
+                  [class.text-bg-light]="activeTab() === tab.key"
+                  [class.text-bg-secondary]="activeTab() !== tab.key"
+                >
+                  {{ tabCount(tab.key) }}
+                </span>
+              </button>
+            }
+          </div>
+
+          <!-- Filter Controls -->
+          <div class="row g-3">
+            <div class="col-12 col-lg">
+              <div class="input-group">
+                <span class="input-group-text">
+                  <i class="bi bi-search"></i>
+                </span>
+
+                <input
+                  class="form-control"
+                  placeholder="Search student or class..."
+                  [ngModel]="searchText()"
+                  (ngModelChange)="searchText.set($event)"
+                />
+              </div>
+            </div>
+
+            <div class="col-12 col-lg-4">
+              <select
+                class="form-select"
+                [ngModel]="activeTab()"
+                (ngModelChange)="setActiveTab($event)"
+              >
+                @for (tab of tabs; track tab.key) {
+                  <option [ngValue]="tab.key">{{ tab.label }}</option>
+                }
+              </select>
+            </div>
+
+            <div class="col-12 col-lg-auto">
+              <button
+                class="btn btn-outline-secondary w-100 d-inline-flex align-items-center justify-content-center gap-2 fw-bold"
+                type="button"
+                (click)="clearFilters()"
+              >
+                <i class="bi bi-x-circle"></i>
+                Clear filters
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </article>
+
+      @if (apiWarning()) {
+        <div class="alert alert-warning d-flex align-items-start gap-2 mb-4" role="alert">
+          <i class="bi bi-exclamation-triangle-fill flex-shrink-0"></i>
+          <span>{{ apiWarning() }}</span>
+        </div>
+      }
+
+      <!-- Desktop Table -->
+      <article class="card border rounded-4 overflow-hidden d-none d-lg-block">
+        <div class="table-responsive">
+          <table class="table align-middle mb-0 teacher-class-table">
+            <thead>
+              <tr>
+                <th>Class</th>
+                <th>Student</th>
+                <th>Schedule</th>
+                <th>Status</th>
+                <th>Attendance</th>
+                <th>Zoom</th>
+                <th class="text-end">Actions</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              @for (item of pagedClasses(); track item.id) {
+                <tr>
+                  <td>
+                    <div class="d-flex align-items-center gap-3">
+                      <span class="class-avatar">
+                        <i class="bi bi-camera-video"></i>
+                      </span>
+
+                      <div class="min-w-0">
+                        <strong class="d-block text-truncate">{{ item.title }}</strong>
+                        <span class="d-block text-muted small">Session #{{ item.id.slice(0, 8) }}</span>
+                      </div>
+                    </div>
+                  </td>
+
+                  <td>
+                    <span class="person-cell">
+                      <i class="bi bi-person"></i>
+                      {{ studentName(item) }}
+                    </span>
+                  </td>
+
+                  <td>
+                    <div class="date-cell">
+                      <strong>{{ item.startTime | date: 'MMM d' }}</strong>
+                      <span>{{ item.startTime | date: 'hh:mm a' }} - {{ item.endTime | date: 'hh:mm a' }}</span>
+                      <small>{{ item.durationMinutes }} min</small>
+                    </div>
+                  </td>
+
+                  <td>
+                    <span
+                      class="status-chip"
+                      [class.status-live]="item.status === 'live'"
+                      [class.status-success]="item.status === 'completed'"
+                      [class.status-danger]="item.status === 'cancelled'"
+                    >
+                      {{ item.status }}
+                    </span>
+                  </td>
+
+                  <td>
+                    <strong
+                      class="attendance-text"
+                      [class.text-danger]="attendance(item) === 'pending'"
+                      [class.text-success]="attendance(item).toLowerCase() === 'present'"
+                    >
+                      {{ attendance(item) }}
+                    </strong>
+                  </td>
+
+                  <td>
+                    <span class="zoom-chip">
+                      <i class="bi bi-camera-video"></i>
+                      {{ item.zoomMeeting?.creationStatus ?? 'pending' }}
+                    </span>
+                  </td>
+
+                  <td class="text-end">
+                    <div class="action-group">
+                      <button
+                        class="btn btn-light action-btn"
+                        type="button"
+                        title="Join class"
+                        aria-label="Join class"
+                        [disabled]="!canJoin(item)"
+                        (click)="joinClass(item)"
+                      >
+                        <i class="bi bi-box-arrow-in-right"></i>
+                      </button>
+
+                      <button
+                        class="btn btn-light action-btn"
+                        type="button"
+                        title="Class details"
+                        aria-label="Class details"
+                        (click)="openDrawer(item)"
+                      >
+                        <i class="bi bi-eye"></i>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="7">
+                    <div class="empty-state">
+                      <i class="bi bi-calendar2-x"></i>
+                      <strong>No classes found</strong>
+                      <span>No classes found for this filter.</span>
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+      <!-- Mobile Cards -->
+      <div class="d-grid gap-3 d-lg-none">
+        @for (item of pagedClasses(); track item.id) {
+          <article class="card border rounded-4 class-card-modern">
+            <div class="card-body p-3">
+
+              <div class="d-flex align-items-start gap-3">
+                <span class="class-avatar">
+                  <i class="bi bi-camera-video"></i>
+                </span>
+
+                <div class="min-w-0 flex-grow-1">
+                  <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                    <span
+                      class="status-chip"
+                      [class.status-live]="item.status === 'live'"
+                      [class.status-success]="item.status === 'completed'"
+                      [class.status-danger]="item.status === 'cancelled'"
+                    >
+                      {{ item.status }}
+                    </span>
+
+                    <span class="small text-muted">#{{ item.id.slice(0, 8) }}</span>
+                  </div>
+
+                  <h2 class="h6 fw-bold mb-2 class-title">{{ item.title }}</h2>
+
+                  <div class="mobile-meta">
+                    <span>
+                      <i class="bi bi-person"></i>
+                      {{ studentName(item) }}
+                    </span>
+
+                    <span>
+                      <i class="bi bi-calendar-event"></i>
+                      {{ item.startTime | date: 'MMM d, hh:mm a' }}
+                    </span>
+
+                    <span>
+                      <i class="bi bi-hourglass-split"></i>
+                      {{ item.durationMinutes }} min
+                    </span>
+
+                    <span>
+                      <i class="bi bi-person-check"></i>
+                      Attendance: {{ attendance(item) }}
+                    </span>
+
+                    <span>
+                      <i class="bi bi-camera-video"></i>
+                      Zoom: {{ item.zoomMeeting?.creationStatus ?? 'pending' }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mobile-actions mt-3">
+                <button
+                  class="btn btn-primary btn-sm fw-bold"
+                  type="button"
+                  [disabled]="!canJoin(item)"
+                  (click)="joinClass(item)"
+                >
+                  <i class="bi bi-box-arrow-in-right me-1"></i>
+                  Join
+                </button>
+
+                <button
+                  class="btn btn-outline-secondary btn-sm fw-bold"
+                  type="button"
+                  (click)="openDrawer(item)"
+                >
+                  <i class="bi bi-eye me-1"></i>
+                  Details
+                </button>
+              </div>
+
+            </div>
+          </article>
+        } @empty {
+          <article class="empty-state">
+            <i class="bi bi-calendar2-x"></i>
+            <strong>No classes found</strong>
+            <span>No classes found for this filter.</span>
+          </article>
+        }
+      </div>
+
+      <!-- Footer / Pagination -->
+      <div class="d-flex flex-column flex-md-row gap-3 justify-content-between align-items-md-center mt-4">
+        <span class="small text-muted">Showing {{ filteredClasses().length }} class(es)</span>
+
+        <nav aria-label="Teacher classes pagination">
+          <ul class="pagination pagination-sm mb-0 flex-wrap">
+            <li class="page-item" [class.disabled]="currentPage() === 1">
+              <button class="page-link fw-bold" type="button" (click)="previousPage()">Prev</button>
+            </li>
+
+            @for (page of pageNumbers(); track page) {
+              <li class="page-item" [class.active]="currentPage() === page">
+                <button class="page-link fw-bold" type="button" (click)="setPage(page)">{{ page }}</button>
+              </li>
+            }
+
+            <li class="page-item" [class.disabled]="currentPage() === totalPages()">
+              <button class="page-link fw-bold" type="button" (click)="nextPage()">Next</button>
+            </li>
+          </ul>
+        </nav>
+      </div>
+
+    </div>
+
+    <!-- Right Column -->
+    <aside class="col-12 col-xl-4 d-grid gap-4 align-content-start">
+
+      <!-- Next Class Card -->
+      <article class="teacher-next-card position-relative overflow-hidden rounded-4 p-4 text-white">
+        <div class="position-relative z-1">
+          <span class="badge rounded-pill bg-white bg-opacity-25 text-white px-3 py-2 mb-4">
+            <i class="bi bi-broadcast me-1"></i>
+            {{ nextClassStatus() === 'live' ? 'Live now' : 'Next class' }}
+          </span>
+
+          <h2 class="fw-bold mb-2">{{ nextClassTime() }}</h2>
+          <p class="text-white-75 mb-4">{{ nextClassSummary() }}</p>
+
+          @if (nextClass()) {
+            <button
+              class="btn btn-light text-primary fw-bold w-100"
+              type="button"
+              [disabled]="!canJoin(nextClass()!)"
+              (click)="joinClass(nextClass()!)"
+            >
+              <i class="bi bi-camera-video me-2"></i>
+              Join Next Class
+            </button>
+          }
+        </div>
+      </article>
+
+      <!-- Pending Actions -->
+      <article class="card border rounded-4 overflow-hidden">
+        <div class="card-header bg-white p-3 p-md-4">
+          <h2 class="h5 fw-bold mb-1">Pending Actions</h2>
+          <p class="small text-muted mb-0">Items that need your attention</p>
+        </div>
+
+        <div class="card-body p-3 p-md-4">
+          <div class="d-grid gap-3">
+            <div class="pending-action-card d-flex align-items-center gap-3 border rounded-4 p-3">
+              <span class="icon-box bg-danger-subtle text-danger flex-shrink-0">
+                <i class="bi bi-person-check"></i>
+              </span>
+
+              <div class="min-w-0">
+                <strong class="d-block">Mark attendance</strong>
+                <span class="small text-muted">For {{ pendingAttendanceCount() }} class(es)</span>
+              </div>
+            </div>
+
+            <div class="pending-action-card d-flex align-items-center gap-3 border rounded-4 p-3">
+              <span class="icon-box bg-primary-subtle text-primary flex-shrink-0">
+                <i class="bi bi-journal-text"></i>
+              </span>
+
+              <div class="min-w-0">
+                <strong class="d-block">Review lessons</strong>
+                <span class="small text-muted">Check upcoming sessions before joining</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+    </aside>
+
+  </section>
+</div>
+
+<!-- Details Drawer -->
+@if (drawerOpen() && selectedClass()) {
+  <section class="teacher-drawer-backdrop" (click)="closeDrawer()"></section>
+
+  <aside class="teacher-drawer">
+    <header class="d-flex align-items-start justify-content-between gap-3 mb-4">
+      <div class="d-flex align-items-start gap-3 min-w-0">
+        <span class="icon-box icon-box-lg bg-primary-subtle text-primary flex-shrink-0">
+          <i class="bi bi-camera-video"></i>
+        </span>
+
+        <div class="min-w-0">
+          <p class="section-kicker text-uppercase fw-bold small mb-1">Class Details</p>
+          <h2 class="h4 fw-bold mb-0 text-truncate">{{ selectedClass()!.title }}</h2>
+        </div>
+      </div>
+
+      <button class="btn-close" type="button" aria-label="Close" (click)="closeDrawer()"></button>
+    </header>
+
+    <div class="student-strip d-flex align-items-center gap-3 rounded-4 p-3 mb-3">
+      <span class="drawer-avatar">{{ initials(studentName(selectedClass()!)) }}</span>
+
+      <div class="min-w-0">
+        <strong class="d-block text-truncate">{{ studentName(selectedClass()!) }}</strong>
+        <p class="small text-muted mb-0 text-truncate">{{ selectedClass()!.title }}</p>
+      </div>
+    </div>
+
+    <button
+      class="btn btn-primary btn-lg w-100 fw-bold d-inline-flex align-items-center justify-content-center gap-2 mb-3"
+      type="button"
+      [disabled]="!canJoin(selectedClass()!)"
+      (click)="joinClass(selectedClass()!)"
+    >
+      <i class="bi bi-camera-video"></i>
+      Join Zoom Meeting
+    </button>
+
+    <div class="detail-grid mb-3">
+      <div class="detail-box">
+        <span>Schedule</span>
+        <strong>{{ selectedClass()!.startTime | date: 'MMM d, hh:mm a' }}</strong>
+      </div>
+
+      <div class="detail-box">
+        <span>Duration</span>
+        <strong>{{ selectedClass()!.durationMinutes }} min</strong>
+      </div>
+
+      <div class="detail-box">
+        <span>Status</span>
+        <strong>{{ selectedClass()!.status }}</strong>
+      </div>
+
+      <div class="detail-box">
+        <span>Zoom</span>
+        <strong>{{ selectedClass()!.zoomMeeting?.creationStatus ?? 'pending' }}</strong>
+      </div>
+    </div>
+
+    <div class="evidence-card rounded-4 p-3 mb-3">
+      <strong class="d-block mb-2">
+        <i class="bi bi-person-check me-2"></i>
+        Attendance Evidence
+      </strong>
+      <p class="mb-0 text-muted">
+        Current status:
+        <span class="fw-bold text-dark">{{ attendance(selectedClass()!) }}</span>
+      </p>
+    </div>
+
+    <label class="notes-box mb-3">
+      <span class="fw-bold d-block mb-2">
+        <i class="bi bi-journal-text me-2"></i>
+        Private Teacher Notes
+      </span>
+
+      <textarea
+        class="form-control"
+        rows="5"
+        placeholder="Add notes about progress in this session..."
+      ></textarea>
+    </label>
+
+    <button class="btn btn-outline-secondary fw-bold w-100">
+      <i class="bi bi-save me-2"></i>
+      Save Notes
+    </button>
+  </aside>
+}

@@ -1,0 +1,918 @@
+<div class="admin-users-page">
+
+  <!-- Header -->
+  <div class="page-heading row align-items-start mb-4">
+    <div>
+      <span class="section-kicker">ADMIN PANEL</span>
+      <h1>User Management</h1>
+      <p>Manage users, roles, access, availability, and account status from one place.</p>
+    </div>
+
+    <div class="heading-actions mt-3 mt-lg-0">
+      <button class="btn btn-outline-secondary admin-btn" type="button">
+        <i class="bi bi-download"></i>
+        <span>Export</span>
+      </button>
+
+      <button class="btn btn-primary admin-btn" type="button" (click)="openCreateDialog()">
+        <i class="bi bi-person-plus"></i>
+        <span>Create User</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Metric Cards -->
+  <section class="row g-3 mb-4">
+    <div class="col-6 col-md-4 col-xl-2" *ngFor="let card of metricCards()">
+      <article class="user-metric h-100">
+        <div class="metric-top">
+          <span class="metric-icon" [class]="card.tone">
+            @if (card.icon === 'users') {
+              <i class="bi bi-people"></i>
+            } @else if (card.icon === 'active') {
+              <i class="bi bi-person-check"></i>
+            } @else if (card.icon === 'teacher') {
+              <i class="bi bi-mortarboard"></i>
+            } @else if (card.icon === 'student') {
+              <i class="bi bi-backpack"></i>
+            } @else if (card.icon === 'support') {
+              <i class="bi bi-headset"></i>
+            } @else {
+              <i class="bi bi-person-x"></i>
+            }
+          </span>
+        </div>
+
+        <span class="metric-label">{{ card.label }}</span>
+        <strong>{{ card.value | number }}</strong>
+      </article>
+    </div>
+  </section>
+
+  <!-- Filters -->
+  <section class="panel filter-panel mb-4">
+    <div class="row g-3 align-items-center">
+      <div class="col-12 col-md-6 col-xl-3">
+        <label class="filter-label">Role</label>
+        <div class="input-group">
+          <span class="input-group-text">
+            <i class="bi bi-funnel"></i>
+          </span>
+          <select class="form-select" [(ngModel)]="roleFilter" (ngModelChange)="loadUsers(1)">
+            <option value="">All Roles</option>
+            @for (role of roles(); track role.id) {
+              <option [value]="role.name">{{ titleCase(role.name) }}</option>
+            }
+          </select>
+        </div>
+      </div>
+
+      <div class="col-12 col-md-6 col-xl-3">
+        <label class="filter-label">Status</label>
+        <select class="form-select" [(ngModel)]="statusFilter" (ngModelChange)="loadUsers(1)">
+          <option value="">All Status</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+          <option value="suspended">Suspended</option>
+        </select>
+      </div>
+
+      <div class="col-12 col-md-6 col-xl-3">
+        <label class="filter-label">Created Date</label>
+        <select class="form-select" [(ngModel)]="dateFilter" (ngModelChange)="loadUsers(1)">
+          <option value="">All Dates</option>
+          <option value="7">Last 7 Days</option>
+          <option value="30">Last 30 Days</option>
+          <option value="90">Last 90 Days</option>
+        </select>
+      </div>
+
+      <div class="col-12 col-md-6 col-xl-3">
+        <label class="filter-label">Search</label>
+        <div class="input-group">
+          <span class="input-group-text">
+            <i class="bi bi-search"></i>
+          </span>
+          <input
+            class="form-control"
+            placeholder="Search users..."
+            [(ngModel)]="searchText"
+            (ngModelChange)="loadUsers(1)"
+          />
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Desktop Table -->
+  <section class="panel user-table-panel d-none d-lg-block">
+    <div class="table-responsive">
+      <table class="table align-middle mb-0 admin-table">
+        <thead>
+          <tr>
+            <th>User</th>
+            <th>Role</th>
+            <th>Status</th>
+            <th>Last Login</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          @for (user of users(); track user.id) {
+            <tr>
+              <td>
+                <div class="d-flex align-items-center gap-3">
+                  <span class="user-avatar">{{ initials(user) }}</span>
+                  <div class="min-w-0">
+                    <strong class="d-block text-truncate">{{ fullName(user) }}</strong>
+                    <span class="d-block text-truncate text-muted small">
+                      <i class="bi bi-envelope me-1"></i>
+                      {{ user.email }}
+                    </span>
+                  </div>
+                </div>
+              </td>
+
+              <td>
+                <span class="role-chip">
+                  <i class="bi bi-shield-check"></i>
+                  {{ primaryRole(user) }}
+                </span>
+              </td>
+
+              <td>
+                <span
+                  class="status-chip"
+                  [class.status-active]="user.status === 'active'"
+                  [class.status-inactive]="user.status !== 'active'"
+                >
+                  <span class="status-dot"></span>
+                  {{ titleCase(user.status) }}
+                </span>
+              </td>
+
+              <td>
+                <span class="text-muted">
+                  {{ user.lastLoginAt ? (user.lastLoginAt | date: 'MMM d, hh:mm a') : 'Never' }}
+                </span>
+              </td>
+
+              <td class="text-end">
+                <div class="action-group">
+                  <button
+                    class="btn btn-light action-btn"
+                    type="button"
+                    title="View user"
+                    aria-label="View user"
+                    (click)="openUser(user, 'view')"
+                  >
+                    <i class="bi bi-eye"></i>
+                  </button>
+
+                  <button
+                    class="btn btn-light action-btn"
+                    type="button"
+                    title="Edit user role"
+                    aria-label="Edit user role"
+                    [disabled]="isCurrentUser(user)"
+                    (click)="openUser(user, 'edit')"
+                  >
+                    <i class="bi bi-pencil-square"></i>
+                  </button>
+
+                  <button
+                    class="btn btn-light action-btn text-danger"
+                    type="button"
+                    title="Deactivate user"
+                    aria-label="Deactivate user"
+                    [disabled]="user.status !== 'active' || isCurrentUser(user)"
+                    (click)="askDeactivate(user)"
+                  >
+                    <i class="bi bi-person-slash"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="5">
+                <div class="empty-state">
+                  <i class="bi bi-people"></i>
+                  <strong>No users found</strong>
+                  <span>Try changing your filters or search keyword.</span>
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Mobile Cards -->
+  <section class="d-lg-none mobile-user-list">
+    @for (user of users(); track user.id) {
+      <article class="mobile-user-card">
+        <div class="d-flex align-items-start gap-3">
+          <span class="user-avatar">{{ initials(user) }}</span>
+
+          <div class="min-w-0 flex-grow-1">
+            <strong class="d-block text-truncate">{{ fullName(user) }}</strong>
+            <span class="d-block text-truncate text-muted small">{{ user.email }}</span>
+
+            <div class="d-flex flex-wrap gap-2 mt-3">
+              <span class="role-chip">
+                <i class="bi bi-shield-check"></i>
+                {{ primaryRole(user) }}
+              </span>
+
+              <span
+                class="status-chip"
+                [class.status-active]="user.status === 'active'"
+                [class.status-inactive]="user.status !== 'active'"
+              >
+                <span class="status-dot"></span>
+                {{ titleCase(user.status) }}
+              </span>
+            </div>
+
+            <div class="mobile-meta mt-3">
+              <i class="bi bi-clock-history"></i>
+              <span>
+                Last login:
+                {{ user.lastLoginAt ? (user.lastLoginAt | date: 'MMM d, hh:mm a') : 'Never' }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="mobile-actions mt-3">
+          <button class="btn btn-outline-primary btn-sm" type="button" (click)="openUser(user, 'view')">
+            <i class="bi bi-eye"></i>
+            View
+          </button>
+
+          <button
+            class="btn btn-outline-secondary btn-sm"
+            type="button"
+            [disabled]="isCurrentUser(user)"
+            (click)="openUser(user, 'edit')"
+          >
+            <i class="bi bi-pencil-square"></i>
+            Edit
+          </button>
+
+          <button
+            class="btn btn-outline-danger btn-sm"
+            type="button"
+            [disabled]="user.status !== 'active' || isCurrentUser(user)"
+            (click)="askDeactivate(user)"
+          >
+            <i class="bi bi-person-slash"></i>
+            Deactivate
+          </button>
+        </div>
+      </article>
+    } @empty {
+      <div class="empty-state mobile-empty">
+        <i class="bi bi-people"></i>
+        <strong>No users found</strong>
+        <span>Try changing your filters or search keyword.</span>
+      </div>
+    }
+  </section>
+
+  <!-- Pagination -->
+  <section class="panel pagination-panel mt-3">
+    <div class="d-flex flex-column flex-md-row gap-3 align-items-md-center justify-content-between">
+      <span class="text-muted small">
+        Showing page {{ pagination().page }} of {{ pagination().totalPages || 1 }}
+        · {{ pagination().total | number }} users
+      </span>
+
+      <nav aria-label="Users pagination">
+        <ul class="pagination pagination-sm mb-0 flex-wrap">
+          <li class="page-item" [class.disabled]="pagination().page <= 1">
+            <button class="page-link" type="button" (click)="loadUsers(pagination().page - 1)">
+              Previous
+            </button>
+          </li>
+
+          @for (page of pageNumbers(); track page) {
+            <li class="page-item" [class.active]="page === pagination().page">
+              <button class="page-link" type="button" (click)="loadUsers(page)">
+                {{ page }}
+              </button>
+            </li>
+          }
+
+          <li class="page-item" [class.disabled]="pagination().page >= pagination().totalPages">
+            <button class="page-link" type="button" (click)="loadUsers(pagination().page + 1)">
+              Next
+            </button>
+          </li>
+        </ul>
+      </nav>
+    </div>
+  </section>
+</div>
+
+<!-- View/Edit Dialog -->
+@if (dialogOpen() && selectedUser()) {
+  <section class="dialog-backdrop">
+    <div class="user-dialog user-profile-dialog shadow-lg">
+
+      <header class="dialog-header profile-dialog-header">
+        <div class="profile-hero">
+          <span class="user-avatar profile-avatar-xl">{{ initials(selectedUser()!) }}</span>
+
+          <div class="profile-hero-content min-w-0">
+            <div class="profile-title-row">
+              <div class="min-w-0">
+                <span class="profile-kicker">
+                  {{ dialogMode() === 'edit' ? 'MANAGE USER ACCESS' : 'USER PROFILE' }}
+                </span>
+
+                <h2 class="profile-title text-truncate">
+                  {{ fullName(selectedUser()!) }}
+                </h2>
+              </div>
+
+              <span
+                class="status-chip profile-status"
+                [class.status-active]="selectedUser()!.status === 'active'"
+                [class.status-inactive]="selectedUser()!.status !== 'active'"
+              >
+                <span class="status-dot"></span>
+                {{ titleCase(selectedUser()!.status) }}
+              </span>
+            </div>
+
+            <div class="profile-contact-row">
+              <span class="profile-chip text-truncate">
+                <i class="bi bi-envelope"></i>
+                {{ selectedUser()!.email }}
+              </span>
+
+              <span class="profile-chip">
+                <i class="bi bi-telephone"></i>
+                {{ selectedUser()!.phone ?? 'Phone not set' }}
+              </span>
+
+              <span class="profile-chip role-soft-chip">
+                <i class="bi bi-shield-check"></i>
+                {{ primaryRole(selectedUser()!) }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <button class="btn-close profile-close" type="button" aria-label="Close" (click)="closeDialog()"></button>
+      </header>
+
+      <ul class="nav nav-pills dialog-tabs profile-tabs">
+        <li class="nav-item">
+          <button
+            class="nav-link"
+            [class.active]="dialogTab() === 'details'"
+            type="button"
+            (click)="dialogTab.set('details')"
+          >
+            <i class="bi bi-person-lines-fill"></i>
+            Details
+          </button>
+        </li>
+
+        <li class="nav-item">
+          <button
+            class="nav-link"
+            [class.active]="dialogTab() === 'roles'"
+            type="button"
+            (click)="dialogTab.set('roles')"
+          >
+            <i class="bi bi-shield-lock"></i>
+            Roles
+          </button>
+        </li>
+      </ul>
+
+      <div class="dialog-body profile-dialog-body">
+        @if (dialogTab() === 'details') {
+          <section class="profile-overview-grid">
+            <article class="insight-card primary">
+              <span class="insight-icon"><i class="bi bi-shield-check"></i></span>
+              <span>Primary Role</span>
+              <strong>{{ primaryRole(selectedUser()!) }}</strong>
+            </article>
+
+            <article class="insight-card">
+              <span class="insight-icon green"><i class="bi bi-person-check"></i></span>
+              <span>Account Status</span>
+              <strong>{{ titleCase(selectedUser()!.status) }}</strong>
+            </article>
+
+            <article class="insight-card">
+              <span class="insight-icon purple"><i class="bi bi-calendar-plus"></i></span>
+              <span>Created On</span>
+              <strong>{{ selectedUser()!.createdAt | date: 'MMM d, y' }}</strong>
+            </article>
+
+            <article class="insight-card">
+              <span class="insight-icon orange"><i class="bi bi-clock-history"></i></span>
+              <span>Last Login</span>
+              <strong>{{ selectedUser()!.lastLoginAt ? (selectedUser()!.lastLoginAt | date: 'MMM d, hh:mm a') : 'Never' }}</strong>
+            </article>
+          </section>
+
+          <section class="profile-section-card mt-3">
+            <div class="profile-section-title">
+              <span><i class="bi bi-person-vcard"></i></span>
+              <div>
+                <strong>Personal Information</strong>
+                <small>Basic identity and contact details</small>
+              </div>
+            </div>
+
+            <div class="info-grid mt-3">
+              <article class="info-tile">
+                <span>Full Name</span>
+                <strong>{{ fullName(selectedUser()!) }}</strong>
+              </article>
+
+              <article class="info-tile">
+                <span>Username</span>
+                <strong>{{ selectedUser()!.username ?? 'Not set' }}</strong>
+              </article>
+
+              <article class="info-tile wide">
+                <span>Email Address</span>
+                <strong class="text-truncate">
+                  <i class="bi bi-envelope me-1"></i>
+                  {{ selectedUser()!.email }}
+                </strong>
+              </article>
+
+              <article class="info-tile">
+                <span>Phone Number</span>
+                <strong>
+                  <i class="bi bi-telephone me-1"></i>
+                  {{ selectedUser()!.phone ?? 'Not set' }}
+                </strong>
+              </article>
+
+              <article class="info-tile">
+                <span>Assigned Roles</span>
+                <strong>{{ selectedUser()!.roles.length || 0 }}</strong>
+              </article>
+            </div>
+          </section>
+
+          @if (selectedUser()!.teacherAvailability) {
+            <section class="profile-section-card mt-3 teacher-section-card">
+              <div class="profile-section-title">
+                <span><i class="bi bi-calendar-week"></i></span>
+                <div>
+                  <strong>Teacher Availability</strong>
+                  <small>Weekly working hours and blocked dates</small>
+                </div>
+              </div>
+
+              <div class="availability-summary mt-3">
+                <article>
+                  <i class="bi bi-calendar-check"></i>
+                  <div>
+                    <span>Weekly Slots</span>
+                    <strong>{{ selectedUser()!.teacherAvailability!.availability.length }}</strong>
+                  </div>
+                </article>
+
+                <article>
+                  <i class="bi bi-calendar-x"></i>
+                  <div>
+                    <span>Unavailable Dates</span>
+                    <strong>{{ selectedUser()!.teacherAvailability!.unavailableDates.length }}</strong>
+                  </div>
+                </article>
+              </div>
+
+              <div class="teacher-slot-grid mt-3">
+                @for (slot of selectedUser()!.teacherAvailability!.availability; track slot.id) {
+                  <article class="teacher-slot-card">
+                    <span class="slot-day">{{ titleCase(slot.dayOfWeek) }}</span>
+                    <strong>
+                      <i class="bi bi-clock"></i>
+                      {{ slot.startTime }} - {{ slot.endTime }}
+                    </strong>
+                  </article>
+                } @empty {
+                  <article class="soft-empty-card">
+                    <i class="bi bi-calendar-minus"></i>
+                    <strong>No working hours configured.</strong>
+                  </article>
+                }
+              </div>
+
+              <div class="profile-subtitle mt-4">
+                <i class="bi bi-calendar-x"></i>
+                Unavailable Dates
+              </div>
+
+              <div class="unavailable-grid mt-2">
+                @for (block of selectedUser()!.teacherAvailability!.unavailableDates; track block.id) {
+                  <article class="unavailable-card">
+                    <strong>{{ block.unavailableDate | date: 'MMM d, y' }}</strong>
+                    <span>{{ block.reason || 'No reason added' }}</span>
+                  </article>
+                } @empty {
+                  <article class="soft-empty-card compact">
+                    <i class="bi bi-check2-circle"></i>
+                    <strong>No unavailable dates configured.</strong>
+                  </article>
+                }
+              </div>
+            </section>
+          }
+
+          @if (selectedUser()!.supportStats) {
+            <section class="profile-section-card mt-3">
+              <div class="profile-section-title">
+                <span><i class="bi bi-headset"></i></span>
+                <div>
+                  <strong>Support Performance</strong>
+                  <small>Ticket ownership and resolution summary</small>
+                </div>
+              </div>
+
+              <div class="support-grid mt-3">
+                <article>
+                  <span>Tickets Assigned</span>
+                  <strong>{{ selectedUser()!.supportStats!.assignedTickets }}</strong>
+                </article>
+
+                <article>
+                  <span>Tickets Solved</span>
+                  <strong>{{ selectedUser()!.supportStats!.solvedTickets }}</strong>
+                </article>
+              </div>
+            </section>
+          }
+        } @else {
+          <section class="profile-section-card">
+            <div class="profile-section-title">
+              <span><i class="bi bi-shield-lock"></i></span>
+              <div>
+                <strong>Role Assignment</strong>
+                <small>{{ dialogMode() === 'view' ? 'View assigned access level' : 'Select one role for this user' }}</small>
+              </div>
+            </div>
+
+            <div class="role-list modern-role-list mt-3">
+              @for (role of roles(); track role.id) {
+                <label class="role-option modern-role-option">
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    [checked]="selectedRole() === role.name"
+                    [disabled]="dialogMode() === 'view' || role.name === 'admin'"
+                    (change)="selectRole(role.name)"
+                  />
+
+                  <span class="role-option-icon">
+                    <i class="bi" [class.bi-shield-lock]="role.name === 'admin'" [class.bi-shield-check]="role.name !== 'admin'"></i>
+                  </span>
+
+                  <span class="role-option-text min-w-0">
+                    <strong>{{ titleCase(role.name) }}</strong>
+                    @if (role.name === 'admin') {
+                      <small>Protected role</small>
+                    } @else {
+                      <small>Assignable role</small>
+                    }
+                  </span>
+                </label>
+              }
+            </div>
+          </section>
+        }
+      </div>
+
+      <footer class="dialog-footer profile-dialog-footer">
+        <button class="btn btn-outline-secondary" type="button" (click)="closeDialog()">
+          {{ dialogMode() === 'view' ? 'Close' : 'Cancel' }}
+        </button>
+
+        @if (dialogMode() === 'edit') {
+          <button
+            class="btn btn-primary"
+            type="button"
+            [disabled]="!selectedRole() || selectedRole() === 'admin' || saving()"
+            (click)="saveRole()"
+          >
+            @if (saving()) {
+              <span class="spinner-border spinner-border-sm me-2"></span>
+            }
+            Save Changes
+          </button>
+        }
+      </footer>
+    </div>
+  </section>
+}
+
+<!-- Create User Dialog -->
+@if (createDialogOpen()) {
+  <section class="dialog-backdrop">
+    <form class="user-dialog shadow-lg" #createFormRef="ngForm" (ngSubmit)="createUser()">
+
+      <header class="dialog-header">
+        <div>
+          <h2 class="h4 mb-1">Create User</h2>
+          <p class="text-muted mb-0">
+            Create students, teachers, or support users. Admin role is intentionally unavailable.
+          </p>
+        </div>
+
+        <button class="btn-close" type="button" aria-label="Close" (click)="closeCreateDialog()"></button>
+      </header>
+
+      <div class="dialog-body">
+        <div class="row g-3">
+
+          <div class="col-12 col-md-6">
+            <label class="form-label">First Name <span class="required">*</span></label>
+            <input
+              class="form-control"
+              name="firstName"
+              [(ngModel)]="createForm.firstName"
+              required
+              pattern="^[A-Za-z][A-Za-z\\s'-]*$"
+              #firstNameRef="ngModel"
+            />
+            @if (firstNameRef.invalid && firstNameRef.touched) {
+              <small class="field-error">Use letters, spaces, apostrophes, or hyphens only.</small>
+            }
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label">Last Name <span class="required">*</span></label>
+            <input
+              class="form-control"
+              name="lastName"
+              [(ngModel)]="createForm.lastName"
+              required
+              pattern="^[A-Za-z][A-Za-z\\s'-]*$"
+              #lastNameRef="ngModel"
+            />
+            @if (lastNameRef.invalid && lastNameRef.touched) {
+              <small class="field-error">Use letters, spaces, apostrophes, or hyphens only.</small>
+            }
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label">Username</label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="bi bi-person"></i></span>
+              <input
+                class="form-control"
+                name="username"
+                [(ngModel)]="createForm.username"
+                pattern="^[A-Za-z0-9._-]{3,50}$"
+                #usernameRef="ngModel"
+              />
+            </div>
+            @if (usernameRef.invalid && usernameRef.touched) {
+              <small class="field-error">Use 3-50 letters, numbers, dot, underscore, or hyphen only.</small>
+            }
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label">Email <span class="required">*</span></label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+              <input
+                class="form-control"
+                name="email"
+                type="email"
+                [(ngModel)]="createForm.email"
+                required
+                email
+                #emailRef="ngModel"
+              />
+            </div>
+            @if (emailRef.invalid && emailRef.touched) {
+              <small class="field-error">Enter a valid email address.</small>
+            }
+          </div>
+
+          <div class="col-12 col-md-5">
+            <label class="form-label">ISD Code <span class="required">*</span></label>
+            <select class="form-select" name="isdCode" [(ngModel)]="createForm.isdCode" required>
+              <option value="+91">+91 India</option>
+              <option value="+1">+1 USA/Canada</option>
+              <option value="+44">+44 UK</option>
+              <option value="+61">+61 Australia</option>
+              <option value="+971">+971 UAE</option>
+            </select>
+          </div>
+
+          <div class="col-12 col-md-7">
+            <label class="form-label">Phone Number <span class="required">*</span></label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="bi bi-telephone"></i></span>
+              <input
+                class="form-control"
+                name="phoneNumber"
+                [(ngModel)]="createForm.phoneNumber"
+                required
+                pattern="^[0-9]{6,15}$"
+                #phoneRef="ngModel"
+                placeholder="Digits only"
+              />
+            </div>
+            @if (phoneRef.invalid && phoneRef.touched) {
+              <small class="field-error">Phone number must be 6 to 15 digits.</small>
+            }
+          </div>
+
+          <div class="col-12">
+            <div class="form-check auto-password-card">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                name="autoPassword"
+                [(ngModel)]="createForm.autoGeneratePassword"
+                (ngModelChange)="handleAutoPasswordChange()"
+                id="autoPassword"
+              />
+              <label class="form-check-label" for="autoPassword">
+                Auto generate strong password
+              </label>
+            </div>
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label">Password <span class="required">*</span></label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="bi bi-key"></i></span>
+              <input
+                class="form-control"
+                name="password"
+                [type]="createForm.autoGeneratePassword ? 'text' : 'password'"
+                [(ngModel)]="createForm.password"
+                required
+                minlength="12"
+                [readonly]="createForm.autoGeneratePassword"
+                #passwordRef="ngModel"
+              />
+
+              @if (createForm.autoGeneratePassword) {
+                <button class="btn btn-outline-secondary" type="button" (click)="generatePassword()">
+                  <i class="bi bi-arrow-repeat"></i>
+                </button>
+              }
+            </div>
+
+            @if (!createForm.autoGeneratePassword) {
+              <small class="text-muted">Min 12 chars with uppercase, lowercase, number, and special character.</small>
+            }
+
+            @if ((passwordRef.invalid || !isStrongPassword()) && passwordRef.touched && !createForm.autoGeneratePassword) {
+              <small class="field-error">Password does not meet the strength rules.</small>
+            }
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label">Role <span class="required">*</span></label>
+            <select
+              class="form-select"
+              name="role"
+              [(ngModel)]="createForm.role"
+              (ngModelChange)="handleCreateRoleChange()"
+              required
+            >
+              <option value="">Select role</option>
+              @for (role of assignableRoles(); track role.id) {
+                <option [value]="role.name">{{ titleCase(role.name) }}</option>
+              }
+            </select>
+          </div>
+
+          @if (createForm.role === 'teacher') {
+            <div class="col-12">
+              <label class="form-label">Working Days <span class="required">*</span></label>
+              <div class="day-picker">
+                @for (day of workingDays; track day.key) {
+                  <label>
+                    <input
+                      type="checkbox"
+                      [checked]="createForm.availabilityDays.includes(day.key)"
+                      (change)="toggleAvailabilityDay(day.key)"
+                    />
+                    <span>{{ day.label }}</span>
+                  </label>
+                }
+              </div>
+            </div>
+
+            <div class="col-12 col-md-4">
+              <label class="form-label">Start Time <span class="required">*</span></label>
+              <input class="form-control" type="time" name="availabilityStart" [(ngModel)]="createForm.availabilityStartTime" required />
+            </div>
+
+            <div class="col-12 col-md-4">
+              <label class="form-label">End Time <span class="required">*</span></label>
+              <input class="form-control" type="time" name="availabilityEnd" [(ngModel)]="createForm.availabilityEndTime" required />
+            </div>
+
+            <div class="col-12 col-md-4">
+              <label class="form-label">Timezone <span class="required">*</span></label>
+              <select class="form-select" name="timezone" [(ngModel)]="createForm.timezone" required>
+                <option value="Asia/Kolkata">Asia/Kolkata</option>
+                <option value="UTC">UTC</option>
+                <option value="America/New_York">America/New_York</option>
+                <option value="Europe/London">Europe/London</option>
+              </select>
+            </div>
+          }
+
+          @if (createForm.role === 'student') {
+            <div class="col-12">
+              <div class="alert alert-info mb-0">
+                <i class="bi bi-info-circle me-2"></i>
+                Student-specific academic details will be attached through teacher-student assignments and class scheduling.
+              </div>
+            </div>
+          }
+
+          @if (createForm.role === 'support') {
+            <div class="col-12">
+              <div class="alert alert-info mb-0">
+                <i class="bi bi-info-circle me-2"></i>
+                Support ticket ownership is tracked automatically when tickets are assigned and resolved.
+              </div>
+            </div>
+          }
+
+          @if (createError()) {
+            <div class="col-12">
+              <div class="alert alert-danger mb-0">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                {{ createError() }}
+              </div>
+            </div>
+          }
+
+        </div>
+      </div>
+
+      <footer class="dialog-footer">
+        <button class="btn btn-outline-secondary" type="button" (click)="closeCreateDialog()">
+          Cancel
+        </button>
+
+        <button
+          class="btn btn-primary"
+          type="submit"
+          [disabled]="createFormRef.invalid || !isCreateFormValid() || saving()"
+        >
+          @if (saving()) {
+            <span class="spinner-border spinner-border-sm me-2"></span>
+          }
+          Create User
+        </button>
+      </footer>
+    </form>
+  </section>
+}
+
+<!-- Confirm Deactivate -->
+@if (confirmUser()) {
+  <section class="dialog-backdrop">
+    <div class="confirm-dialog shadow-lg">
+      <div class="confirm-icon">
+        <i class="bi bi-person-slash"></i>
+      </div>
+
+      <h2 class="h4">Deactivate user?</h2>
+
+      <p class="text-muted">
+        Are you sure you want to deactivate {{ fullName(confirmUser()!) }}?
+        They will no longer be active in the platform.
+      </p>
+
+      <div class="d-flex flex-column flex-sm-row justify-content-end gap-2">
+        <button class="btn btn-outline-secondary" type="button" (click)="confirmUser.set(null)">
+          Cancel
+        </button>
+
+        <button class="btn btn-danger" type="button" [disabled]="saving()" (click)="deactivateUser()">
+          @if (saving()) {
+            <span class="spinner-border spinner-border-sm me-2"></span>
+          }
+          Deactivate
+        </button>
+      </div>
+    </div>
+  </section>
+}

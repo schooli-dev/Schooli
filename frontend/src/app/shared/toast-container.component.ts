@@ -4,37 +4,8 @@ import { ToastService } from '../core/toast/toast.service';
 @Component({
   selector: 'app-toast-container',
   standalone: true,
-  template: `
-    <div class="toast-container position-fixed top-0 end-0 p-3">
-      @for (toast of toastService.toasts(); track toast.id) {
-        <div
-          class="toast show align-items-center border-0 shadow-lg"
-          [class.text-bg-success]="toast.tone === 'success'"
-          [class.text-bg-danger]="toast.tone === 'error'"
-          [class.text-bg-warning]="toast.tone === 'warning'"
-          [class.text-bg-primary]="toast.tone === 'info'"
-          role="alert"
-          aria-live="assertive"
-          aria-atomic="true"
-        >
-          <div class="d-flex">
-            <div class="toast-body">{{ toast.message }}</div>
-            <button type="button" class="btn-close btn-close-white me-2 m-auto" aria-label="Close" (click)="toastService.dismiss(toast.id)"></button>
-          </div>
-        </div>
-      }
-    </div>
-  `,
-  styles: `
-    :host {
-      position: relative;
-      z-index: 2000;
-    }
-
-    .toast-container {
-      z-index: 2000;
-    }
-  `
+  templateUrl: './toast-container.component.html',
+  styleUrl: './toast-container.component.scss'
 })
 export class ToastContainerComponent {
   protected readonly toastService = inject(ToastService);

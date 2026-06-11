@@ -1,0 +1,123 @@
+<div class="shell-layout">
+
+  <!-- Sidebar -->
+  <aside class="app-sidebar" [class.sidebar-open]="menuOpen()">
+    <div class="sidebar-brand">
+      <div class="brand-mark">S</div>
+
+      <div class="min-w-0">
+        <strong class="d-block text-truncate">Schooli</strong>
+        <span class="d-block text-uppercase">{{ roleLabel() }}</span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav" aria-label="Primary navigation">
+      @for (item of navItems(); track item.path) {
+        <a
+          class="sidebar-link"
+          [href]="item.path"
+          [class.is-active]="isActivePath(item.path)"
+          (click)="handleSidebarNavigation($event, item)"
+        >
+          <span class="nav-icon" aria-hidden="true">
+            <i class="bi" [ngClass]="iconClass(item.icon)"></i>
+          </span>
+
+          <span class="link-label text-truncate">{{ item.label }}</span>
+        </a>
+      }
+    </nav>
+
+    <div class="sidebar-footer">
+      <button class="sidebar-link" type="button" (click)="showComingSoon('Settings')">
+        <span class="nav-icon" aria-hidden="true">
+          <i class="bi bi-gear"></i>
+        </span>
+        <span class="link-label">Settings</span>
+      </button>
+
+      <button class="sidebar-link logout-link" type="button" (click)="logout()">
+        <span class="nav-icon" aria-hidden="true">
+          <i class="bi bi-box-arrow-right"></i>
+        </span>
+        <span class="link-label">Logout</span>
+      </button>
+    </div>
+  </aside>
+
+  @if (menuOpen()) {
+    <button class="sidebar-scrim" type="button" aria-label="Close menu" (click)="closeMenu()"></button>
+  }
+
+  <!-- Main Area -->
+  <main class="shell-main">
+
+    <!-- Topbar -->
+    <header class="app-topbar">
+
+      <div class="mobile-brand">
+        <button class="btn icon-only-btn" type="button" aria-label="Open menu" (click)="toggleMenu()">
+          <i class="bi bi-list"></i>
+        </button>
+
+        <div class="brand-mark mobile">S</div>
+
+        <strong class="text-truncate">Schooli</strong>
+      </div>
+
+      <label class="top-search">
+        <i class="bi bi-search"></i>
+        <input [placeholder]="searchPlaceholder()" />
+      </label>
+
+      <div class="topbar-actions">
+        <button class="avatar-btn" type="button" aria-label="Open profile menu" (click)="toggleProfile()">
+          {{ userInitials() }}
+        </button>
+
+        @if (profileOpen()) {
+          <section class="profile-menu shadow-lg">
+
+            <div class="profile-main">
+              <span class="profile-avatar">{{ userInitials() }}</span>
+
+              <div class="min-w-0">
+                <strong class="d-block text-truncate" [title]="fullName()">{{ fullName() }}</strong>
+                <span class="role-pill">{{ roleLabelShort() }}</span>
+              </div>
+            </div>
+
+            <div class="profile-info-row">
+              <span class="profile-info-icon">
+                <i class="bi bi-envelope"></i>
+              </span>
+              <span class="text-truncate" [title]="userEmail()">{{ userEmail() }}</span>
+            </div>
+
+            <div class="profile-info-row">
+              <span class="profile-info-icon">
+                <i class="bi bi-telephone"></i>
+              </span>
+              <span class="text-truncate">{{ userPhone() }}</span>
+            </div>
+
+            <button class="btn btn-outline-primary btn-sm fw-bold w-100" type="button">
+              <i class="bi bi-person-lines-fill me-1"></i>
+              View More
+            </button>
+
+            <button class="profile-logout" type="button" (click)="logout()">
+              <i class="bi bi-box-arrow-right"></i>
+              Logout
+            </button>
+          </section>
+        }
+      </div>
+    </header>
+
+    <section class="page-frame">
+      <router-outlet />
+    </section>
+
+  </main>
+</div>

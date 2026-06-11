@@ -1,0 +1,580 @@
+<div class="admin-roles-page">
+
+  <!-- Header -->
+  <div class="page-heading row align-items-start mb-4">
+    <div>
+      <span class="section-kicker">ADMIN PANEL</span>
+      <h1>Roles & Permissions</h1>
+      <p>Create roles, assign permissions, and control page access across the platform.</p>
+    </div>
+
+    <div class="heading-actions mt-3 mt-lg-0">
+      <button class="btn btn-outline-secondary admin-btn" type="button" (click)="loadAll()">
+        <i class="bi bi-arrow-clockwise"></i>
+        <span>Refresh</span>
+      </button>
+
+      <button class="btn btn-outline-secondary admin-btn" type="button">
+        <i class="bi bi-download"></i>
+        <span>Export</span>
+      </button>
+
+      <button class="btn btn-primary admin-btn" type="button" (click)="openCreate()">
+        <i class="bi bi-shield-plus"></i>
+        <span>Create Role</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Metric Cards -->
+  <section class="row g-3 mb-4">
+    <div class="col-6 col-md-4 col-xl">
+      <article class="role-metric h-100">
+        <span class="metric-icon blue">
+          <i class="bi bi-shield-lock"></i>
+        </span>
+        <span>Total Roles</span>
+        <strong>{{ roles().length }}</strong>
+      </article>
+    </div>
+
+    <div class="col-6 col-md-4 col-xl">
+      <article class="role-metric h-100">
+        <span class="metric-icon purple">
+          <i class="bi bi-shield-check"></i>
+        </span>
+        <span>System Roles</span>
+        <strong>{{ systemCount() }}</strong>
+      </article>
+    </div>
+
+    <div class="col-6 col-md-4 col-xl">
+      <article class="role-metric h-100">
+        <span class="metric-icon orange">
+          <i class="bi bi-shield-plus"></i>
+        </span>
+        <span>Custom Roles</span>
+        <strong>{{ customCount() }}</strong>
+      </article>
+    </div>
+
+    <div class="col-6 col-md-4 col-xl">
+      <article class="role-metric h-100">
+        <span class="metric-icon green">
+          <i class="bi bi-key"></i>
+        </span>
+        <span>Total Permissions</span>
+        <strong>{{ permissions().length }}</strong>
+      </article>
+    </div>
+
+    <div class="col-6 col-md-4 col-xl">
+      <article class="role-metric h-100">
+        <span class="metric-icon blue">
+          <i class="bi bi-people"></i>
+        </span>
+        <span>Users Assigned</span>
+        <strong>{{ totalUsersAssigned() | number }}</strong>
+      </article>
+    </div>
+  </section>
+
+  <!-- Filter Panel -->
+  <section class="panel role-filter-panel mb-4">
+    <div class="d-flex flex-column flex-xl-row gap-3 align-items-xl-center justify-content-between">
+      <div>
+        <h2 class="h4 mb-1">Role Management</h2>
+        <p class="text-muted mb-0">View system roles, manage custom roles, and review assigned permissions.</p>
+      </div>
+
+      <div class="role-filter-actions">
+        <div class="input-group">
+          <span class="input-group-text">
+            <i class="bi bi-search"></i>
+          </span>
+          <input
+            class="form-control"
+            placeholder="Search roles..."
+            [(ngModel)]="searchText"
+          />
+        </div>
+
+        <div class="input-group">
+          <span class="input-group-text">
+            <i class="bi bi-funnel"></i>
+          </span>
+          <select class="form-select" [(ngModel)]="typeFilter">
+            <option value="">All Types</option>
+            <option value="system">System</option>
+            <option value="custom">Custom</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Desktop Table -->
+  <section class="panel role-table-panel d-none d-lg-block">
+    <div class="table-responsive">
+      <table class="table align-middle mb-0 admin-table">
+        <thead>
+          <tr>
+            <th>Role Name</th>
+            <th>Description</th>
+            <th>Users</th>
+            <th>Permissions</th>
+            <th>Created</th>
+            <th class="text-end">Actions</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          @for (role of pagedRoles(); track role.id) {
+            <tr>
+              <td>
+                <div class="d-flex align-items-center gap-3">
+                  <span class="role-avatar" [class.custom]="!isSystem(role)">
+                    <i class="bi" [class.bi-shield-check]="isSystem(role)" [class.bi-shield-plus]="!isSystem(role)"></i>
+                  </span>
+
+                  <div class="min-w-0">
+                    <strong class="d-block text-truncate">{{ titleCase(role.name) }}</strong>
+                    <span class="role-kind" [class.custom]="!isSystem(role)">
+                      {{ isSystem(role) ? 'System Role' : 'Custom Role' }}
+                    </span>
+                  </div>
+                </div>
+              </td>
+
+              <td>
+                <span class="role-description text-muted">
+                  {{ role.description ?? 'No description' }}
+                </span>
+              </td>
+
+              <td>
+                <span class="data-chip">
+                  <i class="bi bi-people"></i>
+                  {{ role.usersAssigned | number }}
+                </span>
+              </td>
+
+              <td>
+                <span class="data-chip permission-chip">
+                  <i class="bi bi-key"></i>
+                  {{ role.permissions.length }}
+                </span>
+              </td>
+
+              <td>
+                <div class="date-cell">
+                  <strong>{{ role.createdAt | date: 'MMM d, y' }}</strong>
+                  <small>Updated: {{ role.updatedAt | date: 'MMM d' }}</small>
+                </div>
+              </td>
+
+              <td class="text-end">
+                <div class="action-group">
+                  <button
+                    class="btn btn-light action-btn"
+                    type="button"
+                    title="View role"
+                    aria-label="View role"
+                    (click)="openDrawer(role, 'view')"
+                  >
+                    <i class="bi bi-eye"></i>
+                  </button>
+
+                  <button
+                    class="btn btn-light action-btn"
+                    type="button"
+                    title="Edit role"
+                    aria-label="Edit role"
+                    [disabled]="role.name === 'admin'"
+                    (click)="openDrawer(role, 'edit')"
+                  >
+                    <i class="bi bi-pencil-square"></i>
+                  </button>
+
+                  <button
+                    class="btn btn-light action-btn danger"
+                    type="button"
+                    title="Delete role"
+                    aria-label="Delete role"
+                    [disabled]="role.name === 'admin'"
+                    (click)="deleteRole(role)"
+                  >
+                    <i class="bi bi-trash"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="6">
+                <div class="empty-state">
+                  <i class="bi bi-shield-lock"></i>
+                  <strong>No roles found</strong>
+                  <span>Try changing your search keyword or type filter.</span>
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Mobile Role Cards -->
+  <section class="d-lg-none mobile-role-list">
+    @for (role of pagedRoles(); track role.id) {
+      <article class="mobile-role-card">
+        <div class="d-flex align-items-start gap-3">
+          <span class="role-avatar" [class.custom]="!isSystem(role)">
+            <i class="bi" [class.bi-shield-check]="isSystem(role)" [class.bi-shield-plus]="!isSystem(role)"></i>
+          </span>
+
+          <div class="min-w-0 flex-grow-1">
+            <div class="d-flex align-items-start justify-content-between gap-2">
+              <div class="min-w-0">
+                <strong class="d-block text-truncate">{{ titleCase(role.name) }}</strong>
+                <span class="role-kind" [class.custom]="!isSystem(role)">
+                  {{ isSystem(role) ? 'System Role' : 'Custom Role' }}
+                </span>
+              </div>
+            </div>
+
+            <p class="text-muted small mt-3 mb-0">
+              {{ role.description ?? 'No description' }}
+            </p>
+
+            <div class="mobile-role-stats mt-3">
+              <span>
+                <i class="bi bi-people"></i>
+                {{ role.usersAssigned | number }} Users
+              </span>
+
+              <span>
+                <i class="bi bi-key"></i>
+                {{ role.permissions.length }} Perms
+              </span>
+
+              <span>
+                <i class="bi bi-calendar3"></i>
+                {{ role.createdAt | date: 'MMM d, y' }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="mobile-actions mt-3">
+          <button class="btn btn-outline-primary btn-sm" type="button" (click)="openDrawer(role, 'view')">
+            <i class="bi bi-eye"></i>
+            View
+          </button>
+
+          <button
+            class="btn btn-outline-secondary btn-sm"
+            type="button"
+            [disabled]="role.name === 'admin'"
+            (click)="openDrawer(role, 'edit')"
+          >
+            <i class="bi bi-pencil-square"></i>
+            Edit
+          </button>
+
+          <button
+            class="btn btn-outline-danger btn-sm"
+            type="button"
+            [disabled]="role.name === 'admin'"
+            (click)="deleteRole(role)"
+          >
+            <i class="bi bi-trash"></i>
+            Delete
+          </button>
+        </div>
+      </article>
+    } @empty {
+      <div class="empty-state mobile-empty">
+        <i class="bi bi-shield-lock"></i>
+        <strong>No roles found</strong>
+        <span>Try changing your search keyword or type filter.</span>
+      </div>
+    }
+  </section>
+
+  <!-- Pagination -->
+  <section class="panel pagination-panel mt-3">
+    <div class="d-flex flex-column flex-md-row gap-3 align-items-md-center justify-content-between">
+      <span class="text-muted small">
+        Showing {{ pagedRoles().length }} of {{ filteredRoles().length }} roles
+      </span>
+
+      <ul class="pagination pagination-sm mb-0 flex-wrap">
+        <li class="page-item" [class.disabled]="currentPage() === 1">
+          <button class="page-link" type="button" (click)="setPage(currentPage() - 1)">
+            Prev
+          </button>
+        </li>
+
+        @for (page of pageNumbers(); track page) {
+          <li class="page-item" [class.active]="page === currentPage()">
+            <button class="page-link" type="button" (click)="setPage(page)">
+              {{ page }}
+            </button>
+          </li>
+        }
+
+        <li class="page-item" [class.disabled]="currentPage() === totalPages()">
+          <button class="page-link" type="button" (click)="setPage(currentPage() + 1)">
+            Next
+          </button>
+        </li>
+      </ul>
+    </div>
+  </section>
+</div>
+
+<!-- Drawer -->
+@if (drawerOpen()) {
+  <section class="role-drawer-backdrop" (click)="closeDrawer()"></section>
+
+  <aside class="role-drawer">
+    <header class="drawer-header">
+      <div class="d-flex align-items-start gap-3 min-w-0">
+        <span class="drawer-icon">
+          @if (drawerMode() === 'create') {
+            <i class="bi bi-shield-plus"></i>
+          } @else if (drawerMode() === 'edit') {
+            <i class="bi bi-pencil-square"></i>
+          } @else {
+            <i class="bi bi-eye"></i>
+          }
+        </span>
+
+        <div class="min-w-0">
+          <h2>
+            {{ drawerMode() === 'create' ? 'Create Role' : (drawerMode() === 'edit' ? 'Edit Role' : 'View Role') }}
+          </h2>
+          <p class="text-muted mb-0">Configure role information and permissions.</p>
+        </div>
+      </div>
+
+      <button class="btn-close" type="button" aria-label="Close" (click)="closeDrawer()"></button>
+    </header>
+
+    <ul class="nav nav-pills drawer-tabs">
+      <li class="nav-item">
+        <button
+          class="nav-link"
+          [class.active]="dialogTab() === 'basic'"
+          type="button"
+          (click)="dialogTab.set('basic')"
+        >
+          <i class="bi bi-info-circle"></i>
+          Basic
+        </button>
+      </li>
+
+      <li class="nav-item">
+        <button
+          class="nav-link"
+          [class.active]="dialogTab() === 'permissions'"
+          type="button"
+          (click)="dialogTab.set('permissions')"
+        >
+          <i class="bi bi-key"></i>
+          Permissions
+        </button>
+      </li>
+    </ul>
+
+    <div class="drawer-body">
+      @if (dialogTab() === 'basic') {
+        <section class="drawer-section">
+          <div class="mb-3">
+            <label class="form-label">Role Name <span class="text-danger">*</span></label>
+            <div class="input-group">
+              <span class="input-group-text">
+                <i class="bi bi-shield"></i>
+              </span>
+              <input
+                class="form-control"
+                [(ngModel)]="roleForm.name"
+                [readonly]="drawerMode() === 'view' || selectedRole()?.name === 'admin'"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label class="form-label">Description</label>
+            <textarea
+              class="form-control"
+              rows="5"
+              [(ngModel)]="roleForm.description"
+              [readonly]="drawerMode() === 'view'"
+              placeholder="Describe what this role can access..."
+            ></textarea>
+          </div>
+
+          @if (selectedRole()) {
+            <div class="role-summary-grid mt-4">
+              <div>
+                <span>Type</span>
+                <strong>{{ isSystem(selectedRole()!) ? 'System Role' : 'Custom Role' }}</strong>
+              </div>
+
+              <div>
+                <span>Users Assigned</span>
+                <strong>{{ selectedRole()!.usersAssigned | number }}</strong>
+              </div>
+
+              <div>
+                <span>Permissions</span>
+                <strong>{{ selectedRole()!.permissions.length }}</strong>
+              </div>
+
+              <div>
+                <span>Updated</span>
+                <strong>{{ selectedRole()!.updatedAt | date: 'MMM d, y' }}</strong>
+              </div>
+            </div>
+          }
+        </section>
+      } @else {
+        <section class="drawer-section">
+          <div class="permission-toolbar">
+            <div>
+              <strong>Permissions</strong>
+              <p class="text-muted small mb-0">
+                {{ roleForm.permissions.length }} selected
+              </p>
+            </div>
+
+            <div class="input-group permission-search">
+              <span class="input-group-text">
+                <i class="bi bi-search"></i>
+              </span>
+              <input
+                class="form-control"
+                placeholder="Filter permissions..."
+                [(ngModel)]="permissionSearch"
+              />
+            </div>
+          </div>
+
+          <div class="page-permission-table">
+            <div class="page-permission-head" aria-hidden="true">
+              <span class="page-head-cell">Page</span>
+              @for (action of crudActions; track action) {
+                <span class="permission-head-cell">{{ pageActionLabel(action) }}</span>
+              }
+            </div>
+
+            @for (page of filteredPagePermissions(); track page.key) {
+              <div class="page-permission-row">
+                <div class="page-cell">
+                  <span class="page-icon">
+                    <i class="bi" [ngClass]="pagePermissionIcon(page.icon)"></i>
+                  </span>
+
+                  <span class="min-w-0">
+                    <strong class="d-block text-truncate">{{ page.label }}</strong>
+                    <small class="d-block text-muted text-truncate">{{ page.path }}</small>
+                  </span>
+                </div>
+
+                @for (action of crudActions; track action) {
+                  <div class="action-cell" [attr.data-label]="pageActionLabel(action)">
+                    @if (pageAction(page, action); as pageActionItem) {
+                      <label
+                        class="permission-check permission-check-only"
+                        [title]="pageActionLabel(action) + ': ' + pageActionItem.permissions.join(', ')"
+                        [attr.aria-label]="page.label + ' ' + pageActionLabel(action) + ' permission'"
+                      >
+                        <input
+                          class="permission-native-check"
+                          type="checkbox"
+                          [checked]="hasPageAction(pageActionItem)"
+                          [disabled]="drawerMode() === 'view'"
+                          (change)="togglePageAction(page, pageActionItem)"
+                        />
+
+                        <span class="permission-box" aria-hidden="true">
+                          <i class="bi bi-check-lg"></i>
+                        </span>
+                      </label>
+                    } @else {
+                      <span class="permission-missing" title="Permission not available">—</span>
+                    }
+                  </div>
+                }
+              </div>
+            }
+          </div>
+
+          @if (!filteredPagePermissions().length) {
+            <div class="empty-state permission-empty">
+              <i class="bi bi-layout-sidebar"></i>
+              <strong>No pages found</strong>
+              <span>Try clearing the page search filter.</span>
+            </div>
+          }
+        </section>
+      }
+
+      @if (formError()) {
+        <div class="alert alert-danger mt-3 mb-0">
+          <i class="bi bi-exclamation-triangle me-2"></i>
+          {{ formError() }}
+        </div>
+      }
+    </div>
+
+    <footer class="drawer-footer">
+      <button class="btn btn-outline-secondary" type="button" (click)="closeDrawer()">
+        Cancel
+      </button>
+
+      @if (drawerMode() !== 'view') {
+        <button class="btn btn-primary" type="button" [disabled]="saving()" (click)="saveRole()">
+          @if (saving()) {
+            <span class="spinner-border spinner-border-sm me-2"></span>
+          }
+          Save Changes
+        </button>
+      }
+    </footer>
+  </aside>
+}
+
+@if (rolePendingDelete()) {
+  <section class="confirm-backdrop" aria-hidden="true"></section>
+
+  <section class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="deleteRoleTitle">
+    <div class="confirm-icon">
+      <i class="bi bi-trash"></i>
+    </div>
+
+    <div class="confirm-content">
+      <h2 id="deleteRoleTitle">Delete role?</h2>
+      <p>
+        This will delete <strong>{{ titleCase(rolePendingDelete()!.name) }}</strong> and remove it from
+        <strong>{{ rolePendingDelete()!.usersAssigned | number }}</strong> assigned user(s). Those users will become roleless until another role is assigned.
+      </p>
+    </div>
+
+    <div class="confirm-actions">
+      <button class="btn btn-outline-secondary" type="button" [disabled]="deleting()" (click)="cancelDeleteRole()">
+        Cancel
+      </button>
+
+      <button class="btn btn-danger" type="button" [disabled]="deleting()" (click)="confirmDeleteRole()">
+        @if (deleting()) {
+          <span class="spinner-border spinner-border-sm me-2"></span>
+        }
+        Yes, delete
+      </button>
+    </div>
+  </section>
+}

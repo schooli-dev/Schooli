@@ -1,0 +1,287 @@
+<div class="student-dashboard-page w-100 overflow-hidden">
+
+  <!-- Header -->
+  <div class="mb-4">
+    <p class="section-kicker text-uppercase fw-bold small mb-2">Student Dashboard</p>
+    <h1 class="fw-bold mb-2 student-title">{{ greeting() }}, {{ studentFirstName() }}</h1>
+    <p class="text-muted mb-0 student-summary">{{ dashboardSummary() }}</p>
+  </div>
+
+  <!-- Main Grid -->
+  <section class="row g-4">
+
+    <!-- Left Column -->
+    <div class="col-12 col-xl-8 d-grid gap-4">
+
+      <!-- Hero Next Class -->
+      <article class="student-hero-card position-relative overflow-hidden rounded-4 p-4 p-lg-5 text-white">
+        @if (nextClass()) {
+          <div class="position-relative z-1">
+            <span class="badge rounded-pill bg-white bg-opacity-25 text-white px-3 py-2 mb-4">
+              <i class="bi bi-clock me-1"></i>
+              {{ nextClassLabel() }}
+            </span>
+
+            <h2 class="fw-bold mb-3 hero-class-title">
+              {{ nextClass()!.title }}
+            </h2>
+
+            <p class="mb-0 text-white-75 d-flex align-items-center gap-2">
+              <i class="bi bi-person-video3"></i>
+              {{ nextClass()!.teacherName }}
+            </p>
+          </div>
+
+          <div class="position-relative z-1 mt-5">
+            <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 hero-footer-card">
+              <div class="d-flex align-items-start gap-3 min-w-0">
+                <span class="icon-box icon-glass flex-shrink-0">
+                  <i class="bi bi-calendar-event"></i>
+                </span>
+
+                <div class="min-w-0">
+                  <small class="d-block text-uppercase fw-bold text-white-50">Class Time</small>
+                  <strong class="d-block text-white">
+                    {{ nextClass()!.startTime | date: 'MMM d, hh:mm a' }} - {{ nextClass()!.endTime | date: 'hh:mm a' }}
+                  </strong>
+                </div>
+              </div>
+
+              <a class="btn btn-light text-primary fw-bold px-4" routerLink="/student/classes">
+                <i class="bi bi-box-arrow-up-right me-2"></i>
+                Open Class
+              </a>
+            </div>
+          </div>
+        } @else {
+          <div class="position-relative z-1">
+            <span class="badge rounded-pill bg-white bg-opacity-25 text-white px-3 py-2 mb-4">
+              <i class="bi bi-calendar2-check me-1"></i>
+              No upcoming class
+            </span>
+
+            <h2 class="fw-bold mb-3 hero-class-title">
+              Your schedule is clear
+            </h2>
+
+            <p class="mb-0 text-white-75">
+              New sessions will appear here after admin schedules them.
+            </p>
+          </div>
+
+          <div class="position-relative z-1 mt-5">
+            <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 hero-footer-card">
+              <div class="d-flex align-items-start gap-3 min-w-0">
+                <span class="icon-box icon-glass flex-shrink-0">
+                  <i class="bi bi-calendar-plus"></i>
+                </span>
+
+                <div>
+                  <small class="d-block text-uppercase fw-bold text-white-50">Schedule Status</small>
+                  <strong class="d-block text-white">Check back later</strong>
+                </div>
+              </div>
+
+              <a class="btn btn-light text-primary fw-bold px-4" routerLink="/student/classes">
+                <i class="bi bi-calendar3 me-2"></i>
+                View Classes
+              </a>
+            </div>
+          </div>
+        }
+      </article>
+
+      <!-- Upcoming Classes -->
+      <article class="card border rounded-4 overflow-hidden">
+        <div class="card-header bg-white p-3 p-md-4">
+          <div class="d-flex flex-column flex-sm-row justify-content-between gap-3">
+            <div>
+              <h2 class="h5 fw-bold mb-1">Upcoming Classes</h2>
+              <p class="small text-muted mb-0">Your next scheduled learning sessions</p>
+            </div>
+
+            <a class="fw-bold text-primary text-decoration-none small d-inline-flex align-items-center gap-2" routerLink="/student/classes">
+              View Calendar
+              <i class="bi bi-arrow-right"></i>
+            </a>
+          </div>
+        </div>
+
+        <div class="card-body p-3 p-md-4">
+          <div class="d-grid gap-3">
+            @for (item of upcomingPreview(); track item.id) {
+              <div class="card border class-preview-card">
+                <div class="card-body p-3">
+                  <div class="row g-3 align-items-center">
+
+                    <div class="col-12 col-sm-auto">
+                      <div class="date-tile text-center rounded-4 p-3">
+                        <span class="d-block small text-uppercase fw-bold">{{ item.startTime | date: 'MMM' }}</span>
+                        <strong class="d-block fs-4 lh-1">{{ item.startTime | date: 'd' }}</strong>
+                      </div>
+                    </div>
+
+                    <div class="col-12 col-sm min-w-0">
+                      <h3 class="h6 fw-bold mb-2 text-truncate">{{ item.title }}</h3>
+
+                      <div class="d-flex flex-wrap gap-3 small text-muted">
+                        <span class="d-inline-flex align-items-center gap-1">
+                          <i class="bi bi-person-video3"></i>
+                          {{ item.teacherName }}
+                        </span>
+
+                        <span class="d-inline-flex align-items-center gap-1">
+                          <i class="bi bi-clock"></i>
+                          {{ item.startTime | date: 'hh:mm a' }} to {{ item.endTime | date: 'hh:mm a' }}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div class="col-12 col-sm-auto">
+                      <a class="btn btn-outline-primary btn-sm fw-bold w-100" routerLink="/student/classes">
+                        <i class="bi bi-eye me-1"></i>
+                        View Details
+                      </a>
+                    </div>
+
+                  </div>
+                </div>
+              </div>
+            } @empty {
+              <div class="empty-state">
+                <i class="bi bi-calendar2-x"></i>
+                <strong>No upcoming classes</strong>
+                <span>Your scheduled sessions will appear here.</span>
+              </div>
+            }
+          </div>
+        </div>
+      </article>
+
+    </div>
+
+    <!-- Right Column -->
+    <div class="col-12 col-xl-4 d-grid gap-4 align-content-start">
+
+      <!-- Metrics -->
+      <section class="row g-3">
+        <div class="col-12 col-sm-6 col-xl-6">
+          <article class="card border h-100 metric-card-modern">
+            <div class="card-body">
+              <span class="icon-box bg-primary-subtle text-primary mb-3">
+                <i class="bi bi-calendar-event"></i>
+              </span>
+              <p class="small fw-bold text-muted mb-2">Upcoming Classes</p>
+              <h3 class="fw-bold mb-1">{{ upcomingClasses().length }}</h3>
+              <p class="small text-primary fw-semibold mb-0">Scheduled sessions</p>
+            </div>
+          </article>
+        </div>
+
+        <div class="col-12 col-sm-6 col-xl-6">
+          <article class="card border h-100 metric-card-modern">
+            <div class="card-body">
+              <span class="icon-box bg-purple-subtle text-purple mb-3">
+                <i class="bi bi-calendar-month"></i>
+              </span>
+              <p class="small fw-bold text-muted mb-2">Classes This Month</p>
+              <h3 class="fw-bold mb-1">{{ monthCount() }}</h3>
+              <p class="small text-primary fw-semibold mb-0">Current month</p>
+            </div>
+          </article>
+        </div>
+
+        <div class="col-12">
+          <article class="card border h-100 metric-card-modern">
+            <div class="card-body d-flex align-items-center gap-3">
+              <span class="icon-box icon-box-lg bg-success-subtle text-success flex-shrink-0">
+                <i class="bi bi-person-check"></i>
+              </span>
+
+              <div class="min-w-0">
+                <p class="small fw-bold text-muted mb-1">Attendance</p>
+                <h3 class="fw-bold mb-1">{{ attendancePercent() }}%</h3>
+                <p class="small text-primary fw-semibold mb-0">Based on class records</p>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <div class="col-12">
+          <article class="card border h-100 metric-card-modern">
+            <div class="card-body d-flex align-items-center gap-3">
+              <span class="icon-box icon-box-lg bg-warning-subtle text-warning-emphasis flex-shrink-0">
+                <i class="bi bi-check2-circle"></i>
+              </span>
+
+              <div class="min-w-0">
+                <p class="small fw-bold text-muted mb-1">Completed</p>
+                <h3 class="fw-bold mb-1">{{ completedCount() }}</h3>
+                <p class="small text-primary fw-semibold mb-0">Finished sessions</p>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- Class Status -->
+      <article class="card border rounded-4 overflow-hidden">
+        <div class="card-header bg-white p-3 p-md-4">
+          <h2 class="h5 fw-bold mb-1">Class Status</h2>
+          <p class="small text-muted mb-0">Your current learning records</p>
+        </div>
+
+        <div class="card-body p-3 p-md-4">
+          <div class="d-grid gap-3">
+
+            <div class="status-row d-flex align-items-center gap-3 border rounded-4 p-3">
+              <span class="icon-box bg-danger-subtle text-danger flex-shrink-0">
+                <i class="bi bi-exclamation-circle"></i>
+              </span>
+
+              <div class="min-w-0">
+                <strong
+                  class="d-block"
+                  [class.text-danger]="pendingAttendanceCount() > 0"
+                >
+                  Attendance pending: {{ pendingAttendanceCount() }}
+                </strong>
+                <span class="small text-muted">Attendance records waiting for update</span>
+              </div>
+            </div>
+
+            <div class="status-row d-flex align-items-center gap-3 border rounded-4 p-3">
+              <span class="icon-box bg-success-subtle text-success flex-shrink-0">
+                <i class="bi bi-broadcast"></i>
+              </span>
+
+              <div class="min-w-0">
+                <strong class="d-block">{{ liveCount() }} live class(es)</strong>
+                <span class="small text-muted">Currently active sessions</span>
+              </div>
+            </div>
+
+            <div class="status-row d-flex align-items-center gap-3 border rounded-4 p-3">
+              <span class="icon-box bg-secondary-subtle text-secondary flex-shrink-0">
+                <i class="bi bi-calendar-x"></i>
+              </span>
+
+              <div class="min-w-0">
+                <strong class="d-block">{{ cancelledCount() }} cancelled class(es)</strong>
+                <span class="small text-muted">Cancelled sessions in your records</span>
+              </div>
+            </div>
+
+            <a class="btn btn-primary fw-bold w-100" routerLink="/student/classes">
+              <i class="bi bi-calendar3 me-2"></i>
+              Manage Classes
+            </a>
+
+          </div>
+        </div>
+      </article>
+
+    </div>
+
+  </section>
+</div>

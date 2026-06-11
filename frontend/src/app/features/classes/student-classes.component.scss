@@ -1,0 +1,319 @@
+:host {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.student-classes-page {
+  width: 100%;
+  max-width: 1480px;
+  overflow-x: hidden;
+}
+
+.student-classes-page *,
+.student-classes-page *::before,
+.student-classes-page *::after {
+  box-sizing: border-box;
+}
+
+.min-w-0 {
+  min-width: 0;
+}
+
+.page-title {
+  font-size: clamp(30px, 3.2vw, 42px);
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+}
+
+.page-subtitle {
+  max-width: 720px;
+  line-height: 1.6;
+}
+
+.icon-box {
+  width: 44px;
+  height: 44px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 14px;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.icon-box i {
+  line-height: 1;
+}
+
+.icon-box-lg {
+  width: 54px;
+  height: 54px;
+  min-width: 54px;
+  border-radius: 16px;
+  font-size: 24px;
+}
+
+.icon-glass {
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+}
+
+.bg-purple-subtle {
+  background: #f2eaff;
+}
+
+.text-purple {
+  color: var(--color-secondary);
+}
+
+.metric-card-modern,
+.class-card-modern,
+.next-class-card {
+  background: linear-gradient(180deg, #ffffff 0%, #fbfcff 100%);
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+}
+
+.metric-card-modern:hover,
+.class-card-modern:hover {
+  transform: translateY(-2px);
+  border-color: rgba(37, 99, 235, 0.28) !important;
+  box-shadow: 0 18px 44px rgba(30, 64, 175, 0.1);
+}
+
+.metric-title {
+  font-size: clamp(22px, 2vw, 28px);
+}
+
+.attendance-progress {
+  height: 8px;
+  border-radius: 999px;
+  background: #e5e7eb;
+}
+
+.attendance-progress .progress-bar {
+  border-radius: inherit;
+  background: var(--color-primary);
+}
+
+.tabs-scroll {
+  scrollbar-width: thin;
+}
+
+.tab-btn {
+  white-space: nowrap;
+  min-height: 38px;
+}
+
+.class-card-modern.current {
+  border-color: rgba(37, 99, 235, 0.38) !important;
+  background:
+    linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+}
+
+.class-title {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.class-actions {
+  width: min(230px, 100%);
+  flex-shrink: 0;
+}
+
+.next-class-preview {
+  min-height: 170px;
+  position: relative;
+  background:
+    radial-gradient(circle at 78% 18%, rgba(124, 58, 237, 0.2), transparent 32%),
+    linear-gradient(135deg, #004ac6 0%, #2563eb 48%, #7c3aed 100%);
+  overflow: hidden;
+}
+
+.next-class-preview::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.16) 1px, transparent 1px);
+  background-size: 28px 28px;
+  opacity: 0.36;
+}
+
+.preview-overlay {
+  position: relative;
+  z-index: 1;
+  min-height: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.empty-state {
+  min-height: 180px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  border: 1px dashed var(--color-border);
+  border-radius: 16px;
+  background: var(--color-surface-soft);
+  color: var(--color-muted);
+  text-align: center;
+  padding: 18px;
+}
+
+.empty-state i {
+  color: var(--color-primary);
+  font-size: 34px;
+}
+
+.empty-state strong {
+  color: var(--color-text);
+}
+
+/* Fixed above App Shell */
+.student-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: grid;
+  place-items: center;
+  background: rgba(15, 23, 42, 0.42);
+  backdrop-filter: blur(8px);
+  padding: 16px;
+}
+
+.student-cancel-dialog {
+  position: relative;
+  z-index: 3010;
+  width: min(560px, 100%);
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 22px;
+  background: #ffffff;
+  box-shadow: 0 34px 90px rgba(15, 23, 42, 0.22);
+  padding: 24px;
+}
+
+.student-cancel-dialog::-webkit-scrollbar {
+  width: 8px;
+}
+
+.student-cancel-dialog::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(100, 116, 139, 0.32);
+}
+
+.class-details-dialog {
+  width: min(720px, 100%);
+}
+
+.detail-tile,
+.description-panel {
+  border: 1px solid var(--color-border-soft);
+  border-radius: 16px;
+  background: var(--color-surface-soft);
+  padding: 14px;
+}
+
+.detail-tile span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  color: var(--color-muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.detail-tile strong,
+.description-panel p {
+  overflow-wrap: anywhere;
+}
+
+.pagination .page-link {
+  color: var(--color-primary);
+}
+
+.pagination .active .page-link {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #ffffff;
+}
+
+@media (min-width: 1200px) {
+  .sticky-xl-top {
+    top: 20px;
+  }
+}
+
+@media (max-width: 991.98px) {
+  .class-actions {
+    width: 100%;
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .page-title {
+    font-size: 30px;
+  }
+
+  .card-body,
+  .card-header {
+    padding: 1rem !important;
+  }
+
+  .icon-box-lg {
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
+    border-radius: 14px;
+    font-size: 21px;
+  }
+
+  .tab-btn {
+    font-size: 13px;
+  }
+
+  .student-modal-backdrop {
+    align-items: stretch;
+    padding: 10px;
+  }
+
+  .student-cancel-dialog {
+    max-height: calc(100dvh - 20px);
+    border-radius: 20px;
+    padding: 18px;
+  }
+
+  .student-cancel-dialog footer .btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 360px) {
+  .page-title {
+    font-size: 26px;
+  }
+
+  .icon-box {
+    width: 42px;
+    height: 42px;
+    font-size: 18px;
+  }
+
+  .icon-box-lg {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    font-size: 19px;
+  }
+
+  .next-class-preview {
+    min-height: 140px;
+  }
+}
