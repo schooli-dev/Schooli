@@ -1,6 +1,5 @@
 import { Routes } from '@angular/router';
 import { AdminClassesComponent } from './features/classes/admin-classes.component';
-import { ClassroomComponent } from './features/classes/classroom.component';
 import { StudentClassesComponent } from './features/classes/student-classes.component';
 import { TeacherClassesComponent } from './features/classes/teacher-classes.component';
 import { AdminUsersComponent } from './features/users/admin-users.component';
@@ -76,8 +75,19 @@ export const routes: Routes = [
         title: 'My Classes | SchooliEdu'
       },
       {
+        path: 'teacher/attendance',
+        loadComponent: () =>
+          import('./features/attendance/teacher-attendance/teacher-attendance.component').then(
+            (module) => module.TeacherAttendanceComponent
+          ),
+        canActivate: [authGuard],
+        data: { roles: ['teacher'], permission: 'attendance.view' },
+        title: 'Attendance | SchooliEdu'
+      },
+      {
         path: 'teacher/classes/:id/room',
-        component: ClassroomComponent,
+        loadComponent: () =>
+          import('./features/classes/classroom/classroom.component').then((module) => module.ClassroomComponent),
         canActivate: [authGuard],
         data: { roles: ['teacher'], permission: 'class.join' },
         title: 'Live Classroom | SchooliEdu'
@@ -98,7 +108,8 @@ export const routes: Routes = [
       },
       {
         path: 'student/classes/:id/room',
-        component: ClassroomComponent,
+        loadComponent: () =>
+          import('./features/classes/classroom/classroom.component').then((module) => module.ClassroomComponent),
         canActivate: [authGuard],
         data: { roles: ['student'], permission: 'class.join' },
         title: 'Live Classroom | SchooliEdu'

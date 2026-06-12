@@ -121,6 +121,7 @@ export async function listAttendance(
     `
       ${baseAttendanceSelect()}
       ${whereClause}
+      ${attendanceGroupBy()}
       ORDER BY c.start_time DESC, student.first_name ASC, student.last_name ASC
       LIMIT $${values.length - 1}
       OFFSET $${values.length}
@@ -143,6 +144,7 @@ export async function listClassAttendance(classId: string, user: AuthenticatedUs
     `
       ${baseAttendanceSelect()}
       WHERE ${filters.join(" AND ")}
+      ${attendanceGroupBy()}
       ORDER BY student.first_name ASC, student.last_name ASC
     `,
     values
@@ -272,6 +274,7 @@ async function getAttendanceById(id: string, user: AuthenticatedUser): Promise<A
     `
       ${baseAttendanceSelect()}
       WHERE ${filters.join(" AND ")}
+      ${attendanceGroupBy()}
     `,
     values
   );
@@ -355,24 +358,27 @@ function baseAttendanceSelect(): string {
       ca.zoom_join_time,
       ca.zoom_leave_time,
       ca.total_zoom_minutes,
-      COUNT(zae.id) FILTER (WHERE zae.event_type = 'join') AS zoom_join_count,
-      COUNT(zae.id) FILTER (WHERE zae.event_type = 'leave') AS zoom_leave_count,
-      MIN(zae.event_time) FILTER (WHERE zae.event_type = 'join') AS zoom_first_join_time,
-      MAX(zae.event_time) FILTER (WHERE zae.event_type = 'leave') AS zoom_last_leave_time,
+      COUNT(vae.id) FILTER (WHERE vae.event_type = 'join') AS zoom_join_count,
+      COUNT(vae.id) FILTER (WHERE vae.event_type = 'leave') AS zoom_leave_count,
+      MIN(vae.event_time) FILTER (WHERE vae.event_type = 'join') AS zoom_first_join_time,
+      MAX(vae.event_time) FILTER (WHERE vae.event_type = 'leave') AS zoom_last_leave_time,
       ca.created_at,
       ca.updated_at
     FROM class_attendance ca
     JOIN classes c ON c.id = ca.class_id
     JOIN users teacher ON teacher.id = c.teacher_id
     JOIN users student ON student.id = ca.student_id
-    LEFT JOIN zoom_attendance_events zae
-      ON zae.class_id = ca.class_id
+    LEFT JOIN video_attendance_events vae
+      ON vae.class_id = ca.class_id
       AND (
-        zae.student_id = ca.student_id
-        OR LOWER(zae.zoom_participant_email) = LOWER(student.email)
+        vae.student_id = ca.student_id
+        OR LOWER(vae.participant_email) = LOWER(student.email)
       )
-    GROUP BY ca.id, c.id, teacher.id, student.id
   `;
+}
+
+function attendanceGroupBy(): string {
+  return "GROUP BY ca.id, c.id, teacher.id, student.id";
 }
 
 function addScopedAttendanceFilters(filters: string[], values: unknown[], user: AuthenticatedUser): void {

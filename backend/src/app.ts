@@ -16,6 +16,7 @@ import {
   classCancellationSubroutes
 } from "./modules/classCancellationRequests/classCancellationRequests.routes.js";
 import { calendarRoutes, classesRoutes } from "./modules/classes/classes.routes.js";
+import { dailyClassRoutes, dailyRoutes } from "./modules/daily/daily.routes.js";
 import { emailTemplatesRoutes } from "./modules/emailTemplates/emailTemplates.routes.js";
 import {
   notificationDeliveryLogsRoutes,
@@ -28,7 +29,6 @@ import { studentsRoutes } from "./modules/students/students.routes.js";
 import { teachersRoutes } from "./modules/teachers/teachers.routes.js";
 import { teacherStudentAssignmentsRoutes } from "./modules/teacherStudentAssignments/teacherStudentAssignments.routes.js";
 import { usersRoutes } from "./modules/users/users.routes.js";
-import { zoomClassRoutes, zoomRoutes } from "./modules/zoom/zoom.routes.js";
 import { asyncHandler } from "./utils/asyncHandler.js";
 import { sendSuccess } from "./utils/apiResponse.js";
 
@@ -85,11 +85,11 @@ app.use("/api/teacher-student-assignments", teacherStudentAssignmentsRoutes);
 app.use("/api/class-cancellation-requests", classCancellationRequestsRoutes);
 app.use("/api/classes/:id/cancel-requests", classCancellationSubroutes);
 app.use("/api/classes/:id/attendance", classAttendanceRoutes);
-app.use("/api/classes/:id/zoom", zoomClassRoutes);
+app.use("/api/classes/:id/daily", dailyClassRoutes);
 app.use("/api/classes", classesRoutes);
 app.use("/api/calendar", calendarRoutes);
 app.use("/api/attendance", attendanceRoutes);
-app.use("/api/zoom", zoomRoutes);
+app.use("/api/daily", dailyRoutes);
 app.use("/api/email-templates", emailTemplatesRoutes);
 app.use("/api/notification-rules", notificationRulesRoutes);
 app.use("/api/notification-delivery-logs", notificationDeliveryLogsRoutes);

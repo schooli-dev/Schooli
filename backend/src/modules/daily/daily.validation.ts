@@ -2,28 +2,19 @@ import { z } from "zod";
 
 const uuid = z.string().uuid();
 
-export const createZoomMeetingSchema = z.object({
+export const createDailyRoomSchema = z.object({
   body: z.object({
     classId: uuid
   })
 });
 
-export const getZoomMeetingSchema = z.object({
+export const getDailyRoomSchema = z.object({
   params: z.object({
     id: uuid
   })
 });
 
-export const zoomSignatureSchema = z.object({
-  params: z.object({
-    id: uuid
-  }),
-  body: z.object({
-    role: z.union([z.literal(0), z.literal(1)]).optional()
-  })
-});
-
-export const zoomLeaveSchema = z.object({
+export const dailyJoinSchema = z.object({
   params: z.object({
     id: uuid
   }),
@@ -32,5 +23,13 @@ export const zoomLeaveSchema = z.object({
   })
 });
 
-export type CreateZoomMeetingInput = z.infer<typeof createZoomMeetingSchema>["body"];
-export type ZoomSignatureInput = z.infer<typeof zoomSignatureSchema>["body"];
+export const dailyLeaveSchema = z.object({
+  params: z.object({
+    id: uuid
+  }),
+  body: z.object({
+    role: z.union([z.literal(0), z.literal(1)]).optional()
+  })
+});
+
+export type CreateDailyRoomInput = z.infer<typeof createDailyRoomSchema>["body"];

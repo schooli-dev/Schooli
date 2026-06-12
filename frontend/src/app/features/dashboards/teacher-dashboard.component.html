@@ -27,7 +27,7 @@
             {{ todaySummary() }}
           </p>
 
-          <a class="btn btn-light text-primary fw-bold px-4" routerLink="/teacher/classes">
+          <a class="btn btn-light text-primary fw-bold px-4" routerLink="/teacher/classes" skipLocationChange>
             <i class="bi bi-calendar3 me-2"></i>
             View Classes
           </a>
@@ -85,7 +85,7 @@
                 </strong>
               </div>
 
-              <a class="btn btn-primary fw-bold w-100" routerLink="/teacher/classes">
+              <a class="btn btn-primary fw-bold w-100" routerLink="/teacher/classes" skipLocationChange>
                 <i class="bi bi-box-arrow-up-right me-2"></i>
                 Open Class
               </a>
@@ -99,7 +99,7 @@
               <h3 class="h4 fw-bold mb-2">Your schedule is clear</h3>
               <p class="text-muted mb-4">New classes will appear here once admin schedules them.</p>
 
-              <a class="btn btn-primary fw-bold w-100" routerLink="/teacher/classes">
+              <a class="btn btn-primary fw-bold w-100" routerLink="/teacher/classes" skipLocationChange>
                 <i class="bi bi-calendar3 me-2"></i>
                 View Classes
               </a>
@@ -179,7 +179,7 @@
               <p class="small text-muted mb-0">Your classes for today</p>
             </div>
 
-            <a class="fw-bold text-primary text-decoration-none small d-inline-flex align-items-center gap-2" routerLink="/teacher/classes">
+            <a class="fw-bold text-primary text-decoration-none small d-inline-flex align-items-center gap-2" routerLink="/teacher/classes" skipLocationChange>
               View Calendar
               <i class="bi bi-arrow-right"></i>
             </a>
@@ -220,7 +220,7 @@
                     <div class="col-12 col-md-auto">
                       <button class="btn btn-primary btn-sm fw-bold w-100" type="button">
                         <i class="bi bi-camera-video me-1"></i>
-                        Join Zoom
+                        Join Daily
                       </button>
                     </div>
                   }
@@ -249,7 +249,7 @@
         <div class="card-body p-3 p-md-4">
           <div class="row g-3">
             <div class="col-12 col-sm-6 col-xl-6">
-              <a class="quick-action-tile" routerLink="/teacher/classes">
+              <a class="quick-action-tile" routerLink="/teacher/classes" skipLocationChange>
                 <span class="icon-box bg-primary-subtle text-primary">
                   <i class="bi bi-camera-video"></i>
                 </span>

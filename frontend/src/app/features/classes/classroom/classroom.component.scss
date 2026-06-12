@@ -1,0 +1,111 @@
+:host {
+  display: block;
+}
+
+.classroom-page {
+  position: relative;
+  min-height: calc(100dvh - 72px);
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: #0b1220;
+}
+
+.daily-root {
+  position: absolute;
+  inset: 0;
+  background: #0b1220;
+}
+
+:host ::ng-deep .daily-root iframe {
+  position: absolute !important;
+  inset: 0 !important;
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  border: 0 !important;
+}
+
+.classroom-bar {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: min(620px, calc(100% - 32px));
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 10px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(12px);
+}
+
+.session-title {
+  display: grid;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.session-title span {
+  font-size: 12px;
+}
+
+.attendance-widget {
+  position: absolute;
+  right: 16px;
+  top: 16px;
+  z-index: 5;
+  width: min(340px, calc(100% - 32px));
+  border-radius: 10px;
+}
+
+.classroom-state {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 12px;
+  padding: 24px;
+  color: #fff;
+  text-align: center;
+  pointer-events: none;
+}
+
+.classroom-state .btn {
+  pointer-events: auto;
+}
+
+@media (max-width: 991.98px) {
+  .classroom-page {
+    min-height: calc(100dvh - 88px);
+  }
+
+  .attendance-widget {
+    top: auto;
+    bottom: 16px;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .classroom-page {
+    min-height: calc(100dvh - 72px);
+    border-radius: 0;
+  }
+
+  .classroom-bar {
+    right: 12px;
+    left: 12px;
+    max-width: none;
+  }
+
+  .attendance-widget {
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    width: auto;
+  }
+}

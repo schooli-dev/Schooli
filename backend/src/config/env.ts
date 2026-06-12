@@ -13,18 +13,13 @@ const envSchema = z.object({
   ACCESS_TOKEN_EXPIRES_IN: z.string().default("15m"),
   REFRESH_TOKEN_EXPIRES_IN: z.string().default("7d"),
   CORS_ORIGIN: z.string().default("http://localhost:4200"),
-  ZOOM_ACCOUNT_ID: z.string().optional(),
-  ZOOM_CLIENT_ID: z.string().optional(),
-  ZOOM_CLIENT_SECRET: z.string().optional(),
-  ZOOM_WEBHOOK_SECRET_TOKEN: z.string().optional(),
-  ZOOM_DEFAULT_HOST_EMAIL: z.string().email().optional(),
-  ZOOM_AUTO_CREATE_MEETINGS: z.coerce.boolean().default(false),
-  ZOOM_MEETING_WAITING_ROOM: z.coerce.boolean().default(true),
-  ZOOM_MEETING_JOIN_BEFORE_HOST: z.coerce.boolean().default(false),
-  ZOOM_MEETING_PASSWORD_REQUIRED: z.coerce.boolean().default(true),
-  ZOOM_MEETING_AUTO_RECORDING: z.enum(["none", "local", "cloud"]).default("none"),
-  ZOOM_MEETING_SDK_KEY: z.string().trim().optional(),
-  ZOOM_MEETING_SDK_SECRET: z.string().trim().optional()
+  DAILY_API_KEY: z.string().trim().optional(),
+  DAILY_DOMAIN: z.string().trim().optional(),
+  DAILY_AUTO_CREATE_ROOMS: z.coerce.boolean().default(true),
+  DAILY_ROOM_PRIVACY: z.enum(["public", "private"]).default("private"),
+  DAILY_ENABLE_PREJOIN_UI: z.coerce.boolean().default(true),
+  DAILY_ENABLE_CHAT: z.coerce.boolean().default(true),
+  DAILY_ENABLE_RECORDING: z.enum(["off", "cloud", "cloud-audio-only", "local", "raw-tracks"]).default("off")
 });
 
 const parsed = envSchema.safeParse(process.env);

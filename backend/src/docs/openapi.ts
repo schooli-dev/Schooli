@@ -28,7 +28,7 @@ export const openApiSpec = swaggerJSDoc({
       { name: "Calendar" },
       { name: "Class Cancellation Requests" },
       { name: "Attendance" },
-      { name: "Zoom" },
+      { name: "Daily" },
       { name: "Email Templates" },
       { name: "Notification Manager" }
     ],
@@ -273,14 +273,14 @@ export const openApiSpec = swaggerJSDoc({
             totalZoomMinutes: { type: "integer", nullable: true }
           }
         },
-        CreateZoomMeetingRequest: {
+        CreateDailyRoomRequest: {
           type: "object",
           required: ["classId"],
           properties: {
             classId: { type: "string", format: "uuid" }
           }
         },
-        ZoomSignatureRequest: {
+        DailyJoinRequest: {
           type: "object",
           properties: {
             role: { type: "integer", enum: [0, 1], example: 0 }
@@ -933,7 +933,7 @@ export const openApiSpec = swaggerJSDoc({
       "/api/classes/{id}/join": {
         post: {
           tags: ["Classes"],
-          summary: "Get Zoom-ready class join placeholder",
+          summary: "Get Daily-ready class join payload",
           security: [{ bearerAuth: [] }],
           parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
           responses: {
@@ -941,23 +941,42 @@ export const openApiSpec = swaggerJSDoc({
           }
         }
       },
-      "/api/classes/{id}/zoom/signature": {
+      "/api/classes/{id}/daily/join": {
         post: {
-          tags: ["Zoom"],
-          summary: "Create Zoom Meeting SDK signature for a class",
+          tags: ["Daily"],
+          summary: "Create a Daily room token for a class",
           security: [{ bearerAuth: [] }],
           parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
           requestBody: {
             required: false,
             content: {
               "application/json": {
-                schema: { $ref: "#/components/schemas/ZoomSignatureRequest" }
+                schema: { $ref: "#/components/schemas/DailyJoinRequest" }
               }
             }
           },
           responses: {
-            "200": { description: "Zoom Meeting SDK signature created" },
-            "503": { description: "Zoom Meeting SDK is not configured" }
+            "200": { description: "Daily join payload created" },
+            "503": { description: "Daily is not configured" }
+          }
+        }
+      },
+      "/api/classes/{id}/daily/leave": {
+        post: {
+          tags: ["Daily"],
+          summary: "Release a Daily classroom session for this user",
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+          requestBody: {
+            required: false,
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/DailyJoinRequest" }
+              }
+            }
+          },
+          responses: {
+            "200": { description: "Classroom session released" }
           }
         }
       },
@@ -1068,44 +1087,44 @@ export const openApiSpec = swaggerJSDoc({
           }
         }
       },
-      "/api/zoom/meetings": {
+      "/api/daily/rooms": {
         post: {
-          tags: ["Zoom"],
-          summary: "Create or recreate Zoom meeting for a class",
+          tags: ["Daily"],
+          summary: "Create or recreate Daily room for a class",
           security: [{ bearerAuth: [] }],
           requestBody: {
             required: true,
             content: {
               "application/json": {
-                schema: { $ref: "#/components/schemas/CreateZoomMeetingRequest" }
+                schema: { $ref: "#/components/schemas/CreateDailyRoomRequest" }
               }
             }
           },
           responses: {
-            "201": { description: "Zoom meeting created" },
-            "502": { description: "Zoom API error" }
+            "201": { description: "Daily room created" },
+            "502": { description: "Daily API error" }
           }
         }
       },
-      "/api/zoom/meetings/{id}": {
+      "/api/daily/rooms/{id}": {
         get: {
-          tags: ["Zoom"],
-          summary: "Get Zoom meeting metadata by Zoom row ID or class ID",
+          tags: ["Daily"],
+          summary: "Get Daily room metadata by row ID or class ID",
           security: [{ bearerAuth: [] }],
           parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
           responses: {
-            "200": { description: "Zoom meeting fetched" },
-            "404": { description: "Zoom meeting not found" }
+            "200": { description: "Daily room fetched" },
+            "404": { description: "Daily room not found" }
           }
         }
       },
-      "/api/zoom/webhook": {
+      "/api/daily/webhook": {
         post: {
-          tags: ["Zoom"],
-          summary: "Receive Zoom webhooks",
+          tags: ["Daily"],
+          summary: "Receive Daily webhooks",
           responses: {
             "200": { description: "Webhook received" },
-            "401": { description: "Invalid Zoom webhook signature" }
+            "400": { description: "Invalid webhook payload" }
           }
         }
       },

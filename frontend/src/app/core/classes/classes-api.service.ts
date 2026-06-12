@@ -22,24 +22,24 @@ export type ClassListItem = {
   cancellationRequestStatus?: string | null;
   cancellationRequestsCount?: number;
   participants: ClassParticipant[];
-  zoomMeeting: {
-    zoomMeetingId: string | null;
-    zoomPassword?: string | null;
+  videoMeeting: {
+    provider: 'daily';
+    providerMeetingId: string | null;
+    roomName: string | null;
+    roomUrl: string | null;
     status: string;
     creationStatus: string;
-    joinUrl: string | null;
-    startUrl?: string | null;
   } | null;
 };
 
 export type ClassJoinPayload = {
   classId: string;
   title: string;
-  provider: 'zoom';
-  zoom: {
-    meetingId: string | null;
-    joinUrl: string | null;
-    startUrl?: string | null;
+  provider: 'daily';
+  daily: {
+    roomName: string | null;
+    roomUrl: string | null;
+    canStart: boolean;
     status: string;
     creationStatus: string;
   };

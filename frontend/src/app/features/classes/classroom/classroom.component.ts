@@ -1,47 +1,45 @@
 import { CommonModule } from '@angular/common';
 import { AfterViewInit, Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { AttendanceApiService, AttendanceStatus } from '../../core/attendance/attendance-api.service';
-import { AuthTokenService } from '../../core/auth/auth-token.service';
-import { ClassListItem, ClassesApiService } from '../../core/classes/classes-api.service';
-import { RuntimeConfigService } from '../../core/config/runtime-config.service';
-import { ToastService } from '../../core/toast/toast.service';
-import { ZoomApiService } from '../../core/zoom/zoom-api.service';
+import { AttendanceApiService, AttendanceStatus } from '../../../core/attendance/attendance-api.service';
+import { AuthTokenService } from '../../../core/auth/auth-token.service';
+import { ClassListItem, ClassesApiService } from '../../../core/classes/classes-api.service';
+import { RuntimeConfigService } from '../../../core/config/runtime-config.service';
+import { DailyApiService } from '../../../core/daily/daily-api.service';
+import { ToastService } from '../../../core/toast/toast.service';
 
 @Component({
   selector: 'app-classroom',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, RouterLink],
   templateUrl: './classroom.component.html',
   styleUrl: './classroom.component.scss'
 })
 export class ClassroomComponent implements OnInit, AfterViewInit, OnDestroy {
-  @ViewChild('zoomRoot') private zoomRoot?: ElementRef<HTMLElement>;
+  @ViewChild('dailyRoot') private dailyRoot?: ElementRef<HTMLElement>;
 
   private readonly route = inject(ActivatedRoute);
   private readonly classesApi = inject(ClassesApiService);
-  private readonly zoomApi = inject(ZoomApiService);
+  private readonly dailyApi = inject(DailyApiService);
   private readonly attendanceApi = inject(AttendanceApiService);
   private readonly auth = inject(AuthTokenService);
   private readonly runtimeConfig = inject(RuntimeConfigService);
   private readonly toasts = inject(ToastService);
 
   protected readonly classItem = signal<ClassListItem | null>(null);
-  protected readonly sdkMessage = signal('Preparing Zoom classroom...');
+  protected readonly sdkMessage = signal('Preparing Daily classroom...');
   protected readonly sdkError = signal('');
   protected readonly user = this.auth.getUser();
-  protected teacherNotes = '';
 
   protected readonly studentName = computed(() => this.classItem()?.participants[0]?.studentName ?? 'Student');
+  protected readonly attendanceStatus = computed(() => this.classItem()?.participants[0]?.attendanceStatus ?? 'pending');
   protected readonly canMarkAttendance = computed(() => Boolean(this.user?.roles.includes('teacher') || this.user?.roles.includes('admin')));
 
   private sdkStarted = false;
   private hasJoinedMeeting = false;
   private cleanupStarted = false;
-  private zoomClient?: any;
-  private resizeObserver?: ResizeObserver;
+  private dailyFrame?: any;
 
   ngOnInit(): void {
     const classId = this.route.snapshot.paramMap.get('id');
@@ -53,7 +51,7 @@ export class ClassroomComponent implements OnInit, AfterViewInit, OnDestroy {
     this.classesApi.getClass(classId).subscribe({
       next: (response) => {
         this.classItem.set(response.data);
-        void this.startZoomIfReady();
+        void this.startDailyIfReady();
       },
       error: () => {
         this.sdkMessage.set('');
@@ -63,11 +61,10 @@ export class ClassroomComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngAfterViewInit(): void {
-    void this.startZoomIfReady();
+    void this.startDailyIfReady();
   }
 
   ngOnDestroy(): void {
-    this.resizeObserver?.disconnect();
     void this.cleanupMeetingSession();
   }
 
@@ -92,8 +89,7 @@ export class ClassroomComponent implements OnInit, AfterViewInit, OnDestroy {
       .markAttendance({
         classId: item.id,
         studentId: student.studentId,
-        status,
-        teacherNotes: this.teacherNotes || null
+        status
       })
       .subscribe({
         next: () => {
@@ -109,30 +105,31 @@ export class ClassroomComponent implements OnInit, AfterViewInit, OnDestroy {
               )
             };
           });
-        }
+        },
+        error: () => this.toasts.error('Could not update attendance.')
       });
   }
 
-  private async startZoomIfReady(): Promise<void> {
+  private async startDailyIfReady(): Promise<void> {
     const item = this.classItem();
-    const root = this.zoomRoot?.nativeElement;
+    const root = this.dailyRoot?.nativeElement;
 
     if (this.sdkStarted || !item || !root) {
       return;
     }
 
-    if (!item.zoomMeeting?.zoomMeetingId) {
+    if (!item.videoMeeting?.roomUrl) {
       this.sdkMessage.set('');
-      this.sdkError.set('Zoom meeting has not been created for this class.');
+      this.sdkError.set('Daily room has not been created for this class.');
       return;
     }
 
     try {
       this.sdkStarted = true;
-      this.sdkMessage.set('Joining Zoom inside SchooliEdu...');
+      this.sdkMessage.set('Joining Daily classroom inside SchooliEdu...');
       const role: 0 | 1 = this.canMarkAttendance() ? 1 : 0;
-      const signature = await firstValueFrom(this.zoomApi.getSignature(item.id, role));
-      await this.startEmbeddedZoom(root, item, signature.data);
+      const joinPayload = await firstValueFrom(this.dailyApi.joinRoom(item.id, role));
+      await this.startEmbeddedDaily(root, joinPayload.data);
       this.sdkMessage.set('');
     } catch (error) {
       this.sdkStarted = false;
@@ -152,52 +149,46 @@ export class ClassroomComponent implements OnInit, AfterViewInit, OnDestroy {
       return apiMessage;
     }
 
-    return 'Embedded Zoom could not start. Please check Meeting SDK credentials and browser permissions.';
+    return 'Embedded Daily classroom could not start. Please check Daily credentials and browser permissions.';
   }
 
-  private async startEmbeddedZoom(
+  private async startEmbeddedDaily(
     root: HTMLElement,
-    item: ClassListItem,
-    signature: { sdkKey: string; signature: string; meetingNumber: string; password?: string | null; zak?: string; role: 0 | 1 }
+    joinPayload: { roomUrl: string; token: string }
   ): Promise<void> {
-    const module = (await import('@zoom/meetingsdk/embedded')) as any;
-    const ZoomMtgEmbedded = module.default ?? module;
-    const client = ZoomMtgEmbedded.createClient();
-    this.zoomClient = client;
-    const viewSize = this.getZoomViewSize(root);
+    const module = await import('@daily-co/daily-js');
+    const DailyIframe = module.default ?? module;
+    root.replaceChildren();
+    root.style.minHeight = `${Math.max(root.closest('.meeting-panel')?.clientHeight ?? 0, 440)}px`;
 
-    await client.init({
-      zoomAppRoot: root,
-      language: 'en-US',
-      patchJsMedia: true,
-      customize: {
-        video: {
-          isResizable: true,
-          viewSizes: {
-            default: {
-              width: viewSize.width,
-              height: viewSize.height
-            },
-            ribbon: {
-              width: viewSize.width,
-              height: viewSize.height
-            }
-          }
-        }
+    const frame = DailyIframe.createFrame(root, {
+      showLeaveButton: true,
+      iframeStyle: {
+        width: '100%',
+        height: '100%',
+        border: '0',
+        borderRadius: '0'
       }
     });
 
-    await client.join({
-      signature: signature.signature,
-      meetingNumber: signature.meetingNumber,
-      password: signature.password ?? item.zoomMeeting?.zoomPassword ?? '',
-      userName: this.user ? `${this.user.firstName} ${this.user.lastName}`.trim() : 'Schooli User',
-      userEmail: this.user?.email,
-      ...(signature.zak ? { zak: signature.zak } : {})
+    this.dailyFrame = frame;
+
+    frame.on('joined-meeting', () => {
+      this.hasJoinedMeeting = true;
     });
-    this.hasJoinedMeeting = true;
-    this.observeZoomResize(root);
-    this.resizeZoom(root);
+
+    frame.on('left-meeting', () => {
+      void this.cleanupMeetingSession();
+    });
+
+    void Promise.resolve(frame.join({
+      url: joinPayload.roomUrl,
+      token: joinPayload.token,
+      userName: this.user ? `${this.user.firstName} ${this.user.lastName}`.trim() : 'Schooli User'
+    })).catch((error) => {
+      this.sdkMessage.set('');
+      this.sdkError.set(this.getJoinErrorMessage(error));
+    });
   }
 
   private async cleanupMeetingSession(): Promise<void> {
@@ -209,28 +200,26 @@ export class ClassroomComponent implements OnInit, AfterViewInit, OnDestroy {
     this.sdkStarted = false;
     const item = this.classItem();
     const role: 0 | 1 = this.canMarkAttendance() ? 1 : 0;
+    const shouldReleaseSession = this.hasJoinedMeeting;
 
     try {
-      if (this.hasJoinedMeeting && this.zoomClient) {
-        if (role === 1 && typeof this.zoomClient.endMeeting === 'function') {
-          await Promise.resolve(this.zoomClient.endMeeting());
-        } else if (typeof this.zoomClient.leaveMeeting === 'function') {
-          await Promise.resolve(this.zoomClient.leaveMeeting());
-        }
+      if (this.hasJoinedMeeting && this.dailyFrame) {
+        await Promise.resolve(this.dailyFrame.leave());
       }
     } catch {
-      // Route changes should continue even if the Zoom SDK has already disconnected.
+      // Route changes should continue even if Daily has already disconnected.
     } finally {
       this.hasJoinedMeeting = false;
-      this.zoomClient = undefined;
+      this.dailyFrame?.destroy?.();
+      this.dailyFrame = undefined;
     }
 
-    if (!item) {
+    if (!item || !shouldReleaseSession) {
       return;
     }
 
     try {
-      await firstValueFrom(this.zoomApi.leaveRoom(item.id, role));
+      await firstValueFrom(this.dailyApi.leaveRoom(item.id, role));
     } catch {
       this.sendLeaveBeacon(item.id, role);
     }
@@ -243,7 +232,7 @@ export class ClassroomComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    void fetch(`${this.runtimeConfig.apiBaseUrl}/classes/${classId}/zoom/leave`, {
+    void fetch(`${this.runtimeConfig.apiBaseUrl}/classes/${classId}/daily/leave`, {
       method: 'POST',
       keepalive: true,
       headers: {
@@ -252,31 +241,5 @@ export class ClassroomComponent implements OnInit, AfterViewInit, OnDestroy {
       },
       body: JSON.stringify({ role })
     }).catch(() => undefined);
-  }
-
-  private getZoomViewSize(root: HTMLElement): { width: number; height: number } {
-    const rect = root.getBoundingClientRect();
-
-    return {
-      width: Math.max(640, Math.floor(rect.width || root.parentElement?.clientWidth || window.innerWidth * 0.7)),
-      height: Math.max(520, Math.floor(rect.height || root.parentElement?.clientHeight || window.innerHeight * 0.7))
-    };
-  }
-
-  private observeZoomResize(root: HTMLElement): void {
-    this.resizeObserver?.disconnect();
-    this.resizeObserver = new ResizeObserver(() => this.resizeZoom(root));
-    this.resizeObserver.observe(root);
-  }
-
-  private resizeZoom(root: HTMLElement): void {
-    const viewSize = this.getZoomViewSize(root);
-    this.zoomClient?.updateVideoOptions?.({
-      isResizable: true,
-      viewSizes: {
-        default: viewSize,
-        ribbon: viewSize
-      }
-    });
   }
 }

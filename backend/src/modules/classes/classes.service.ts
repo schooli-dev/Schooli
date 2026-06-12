@@ -12,7 +12,7 @@ import type {
   UpdateClassInput
 } from "./classes.validation.js";
 import { checkSchedulingConflicts, type SchedulingConflict } from "./scheduling.service.js";
-import { cancelZoomMeetingForClass, createZoomMeetingForClass } from "../zoom/zoom.service.js";
+import { cancelDailyRoomForClass, createDailyRoomForClass } from "../daily/daily.service.js";
 
 export type ClassItem = {
   id: string;
@@ -37,14 +37,14 @@ export type ClassItem = {
     attendanceStatus: string;
     creditsConsumed: string;
   }>;
-  zoomMeeting: {
+  videoMeeting: {
     id: string;
-    zoomMeetingId: string | null;
-    zoomPassword?: string | null;
+    provider: string;
+    providerMeetingId: string | null;
+    roomName: string | null;
+    roomUrl: string | null;
     status: string;
     creationStatus: string;
-    joinUrl: string | null;
-    startUrl?: string | null;
   } | null;
   createdAt: Date;
   updatedAt: Date;
@@ -68,7 +68,7 @@ type ClassRow = {
   cancellation_request_status: string | null;
   cancellation_requests_count: number;
   participants: ClassItem["participants"];
-  zoom_meeting: ClassItem["zoomMeeting"];
+  video_meeting: ClassItem["videoMeeting"];
   created_at: Date;
   updated_at: Date;
 };
@@ -138,7 +138,7 @@ export async function listClasses(
     `
       ${baseClassSelect()}
       ${whereClause}
-      GROUP BY c.id, teacher.id, zm.id
+      GROUP BY c.id, teacher.id, vm.id
       ORDER BY c.start_time DESC
       LIMIT $${values.length - 1}
       OFFSET $${values.length}
@@ -155,6 +155,9 @@ export async function listClasses(
 export async function createClass(input: CreateClassInput, user: AuthenticatedUser): Promise<ClassItem> {
   const start = new Date(input.startTime);
   const end = new Date(start.getTime() + input.durationMinutes * 60 * 1000);
+
+  assertClassStartsInFuture(start);
+
   const conflicts = await checkSchedulingConflicts({
     teacherId: input.teacherId,
     studentId: input.studentId,
@@ -231,13 +234,13 @@ export async function createClass(input: CreateClassInput, user: AuthenticatedUs
       }
     );
 
-    await createZoomMeetingForClass(
+    await createDailyRoomForClass(
       {
         classId,
         topic: input.title,
         startTime: start,
+        endTime: end,
         durationMinutes: input.durationMinutes,
-        timezone: input.timezone
       },
       client
     );
@@ -262,7 +265,7 @@ export async function getClassById(id: string, user: AuthenticatedUser): Promise
     `
       ${baseClassSelect()}
       WHERE ${filters.join(" AND ")}
-      GROUP BY c.id, teacher.id, zm.id
+      GROUP BY c.id, teacher.id, vm.id
     `,
     values
   );
@@ -330,7 +333,7 @@ export async function cancelClass(id: string, input: CancelClassInput, user: Aut
       throw new ApiError(404, "Scheduled class not found", "CLASS_NOT_FOUND");
     }
 
-    await cancelZoomMeetingForClass(id, client);
+    await cancelDailyRoomForClass(id, client);
     await updateTeacherWorkSessionStatus(client, id, "cancelled");
 
     await client.query("COMMIT");
@@ -369,6 +372,9 @@ export async function rescheduleClass(
 
   const start = new Date(input.startTime);
   const end = new Date(start.getTime() + input.durationMinutes * 60 * 1000);
+
+  assertClassStartsInFuture(start);
+
   const client = await pool.connect();
 
   try {
@@ -424,15 +430,15 @@ export async function getJoinPayload(id: string, user: AuthenticatedUser): Promi
   return {
     classId: classItem.id,
     title: classItem.title,
-    provider: "zoom",
-    zoom: {
-      meetingId: classItem.zoomMeeting?.zoomMeetingId ?? null,
-      joinUrl: classItem.zoomMeeting?.joinUrl ?? null,
-      startUrl: canStart ? classItem.zoomMeeting?.startUrl ?? null : undefined,
-      status: classItem.zoomMeeting?.status ?? "pending",
-      creationStatus: classItem.zoomMeeting?.creationStatus ?? "pending"
+    provider: "daily",
+    daily: {
+      roomName: classItem.videoMeeting?.roomName ?? null,
+      roomUrl: classItem.videoMeeting?.roomUrl ?? null,
+      canStart,
+      status: classItem.videoMeeting?.status ?? "pending",
+      creationStatus: classItem.videoMeeting?.creationStatus ?? "pending"
     },
-    message: "Zoom meeting creation is currently a placeholder until Zoom credentials are configured"
+    message: "Daily room is created automatically when Daily credentials are configured"
   };
 }
 
@@ -469,6 +475,14 @@ export function assertCanProceedWithConflicts(
   }
 
   throw new ApiError(409, "Scheduling conflicts found", "SCHEDULING_CONFLICT", { conflicts });
+}
+
+function assertClassStartsInFuture(start: Date): void {
+  if (start.getTime() <= Date.now()) {
+    throw new ApiError(400, "Class start time must be in the future", "CLASS_START_TIME_IN_PAST", {
+      startTime: start.toISOString()
+    });
+  }
 }
 
 function baseClassSelect(): string {
@@ -514,24 +528,24 @@ function baseClassSelect(): string {
         '[]'::JSONB
       ) AS participants,
       CASE
-        WHEN zm.id IS NULL THEN NULL
+        WHEN vm.id IS NULL THEN NULL
         ELSE jsonb_build_object(
-          'id', zm.id,
-          'zoomMeetingId', zm.zoom_meeting_id,
-          'zoomPassword', zm.zoom_password,
-          'status', zm.status,
-          'creationStatus', zm.creation_status,
-          'joinUrl', zm.zoom_join_url,
-          'startUrl', zm.zoom_start_url
+          'id', vm.id,
+          'provider', vm.provider,
+          'providerMeetingId', vm.provider_meeting_id,
+          'roomName', vm.provider_room_name,
+          'roomUrl', vm.provider_room_url,
+          'status', vm.status,
+          'creationStatus', vm.creation_status
         )
-      END AS zoom_meeting,
+      END AS video_meeting,
       c.created_at,
       c.updated_at
     FROM classes c
     JOIN users teacher ON teacher.id = c.teacher_id
     LEFT JOIN class_participants cp ON cp.class_id = c.id
     LEFT JOIN users student ON student.id = cp.student_id
-    LEFT JOIN zoom_meetings zm ON zm.class_id = c.id
+    LEFT JOIN video_meetings vm ON vm.class_id = c.id
   `;
 }
 
@@ -644,7 +658,7 @@ function mapClass(row: ClassRow): ClassItem {
     cancellationRequestStatus: row.cancellation_request_status,
     cancellationRequestsCount: Number(row.cancellation_requests_count ?? 0),
     participants: row.participants ?? [],
-    zoomMeeting: row.zoom_meeting,
+    videoMeeting: row.video_meeting,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };

@@ -137,11 +137,11 @@ export class StudentClassesComponent implements OnInit {
   }
 
   protected canJoin(item: ClassListItem): boolean {
-    return ['live', 'scheduled', 'rescheduled'].includes(item.status) && Boolean(item.zoomMeeting?.zoomMeetingId);
+    return ['live', 'scheduled', 'rescheduled'].includes(item.status) && Boolean(item.videoMeeting?.roomUrl);
   }
 
   protected joinClass(item: ClassListItem): void {
-    void this.router.navigate(['/student/classes', item.id, 'room']);
+    void this.router.navigate(['/student/classes', item.id, 'room'], { skipLocationChange: true });
   }
 
   protected openClassDetails(item: ClassListItem): void {

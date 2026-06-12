@@ -54,6 +54,7 @@ const implementedSidebarPaths = new Set([
   '/admin/roles',
   '/teacher/dashboard',
   '/teacher/classes',
+  '/teacher/attendance',
   '/student/dashboard',
   '/student/classes'
 ]);
@@ -159,7 +160,7 @@ export class AppShellComponent {
       this.policyPages.set([]);
       this.closeMenu();
       this.profileOpen.set(false);
-      void this.router.navigate(['/login']);
+      void this.router.navigate(['/login'], { skipLocationChange: true });
     });
   }
 
@@ -172,7 +173,7 @@ export class AppShellComponent {
     }
 
     this.closeMenu();
-    void this.router.navigateByUrl(item.path);
+    void this.router.navigateByUrl(item.path, { skipLocationChange: true });
   }
 
   protected showComingSoon(label: string): void {

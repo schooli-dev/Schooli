@@ -49,7 +49,9 @@ export class ChangePasswordPageComponent {
       .pipe(finalize(() => this.loading.set(false)))
       .subscribe({
         next: () => {
-          void this.router.navigateByUrl(getDefaultRoute(this.tokens.getRoles(), this.tokens.getPermissions()));
+          void this.router.navigateByUrl(getDefaultRoute(this.tokens.getRoles(), this.tokens.getPermissions()), {
+            skipLocationChange: true
+          });
         },
         error: () => {
           this.error.set('Could not update password. Please try again.');

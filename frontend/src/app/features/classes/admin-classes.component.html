@@ -146,7 +146,7 @@
             <th>Student</th>
             <th>Schedule</th>
             <th>Status</th>
-            <th>Zoom</th>
+            <th>Daily</th>
             <th>Attendance</th>
             <th class="text-end">Actions</th>
           </tr>
@@ -201,9 +201,9 @@
               </td>
 
               <td>
-                <span class="zoom-chip">
+                <span class="video-chip">
                   <i class="bi bi-camera-video"></i>
-                  {{ item.zoomMeeting?.creationStatus ?? 'pending' }}
+                  {{ item.videoMeeting?.creationStatus ?? 'pending' }}
                 </span>
               </td>
 
@@ -301,12 +301,12 @@
                   {{ item.status }}
                 </span>
 
-                <span class="zoom-chip">
+                <span class="video-chip">
                   <i class="bi bi-camera-video"></i>
-                  {{ item.zoomMeeting?.creationStatus ?? 'pending' }}
+                  {{ item.videoMeeting?.creationStatus ?? 'pending' }}
                 </span>
 
-                <span class="zoom-chip">
+                <span class="video-chip">
                   <i class="bi bi-person-check"></i>
                   {{ participantAttendance(item) }}
                 </span>
@@ -473,9 +473,17 @@
               name="startTime"
               type="datetime-local"
               [(ngModel)]="scheduleForm.startTime"
+              [min]="minimumStartDateTime()"
               required
               (ngModelChange)="refreshBusySlots()"
             />
+
+            @if (isStartTimeInPast()) {
+              <small class="text-danger d-flex align-items-center gap-1 mt-1">
+                <i class="bi bi-exclamation-circle"></i>
+                Choose a future date and time.
+              </small>
+            }
           </label>
 
           <label>
@@ -554,15 +562,15 @@
                 {{ scheduleMessage() }}
               </strong>
 
-              @if (scheduledClass()?.zoomMeeting?.joinUrl) {
-                <div class="zoom-link-box mt-3">
+              @if (scheduledClass()?.videoMeeting?.roomUrl) {
+                <div class="video-link-box mt-3">
                   <span>Student / Teacher Join Link</span>
-                  <a [href]="scheduledClass()!.zoomMeeting!.joinUrl!" target="_blank" rel="noopener noreferrer">
-                    {{ scheduledClass()!.zoomMeeting!.joinUrl }}
+                  <a [href]="scheduledClass()!.videoMeeting!.roomUrl!" target="_blank" rel="noopener noreferrer">
+                    {{ scheduledClass()!.videoMeeting!.roomUrl }}
                   </a>
                 </div>
               } @else if (scheduledClass()) {
-                <p class="mb-0 mt-2">Zoom link is not available yet. Check Zoom configuration or refresh the class details.</p>
+                <p class="mb-0 mt-2">Daily room link is not available yet. Check Daily configuration or refresh the class details.</p>
               }
             </article>
           }
@@ -637,28 +645,28 @@
       </div>
 
       <div>
-        <span><i class="bi bi-camera-video me-1"></i> Zoom</span>
-        <strong>{{ selectedClass()!.zoomMeeting?.creationStatus ?? 'pending' }}</strong>
+        <span><i class="bi bi-camera-video me-1"></i> Daily</span>
+        <strong>{{ selectedClass()!.videoMeeting?.creationStatus ?? 'pending' }}</strong>
       </div>
     </div>
 
-    <div class="zoom-link-box mt-3">
+    <div class="video-link-box mt-3">
       <span>Join Link</span>
 
-      @if (selectedClass()!.zoomMeeting?.joinUrl) {
-        <a [href]="selectedClass()!.zoomMeeting!.joinUrl!" target="_blank" rel="noopener noreferrer">
-          {{ selectedClass()!.zoomMeeting!.joinUrl }}
+      @if (selectedClass()!.videoMeeting?.roomUrl) {
+        <a [href]="selectedClass()!.videoMeeting!.roomUrl!" target="_blank" rel="noopener noreferrer">
+          {{ selectedClass()!.videoMeeting!.roomUrl }}
         </a>
       } @else {
-        <p class="mb-0">No Zoom join link available.</p>
+        <p class="mb-0">No Daily join link available.</p>
       }
     </div>
 
     <div class="d-grid gap-2 mt-4">
-      @if (selectedClass()!.zoomMeeting?.joinUrl) {
-        <a class="btn btn-primary" [href]="selectedClass()!.zoomMeeting!.joinUrl!" target="_blank" rel="noopener noreferrer">
+      @if (selectedClass()!.videoMeeting?.roomUrl) {
+        <a class="btn btn-primary" [href]="selectedClass()!.videoMeeting!.roomUrl!" target="_blank" rel="noopener noreferrer">
           <i class="bi bi-box-arrow-up-right me-2"></i>
-          Open Zoom Link
+          Open Daily Room Link
         </a>
       }
 
@@ -695,7 +703,7 @@
       </header>
 
       <p class="mb-3">
-        This will cancel <strong>{{ classToCancel()!.title }}</strong>. If a real Zoom meeting exists, it will be cancelled in Zoom as well.
+        This will cancel <strong>{{ classToCancel()!.title }}</strong>. If a real Daily room exists, it will be cancelled in Daily as well.
       </p>
 
       <label class="w-100">

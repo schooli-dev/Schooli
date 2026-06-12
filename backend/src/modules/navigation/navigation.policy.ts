@@ -189,6 +189,19 @@ const pages: NavigationPage[] = [
     ]
   },
   {
+    key: "teacher.attendance",
+    label: "Attendance",
+    path: "/teacher/attendance",
+    icon: "check",
+    section: "teaching",
+    roles: ["teacher"],
+    anyPermissions: ["attendance.view", "attendance.mark"],
+    actions: [
+      { key: "read", permission: "attendance.view" },
+      { key: "mark", permission: "attendance.mark" }
+    ]
+  },
+  {
     key: "teacher.students",
     label: "My Students",
     path: "/teacher/students",

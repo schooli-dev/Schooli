@@ -3,7 +3,7 @@ import { pool } from "../../db/pool.js";
 import type { AuthenticatedUser } from "../../types/express.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { getPagination, getPaginationMeta, type PaginationMeta } from "../../utils/pagination.js";
-import { cancelZoomMeetingForClass } from "../zoom/zoom.service.js";
+import { cancelDailyRoomForClass } from "../daily/daily.service.js";
 import type {
   CreateCancellationRequestInput,
   ListCancellationRequestsInput,
@@ -195,7 +195,7 @@ export async function updateCancellationRequestStatus(
 
   if (input.status === "approved") {
       await cancelClassForApprovedRequest(client, request.class_id, input.adminNote ?? "Cancellation request approved");
-      await cancelZoomMeetingForClass(request.class_id, client);
+      await cancelDailyRoomForClass(request.class_id, client);
       await updateTeacherWorkSessionStatus(client, request.class_id, "cancelled");
     }
 

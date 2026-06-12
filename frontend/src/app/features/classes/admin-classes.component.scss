@@ -278,7 +278,7 @@
 }
 
 .status-chip,
-.zoom-chip {
+.video-chip {
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -304,7 +304,7 @@
   color: var(--color-danger);
 }
 
-.zoom-chip {
+.video-chip {
   background: #eef4ff;
   color: var(--color-primary);
 }
@@ -618,14 +618,14 @@
   color: var(--color-success) !important;
 }
 
-.zoom-link-box {
+.video-link-box {
   border: 1px solid var(--color-border-soft);
   border-radius: var(--radius-md);
   background: #ffffff;
   padding: 14px;
 }
 
-.zoom-link-box span,
+.video-link-box span,
 .detail-list span {
   display: block;
   color: var(--color-muted);
@@ -634,7 +634,7 @@
   text-transform: uppercase;
 }
 
-.zoom-link-box a {
+.video-link-box a {
   display: block;
   max-width: 100%;
   overflow: hidden;

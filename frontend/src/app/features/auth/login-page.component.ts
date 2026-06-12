@@ -52,7 +52,7 @@ export class LoginPageComponent {
           const nextRoute = response.data.mustChangePassword
             ? '/change-password'
             : getDefaultRoute(response.data.user.roles, response.data.user.permissions);
-          void this.router.navigateByUrl(nextRoute);
+          void this.router.navigateByUrl(nextRoute, { skipLocationChange: true });
         },
         error: () => {
           this.error.set('Login failed. Check your credentials and ensure the backend is running.');

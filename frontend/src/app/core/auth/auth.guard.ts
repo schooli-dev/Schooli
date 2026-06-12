@@ -1,17 +1,19 @@
 import { inject } from '@angular/core';
-import { CanActivateFn, Router, UrlTree } from '@angular/router';
+import { CanActivateFn, Router } from '@angular/router';
 import { AuthTokenService } from './auth-token.service';
 
-export const authGuard: CanActivateFn = (route, state): boolean | UrlTree => {
+export const authGuard: CanActivateFn = (route, state): boolean => {
   const tokens = inject(AuthTokenService);
   const router = inject(Router);
 
   if (!tokens.isAuthenticated()) {
-    return router.createUrlTree(['/login'], { queryParams: { returnUrl: state.url } });
+    void router.navigate(['/login'], { queryParams: { returnUrl: state.url }, skipLocationChange: true });
+    return false;
   }
 
   if (tokens.mustChangePassword() && state.url !== '/change-password') {
-    return router.createUrlTree(['/change-password']);
+    void router.navigate(['/change-password'], { skipLocationChange: true });
+    return false;
   }
 
   const allowedRoles = route.data['roles'] as string[] | undefined;
@@ -20,17 +22,19 @@ export const authGuard: CanActivateFn = (route, state): boolean | UrlTree => {
   const canUseAdminPermissionRoute = state.url.startsWith('/admin/') && Boolean(requiredPermission) && hasRequiredPermission;
 
   if (allowedRoles?.length && !allowedRoles.some((role) => tokens.getRoles().includes(role)) && !canUseAdminPermissionRoute) {
-    return router.createUrlTree([getDefaultRoute(tokens.getRoles(), tokens.getPermissions())]);
+    void router.navigateByUrl(getDefaultRoute(tokens.getRoles(), tokens.getPermissions()), { skipLocationChange: true });
+    return false;
   }
 
   if (!hasRequiredPermission) {
-    return router.createUrlTree([getDefaultRoute(tokens.getRoles(), tokens.getPermissions())]);
+    void router.navigateByUrl(getDefaultRoute(tokens.getRoles(), tokens.getPermissions()), { skipLocationChange: true });
+    return false;
   }
 
   return true;
 };
 
-export const loginRedirectGuard: CanActivateFn = (): boolean | UrlTree => {
+export const loginRedirectGuard: CanActivateFn = (): boolean => {
   const tokens = inject(AuthTokenService);
   const router = inject(Router);
 
@@ -39,10 +43,12 @@ export const loginRedirectGuard: CanActivateFn = (): boolean | UrlTree => {
   }
 
   if (tokens.mustChangePassword()) {
-    return router.createUrlTree(['/change-password']);
+    void router.navigate(['/change-password'], { skipLocationChange: true });
+    return false;
   }
 
-  return router.createUrlTree([getDefaultRoute(tokens.getRoles(), tokens.getPermissions())]);
+  void router.navigateByUrl(getDefaultRoute(tokens.getRoles(), tokens.getPermissions()), { skipLocationChange: true });
+  return false;
 };
 
 export function getDefaultRoute(roles: string[], permissions: string[] = []): string {

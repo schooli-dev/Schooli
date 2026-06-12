@@ -15,6 +15,8 @@ export class RoleRedirectComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    void this.router.navigateByUrl(getDefaultRoute(this.tokens.getRoles(), this.tokens.getPermissions()));
+    void this.router.navigateByUrl(getDefaultRoute(this.tokens.getRoles(), this.tokens.getPermissions()), {
+      skipLocationChange: true
+    });
   }
 }

@@ -43,6 +43,7 @@ export class AdminClassesComponent implements OnInit {
   protected readonly scheduleMessage = signal('');
   protected readonly scheduleMessageType = signal<'success' | 'error'>('success');
   protected readonly scheduledClass = signal<ClassListItem | null>(null);
+  protected readonly minimumStartDateTime = signal('');
   protected readonly selectedClass = signal<ClassListItem | null>(null);
   protected readonly classDrawerOpen = signal(false);
   protected readonly classToCancel = signal<ClassListItem | null>(null);
@@ -161,6 +162,7 @@ export class AdminClassesComponent implements OnInit {
 
   protected openSchedule(): void {
     this.resetScheduleForm();
+    this.minimumStartDateTime.set(this.toDateTimeLocalValue(new Date(Date.now() + 60 * 1000)));
     this.scheduleOpen.set(true);
   }
 
@@ -216,7 +218,7 @@ export class AdminClassesComponent implements OnInit {
           this.selectedClass.update((selected) => (selected?.id === response.data.id ? response.data : selected));
           this.closeCancelConfirm();
         },
-        error: () => this.cancelMessage.set('Could not cancel this class or Zoom meeting. Please try again.')
+        error: () => this.cancelMessage.set('Could not cancel this class or Daily room. Please try again.')
       });
   }
 
@@ -299,6 +301,11 @@ export class AdminClassesComponent implements OnInit {
 
     if (!this.scheduleForm.startTime) {
       this.showScheduleError('Please choose the class start date and time.');
+      return;
+    }
+
+    if (this.isStartTimeInPast()) {
+      this.showScheduleError('Please choose a future start date and time.');
       return;
     }
 
@@ -397,6 +404,14 @@ export class AdminClassesComponent implements OnInit {
     return `: ${conflict.details.title}`;
   }
 
+  protected isStartTimeInPast(): boolean {
+    if (!this.scheduleForm.startTime) {
+      return false;
+    }
+
+    return new Date(this.scheduleForm.startTime).getTime() <= Date.now();
+  }
+
   private createClass(startTime: string): void {
     this.classesApi
       .createClass({
@@ -414,7 +429,7 @@ export class AdminClassesComponent implements OnInit {
         next: (response) => {
           this.scheduledClass.set(response.data);
           this.scheduleMessageType.set('success');
-          this.scheduleMessage.set(response.data.zoomMeeting?.joinUrl ? 'Class scheduled successfully. Zoom meeting link is ready.' : 'Class scheduled successfully.');
+          this.scheduleMessage.set(response.data.videoMeeting?.roomUrl ? 'Class scheduled successfully. Daily room link is ready.' : 'Class scheduled successfully.');
           this.loadClasses();
           this.refreshBusySlots();
         },
@@ -424,7 +439,7 @@ export class AdminClassesComponent implements OnInit {
             this.conflicts.set(conflicts);
             return;
           }
-          this.showScheduleError('Could not schedule class. Please check availability, conflicts, and Zoom/backend configuration.');
+          this.showScheduleError('Could not schedule class. Please check availability, conflicts, and Daily/backend configuration.');
         }
       });
   }
@@ -455,6 +470,7 @@ export class AdminClassesComponent implements OnInit {
 
   private resetScheduleForm(): void {
     this.scheduleStep.set(1);
+    this.minimumStartDateTime.set(this.toDateTimeLocalValue(new Date(Date.now() + 60 * 1000)));
     this.scheduleForm = {
       teacherId: '',
       studentId: '',
@@ -474,5 +490,21 @@ export class AdminClassesComponent implements OnInit {
   private showScheduleError(message: string): void {
     this.scheduleMessageType.set('error');
     this.scheduleMessage.set(message);
+  }
+
+  private toDateTimeLocalValue(date: Date): string {
+    const pad = (value: number) => value.toString().padStart(2, '0');
+
+    return [
+      date.getFullYear(),
+      '-',
+      pad(date.getMonth() + 1),
+      '-',
+      pad(date.getDate()),
+      'T',
+      pad(date.getHours()),
+      ':',
+      pad(date.getMinutes())
+    ].join('');
   }
 }

@@ -1,0 +1,72 @@
+<section class="classroom-page">
+  <div #dailyRoot class="daily-root" [class.d-none]="sdkError()"></div>
+
+  <div class="classroom-bar shadow-sm">
+    <a class="btn btn-light btn-sm fw-semibold" [routerLink]="backLink()" skipLocationChange>
+      <i class="bi bi-arrow-left me-1"></i>
+      Back
+    </a>
+
+    <div class="session-title text-truncate">
+      <strong class="text-truncate">{{ classItem()?.title ?? 'Live Classroom' }}</strong>
+      <span class="text-muted text-truncate">{{ classItem()?.teacherName ?? 'Preparing Daily room' }}</span>
+    </div>
+  </div>
+
+  @if (canMarkAttendance()) {
+    <div class="attendance-widget card border-0 shadow">
+      <div class="card-body p-3">
+        <div class="d-flex align-items-start justify-content-between gap-3 mb-3">
+          <div class="min-w-0">
+            <span class="text-uppercase text-muted small fw-bold">Attendance</span>
+            <strong class="d-block text-truncate">{{ studentName() }}</strong>
+          </div>
+
+          <span class="badge rounded-pill text-bg-light border text-capitalize">
+            {{ attendanceStatus() }}
+          </span>
+        </div>
+
+        <div class="btn-group w-100" role="group" aria-label="Mark attendance">
+          <button
+            class="btn btn-outline-success fw-semibold"
+            type="button"
+            [class.active]="attendanceStatus() === 'present'"
+            (click)="markAttendance('present')"
+          >
+            <i class="bi bi-check-circle me-1"></i>
+            Present
+          </button>
+
+          <button
+            class="btn btn-outline-danger fw-semibold"
+            type="button"
+            [class.active]="attendanceStatus() === 'absent'"
+            (click)="markAttendance('absent')"
+          >
+            <i class="bi bi-x-circle me-1"></i>
+            Absent
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (sdkMessage() || sdkError()) {
+    <div class="classroom-state">
+      @if (sdkMessage()) {
+        <div class="spinner-border text-primary" aria-hidden="true"></div>
+        <strong>{{ sdkMessage() }}</strong>
+      }
+
+      @if (sdkError()) {
+        <strong class="text-danger">{{ sdkError() }}</strong>
+        @if (classItem()?.videoMeeting?.roomUrl) {
+          <a class="btn btn-primary" [href]="classItem()!.videoMeeting!.roomUrl!" target="_blank" rel="noopener noreferrer">
+            Open Daily room
+          </a>
+        }
+      }
+    </div>
+  }
+</section>

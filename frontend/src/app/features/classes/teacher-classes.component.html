@@ -178,7 +178,7 @@
                 <th>Schedule</th>
                 <th>Status</th>
                 <th>Attendance</th>
-                <th>Zoom</th>
+                <th>Daily</th>
                 <th class="text-end">Actions</th>
               </tr>
             </thead>
@@ -236,9 +236,9 @@
                   </td>
 
                   <td>
-                    <span class="zoom-chip">
+                    <span class="video-chip">
                       <i class="bi bi-camera-video"></i>
-                      {{ item.zoomMeeting?.creationStatus ?? 'pending' }}
+                      {{ item.videoMeeting?.creationStatus ?? 'pending' }}
                     </span>
                   </td>
 
@@ -333,7 +333,7 @@
 
                     <span>
                       <i class="bi bi-camera-video"></i>
-                      Zoom: {{ item.zoomMeeting?.creationStatus ?? 'pending' }}
+                      Daily: {{ item.videoMeeting?.creationStatus ?? 'pending' }}
                     </span>
                   </div>
                 </div>
@@ -499,7 +499,7 @@
       (click)="joinClass(selectedClass()!)"
     >
       <i class="bi bi-camera-video"></i>
-      Join Zoom Meeting
+      Join Daily Room
     </button>
 
     <div class="detail-grid mb-3">
@@ -519,8 +519,8 @@
       </div>
 
       <div class="detail-box">
-        <span>Zoom</span>
-        <strong>{{ selectedClass()!.zoomMeeting?.creationStatus ?? 'pending' }}</strong>
+        <span>Daily</span>
+        <strong>{{ selectedClass()!.videoMeeting?.creationStatus ?? 'pending' }}</strong>
       </div>
     </div>
 
