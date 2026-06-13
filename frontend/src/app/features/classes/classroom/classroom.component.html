@@ -1,4 +1,4 @@
-<section class="classroom-page">
+<section #classroomPage class="classroom-page">
   <div #dailyRoot class="daily-root" [class.d-none]="sdkError()"></div>
 
   <div class="classroom-bar shadow-sm">
@@ -14,17 +14,30 @@
   </div>
 
   @if (canMarkAttendance()) {
-    <div class="attendance-widget card border-0 shadow">
+    <div
+      class="attendance-widget card border-0 shadow"
+      [style.left.px]="attendancePosition().x"
+      [style.top.px]="attendancePosition().y"
+    >
       <div class="card-body p-3">
-        <div class="d-flex align-items-start justify-content-between gap-3 mb-3">
+        <div
+          class="attendance-drag-handle d-flex align-items-start justify-content-between gap-3 mb-3"
+          role="button"
+          tabindex="0"
+          title="Drag attendance panel"
+          (pointerdown)="startAttendanceDrag($event)"
+        >
           <div class="min-w-0">
             <span class="text-uppercase text-muted small fw-bold">Attendance</span>
             <strong class="d-block text-truncate">{{ studentName() }}</strong>
           </div>
 
-          <span class="badge rounded-pill text-bg-light border text-capitalize">
-            {{ attendanceStatus() }}
-          </span>
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge rounded-pill text-bg-light border text-capitalize">
+              {{ attendanceStatus() }}
+            </span>
+            <i class="bi bi-grip-vertical text-muted"></i>
+          </div>
         </div>
 
         <div class="btn-group w-100" role="group" aria-label="Mark attendance">

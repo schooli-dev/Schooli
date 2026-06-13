@@ -3,10 +3,9 @@
   <!-- Sidebar -->
   <aside class="app-sidebar" [class.sidebar-open]="menuOpen()">
     <div class="sidebar-brand">
-      <div class="brand-mark">S</div>
+      <img class="brand-logo" src="/brand/schooli-logo.png" alt="Schooli" />
 
-      <div class="min-w-0">
-        <strong class="d-block text-truncate">Schooli</strong>
+      <div class="brand-meta min-w-0">
         <span class="d-block text-uppercase">{{ roleLabel() }}</span>
       </div>
     </div>
@@ -60,9 +59,7 @@
           <i class="bi bi-list"></i>
         </button>
 
-        <div class="brand-mark mobile">S</div>
-
-        <strong class="text-truncate">Schooli</strong>
+        <img class="brand-logo mobile" src="/brand/schooli-logo.png" alt="Schooli" />
       </div>
 
       <label class="top-search">
@@ -70,8 +67,20 @@
         <input [placeholder]="searchPlaceholder()" />
       </label>
 
-      <div class="topbar-actions">
-        <button class="avatar-btn" type="button" aria-label="Open profile menu" (click)="toggleProfile()">
+      <div
+        class="topbar-actions"
+        (mouseenter)="openProfile()"
+        (mouseleave)="closeProfile()"
+        (focusin)="openProfile()"
+        (focusout)="closeProfileOnFocusOut($event)"
+      >
+        <button
+          class="avatar-btn"
+          type="button"
+          aria-label="Open profile menu"
+          aria-haspopup="dialog"
+          [attr.aria-expanded]="profileOpen()"
+        >
           {{ userInitials() }}
         </button>
 

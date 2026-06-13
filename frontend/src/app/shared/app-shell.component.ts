@@ -151,8 +151,23 @@ export class AppShellComponent {
     this.menuOpen.set(false);
   }
 
-  protected toggleProfile(): void {
-    this.profileOpen.update((open) => !open);
+  protected openProfile(): void {
+    this.profileOpen.set(true);
+  }
+
+  protected closeProfile(): void {
+    this.profileOpen.set(false);
+  }
+
+  protected closeProfileOnFocusOut(event: FocusEvent): void {
+    const currentTarget = event.currentTarget as Node | null;
+    const nextTarget = event.relatedTarget as Node | null;
+
+    if (currentTarget && nextTarget && currentTarget.contains(nextTarget)) {
+      return;
+    }
+
+    this.closeProfile();
   }
 
   protected logout(): void {

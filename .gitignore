@@ -1,6 +1,7 @@
 # Dependencies
 node_modules/
 backend/node_modules/
+backend/docs/
 frontend/node_modules/
 ui_Designs/
 project_doc

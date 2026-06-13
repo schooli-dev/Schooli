@@ -17,6 +17,7 @@ import { ToastService } from '../../../core/toast/toast.service';
   styleUrl: './classroom.component.scss'
 })
 export class ClassroomComponent implements OnInit, AfterViewInit, OnDestroy {
+  @ViewChild('classroomPage') private classroomPage?: ElementRef<HTMLElement>;
   @ViewChild('dailyRoot') private dailyRoot?: ElementRef<HTMLElement>;
 
   private readonly route = inject(ActivatedRoute);
@@ -35,11 +36,13 @@ export class ClassroomComponent implements OnInit, AfterViewInit, OnDestroy {
   protected readonly studentName = computed(() => this.classItem()?.participants[0]?.studentName ?? 'Student');
   protected readonly attendanceStatus = computed(() => this.classItem()?.participants[0]?.attendanceStatus ?? 'pending');
   protected readonly canMarkAttendance = computed(() => Boolean(this.user?.roles.includes('teacher') || this.user?.roles.includes('admin')));
+  protected readonly attendancePosition = signal({ x: 16, y: 16 });
 
   private sdkStarted = false;
   private hasJoinedMeeting = false;
   private cleanupStarted = false;
   private dailyFrame?: any;
+  private dragState: { pointerId: number; offsetX: number; offsetY: number } | null = null;
 
   ngOnInit(): void {
     const classId = this.route.snapshot.paramMap.get('id');
@@ -73,8 +76,41 @@ export class ClassroomComponent implements OnInit, AfterViewInit, OnDestroy {
     this.sendLeaveBeacon();
   }
 
+  @HostListener('window:pointermove', ['$event'])
+  protected onAttendanceDrag(event: PointerEvent): void {
+    if (!this.dragState) {
+      return;
+    }
+
+    event.preventDefault();
+    this.moveAttendanceWidget(event.clientX, event.clientY);
+  }
+
+  @HostListener('window:pointerup')
+  @HostListener('window:pointercancel')
+  protected stopAttendanceDrag(): void {
+    this.dragState = null;
+  }
+
   protected backLink(): string {
     return this.user?.roles.includes('teacher') ? '/teacher/classes' : '/student/classes';
+  }
+
+  protected startAttendanceDrag(event: PointerEvent): void {
+    const target = event.currentTarget as HTMLElement;
+    const widget = target.closest<HTMLElement>('.attendance-widget');
+
+    if (!widget || event.button !== 0) {
+      return;
+    }
+
+    const rect = widget.getBoundingClientRect();
+    this.dragState = {
+      pointerId: event.pointerId,
+      offsetX: event.clientX - rect.left,
+      offsetY: event.clientY - rect.top
+    };
+    target.setPointerCapture?.(event.pointerId);
   }
 
   protected markAttendance(status: AttendanceStatus): void {
@@ -241,5 +277,27 @@ export class ClassroomComponent implements OnInit, AfterViewInit, OnDestroy {
       },
       body: JSON.stringify({ role })
     }).catch(() => undefined);
+  }
+
+  private moveAttendanceWidget(clientX: number, clientY: number): void {
+    const container = this.classroomPage?.nativeElement;
+    const containerRect = container?.getBoundingClientRect();
+
+    if (!containerRect || !this.dragState) {
+      return;
+    }
+
+    const margin = 12;
+    const widgetWidth = Math.min(340, containerRect.width - margin * 2);
+    const widgetHeight = 142;
+    const x = clientX - containerRect.left - this.dragState.offsetX;
+    const y = clientY - containerRect.top - this.dragState.offsetY;
+    const maxX = Math.max(margin, containerRect.width - widgetWidth - margin);
+    const maxY = Math.max(margin, containerRect.height - widgetHeight - margin);
+
+    this.attendancePosition.set({
+      x: Math.min(Math.max(x, margin), maxX),
+      y: Math.min(Math.max(y, margin), maxY)
+    });
   }
 }

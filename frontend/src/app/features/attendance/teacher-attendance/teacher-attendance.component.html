@@ -6,7 +6,7 @@
       <p class="text-muted mb-0">Monitor Daily.co session evidence, verify student presence, and finalize attendance.</p>
     </div>
 
-    <button class="btn btn-primary btn-lg fw-bold shadow-sm attendance-primary-action" type="button" (click)="setTab('pending')">
+    <button class="btn btn-primary btn-lg fw-bold shadow-sm attendance-primary-action" type="button" (click)="showPendingAttendance()">
       <i class="bi bi-card-checklist me-2"></i>
       Mark Attendance
     </button>
@@ -91,29 +91,7 @@
       </div>
 
       <div class="row g-3 align-items-end">
-        <div class="col-12 col-xl-5">
-          <label class="filter-label">View</label>
-          <div class="attendance-tabs" role="tablist" aria-label="Attendance filters">
-            <button type="button" [class.active]="activeTab() === 'today'" (click)="setTab('today')">
-              <i class="bi bi-calendar-day"></i>
-              <span>Today</span>
-            </button>
-            <button type="button" [class.active]="activeTab() === 'pending'" (click)="setTab('pending')">
-              <i class="bi bi-hourglass-split"></i>
-              <span>Pending</span>
-            </button>
-            <button type="button" [class.active]="activeTab() === 'completed'" (click)="setTab('completed')">
-              <i class="bi bi-check2-circle"></i>
-              <span>Completed</span>
-            </button>
-            <button type="button" [class.active]="activeTab() === 'all'" (click)="setTab('all')">
-              <i class="bi bi-list-ul"></i>
-              <span>All</span>
-            </button>
-          </div>
-        </div>
-
-        <div class="col-12 col-md-4 col-xl">
+        <div class="col-12 col-md-4">
           <label class="filter-label">Date Range</label>
           <div class="input-group">
             <span class="input-group-text">
@@ -128,7 +106,7 @@
           </div>
         </div>
 
-        <div class="col-12 col-md-4 col-xl">
+        <div class="col-12 col-md-4">
           <label class="filter-label">Class</label>
           <div class="input-group">
             <span class="input-group-text">
@@ -143,7 +121,7 @@
           </div>
         </div>
 
-        <div class="col-12 col-md-4 col-xl">
+        <div class="col-12 col-md-4">
           <label class="filter-label">Status</label>
           <div class="input-group">
             <span class="input-group-text">

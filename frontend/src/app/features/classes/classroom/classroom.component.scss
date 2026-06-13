@@ -54,11 +54,19 @@
 
 .attendance-widget {
   position: absolute;
-  right: 16px;
-  top: 16px;
   z-index: 5;
   width: min(340px, calc(100% - 32px));
   border-radius: 10px;
+  touch-action: none;
+  user-select: none;
+}
+
+.attendance-drag-handle {
+  cursor: grab;
+}
+
+.attendance-drag-handle:active {
+  cursor: grabbing;
 }
 
 .classroom-state {
@@ -85,8 +93,7 @@
   }
 
   .attendance-widget {
-    top: auto;
-    bottom: 16px;
+    width: min(320px, calc(100% - 24px));
   }
 }
 
@@ -103,9 +110,6 @@
   }
 
   .attendance-widget {
-    right: 12px;
-    bottom: 12px;
-    left: 12px;
-    width: auto;
+    width: min(320px, calc(100% - 24px));
   }
 }

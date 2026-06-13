@@ -16,7 +16,7 @@ type StudentClassTab = 'upcoming' | 'completed' | 'cancelled' | 'all';
 })
 export class StudentClassesComponent implements OnInit {
   protected readonly classes = signal<ClassListItem[]>([]);
-  protected readonly activeTab = signal<StudentClassTab>('upcoming');
+  protected readonly activeTab = signal<StudentClassTab>('all');
   protected readonly currentPage = signal(1);
   protected readonly pageSize = 5;
   protected readonly searchText = signal('');
@@ -111,7 +111,7 @@ export class StudentClassesComponent implements OnInit {
 
   protected clearFilters(): void {
     this.searchText.set('');
-    this.activeTab.set('upcoming');
+    this.activeTab.set('all');
     this.currentPage.set(1);
   }
 

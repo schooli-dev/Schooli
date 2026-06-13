@@ -74,23 +74,6 @@
   <!-- Classes Panel -->
   <section class="panel classes-panel">
 
-    <!-- Tabs -->
-    <div class="class-tabs scroll-row">
-      @for (tab of classTabs; track tab.key) {
-        <button
-          type="button"
-          [class.is-active]="activeTab() === tab.key"
-          (click)="setActiveTab(tab.key)"
-        >
-          <span>{{ tab.label }}</span>
-
-          @if (tabCount(tab.key) > 0) {
-            <span class="tab-count">{{ tabCount(tab.key) }}</span>
-          }
-        </button>
-      }
-    </div>
-
     <!-- Filters -->
     <div class="class-filters">
       <div class="input-group">

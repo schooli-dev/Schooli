@@ -50,23 +50,29 @@
   max-width: 520px;
 }
 
-.brand-mark {
-  width: 46px;
-  height: 46px;
-  display: grid;
-  place-items: center;
-  border-radius: 14px;
-  background: #ffffff;
-  color: var(--login-primary);
-  font-weight: 900;
-  font-size: 1.25rem;
-  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.18);
+.brand-logo {
+  display: block;
+  object-fit: contain;
 }
 
-.brand-mark.mobile {
-  background: var(--login-primary);
-  color: #ffffff;
-  box-shadow: 0 12px 30px rgba(37, 99, 235, 0.22);
+.brand-logo.hero {
+  width: min(330px, 74vw);
+  height: 154px;
+  object-position: left center;
+  background: transparent;
+  filter:
+    saturate(1.12)
+    brightness(1.08)
+    drop-shadow(0 14px 22px rgba(15, 23, 42, 0.16))
+    drop-shadow(0 0 18px rgba(255, 255, 255, 0.22));
+}
+
+.brand-logo.mobile {
+  width: min(240px, 74vw);
+  height: 108px;
+  object-position: center;
+  background: transparent;
+  filter: saturate(1.08) drop-shadow(0 10px 18px rgba(15, 23, 42, 0.1));
 }
 
 .feature-card {

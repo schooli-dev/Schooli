@@ -9,7 +9,6 @@ import {
 } from '../../../core/attendance/attendance-api.service';
 import { ToastService } from '../../../core/toast/toast.service';
 
-type AttendanceTab = 'today' | 'pending' | 'completed' | 'all';
 type DateRangeFilter = 'today' | '7days' | '30days' | 'all';
 type FinalStatusFilter = AttendanceRecordStatus | 'any';
 
@@ -26,11 +25,10 @@ export class TeacherAttendanceComponent implements OnInit {
   protected readonly records = signal<AttendanceRecord[]>([]);
   protected readonly loading = signal(false);
   protected readonly saving = signal(false);
-  protected readonly activeTab = signal<AttendanceTab>('today');
   protected readonly selectedRecord = signal<AttendanceRecord | null>(null);
   protected readonly pagination = signal({ page: 1, limit: pageSize, total: 0, totalPages: 1 });
 
-  protected dateRange: DateRangeFilter = 'today';
+  protected dateRange: DateRangeFilter = 'all';
   protected classFilter = '';
   protected statusFilter: FinalStatusFilter = 'any';
   protected notes = '';
@@ -74,33 +72,20 @@ export class TeacherAttendanceComponent implements OnInit {
     this.loadAttendance(1);
   }
 
-  protected setTab(tab: AttendanceTab): void {
-    this.activeTab.set(tab);
-
-    if (tab === 'today') {
-      this.dateRange = 'today';
-      this.statusFilter = 'any';
-    } else if (tab === 'pending') {
-      this.statusFilter = 'pending';
-    } else if (tab === 'completed') {
-      this.statusFilter = 'any';
-    } else {
-      this.statusFilter = 'any';
-      this.dateRange = 'all';
-    }
-
-    this.loadAttendance(1);
-  }
-
   protected applyFilters(): void {
     this.loadAttendance(1);
   }
 
   protected clearFilters(): void {
-    this.activeTab.set('today');
-    this.dateRange = 'today';
+    this.dateRange = 'all';
     this.classFilter = '';
     this.statusFilter = 'any';
+    this.loadAttendance(1);
+  }
+
+  protected showPendingAttendance(): void {
+    this.dateRange = 'all';
+    this.statusFilter = 'pending';
     this.loadAttendance(1);
   }
 
@@ -235,11 +220,8 @@ export class TeacherAttendanceComponent implements OnInit {
       })
       .subscribe({
         next: (response) => {
-          const data = this.activeTab() === 'completed'
-            ? response.data.filter((record) => record.status !== 'pending')
-            : response.data;
-          this.records.set(data);
-          this.pagination.set(response.pagination ?? { page, limit: pageSize, total: data.length, totalPages: 1 });
+          this.records.set(response.data);
+          this.pagination.set(response.pagination ?? { page, limit: pageSize, total: response.data.length, totalPages: 1 });
         },
         error: () => {
           this.toasts.error('Could not load attendance records.');
@@ -253,10 +235,6 @@ export class TeacherAttendanceComponent implements OnInit {
   private getApiStatus(): AttendanceRecordStatus | undefined {
     if (this.statusFilter !== 'any') {
       return this.statusFilter;
-    }
-
-    if (this.activeTab() === 'pending') {
-      return 'pending';
     }
 
     return undefined;
