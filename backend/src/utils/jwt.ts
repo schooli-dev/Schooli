@@ -11,6 +11,7 @@ export type RefreshTokenPayload = {
   sub: string;
   tokenId: string;
   type: "refresh";
+  exp?: number;
 };
 
 export function signAccessToken(userId: string): string {

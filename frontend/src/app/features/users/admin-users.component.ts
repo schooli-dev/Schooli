@@ -1,7 +1,7 @@
 import { CommonModule, DatePipe, DecimalPipe } from '@angular/common';
-import { Component, OnInit, computed, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { forkJoin } from 'rxjs';
+import { Subject, debounceTime, distinctUntilChanged, forkJoin, takeUntil } from 'rxjs';
 import { AdminDashboardApiService, AdminDashboardStats } from '../../core/admin/admin-dashboard-api.service';
 import { AuthTokenService } from '../../core/auth/auth-token.service';
 import { RoleListItem, RolesApiService } from '../../core/roles/roles-api.service';
@@ -70,7 +70,7 @@ const iconPaths: Record<string, string> = {
   templateUrl: './admin-users.component.html',
   styleUrl: './admin-users.component.scss'
 })
-export class AdminUsersComponent implements OnInit {
+export class AdminUsersComponent implements OnInit, OnDestroy {
   protected readonly users = signal<UserListItem[]>([]);
   protected readonly roles = signal<RoleListItem[]>([]);
   protected readonly stats = signal(emptyStats);
@@ -90,6 +90,8 @@ export class AdminUsersComponent implements OnInit {
   protected dateFilter = '30';
   protected readonly workingDays = WORKING_DAYS;
   protected createForm: CreateUserForm = this.getEmptyCreateForm();
+  private readonly searchChanges = new Subject<string>();
+  private readonly destroy$ = new Subject<void>();
 
   protected readonly pageNumbers = computed(() => {
     const totalPages = this.pagination().totalPages || 1;
@@ -112,6 +114,15 @@ export class AdminUsersComponent implements OnInit {
     this.loadRoles();
     this.loadStats();
     this.loadUsers(1);
+
+    this.searchChanges
+      .pipe(debounceTime(450), distinctUntilChanged(), takeUntil(this.destroy$))
+      .subscribe(() => this.loadUsers(1));
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   protected metricCards() {
@@ -144,6 +155,10 @@ export class AdminUsersComponent implements OnInit {
         this.users.set(response.data);
         this.pagination.set(response.pagination ?? { page: safePage, limit: 10, total: response.data.length, totalPages: 1 });
       });
+  }
+
+  protected handleSearchChange(value: string): void {
+    this.searchChanges.next(value.trim());
   }
 
   protected openUser(user: UserListItem, mode: DialogMode): void {

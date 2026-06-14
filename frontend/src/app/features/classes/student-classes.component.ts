@@ -158,7 +158,11 @@ export class StudentClassesComponent implements OnInit {
   }
 
   protected canRequestCancellation(item: ClassListItem): boolean {
-    return item.status === 'scheduled' && new Date(item.startTime).getTime() > Date.now() && !this.hasPendingCancellationRequest(item);
+    return (
+      ['scheduled', 'rescheduled', 'live'].includes(item.status) &&
+      new Date(item.endTime).getTime() > Date.now() &&
+      !this.hasPendingCancellationRequest(item)
+    );
   }
 
   protected openCancelRequest(item: ClassListItem): void {

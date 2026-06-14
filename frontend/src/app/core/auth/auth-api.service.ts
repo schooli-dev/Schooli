@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { Observable, catchError, finalize, of, tap } from 'rxjs';
+import { Observable, catchError, finalize, map, of, tap } from 'rxjs';
 import { ApiClientService } from '../api/api-client.service';
 import { AuthTokenService } from './auth-token.service';
 
@@ -56,6 +56,19 @@ export class AuthApiService {
 
   resetPassword(token: string, password: string) {
     return this.api.post<null>('/auth/reset-password', { token, password });
+  }
+
+  refreshSession(): Observable<string | null> {
+    const refreshToken = this.tokens.getRefreshToken();
+
+    if (!refreshToken) {
+      return of(null);
+    }
+
+    return this.api.post<LoginResponse>('/auth/refresh', { refreshToken }).pipe(
+      tap((response) => this.tokens.setTokens(response.data.accessToken, response.data.refreshToken)),
+      map((response) => response.data.accessToken)
+    );
   }
 
   changePassword(password: string) {

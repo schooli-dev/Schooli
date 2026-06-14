@@ -236,7 +236,7 @@ async function getCancellationRequestById(
 
 async function assertCanRequestClassCancellation(classId: string, user: AuthenticatedUser): Promise<void> {
   const values: unknown[] = [classId];
-  const filters = ["c.id = $1", "c.status = 'scheduled'"];
+  const filters = ["c.id = $1", "c.status IN ('scheduled', 'rescheduled', 'live')", "c.end_time > NOW()"];
 
   if (user.roles.includes("admin") || user.roles.includes("support")) {
     // Admin/support can request on behalf operationally when permission allows.
@@ -265,7 +265,7 @@ async function assertCanRequestClassCancellation(classId: string, user: Authenti
   );
 
   if (!result.rows[0]) {
-    throw new ApiError(404, "Scheduled class not found for cancellation request", "CLASS_NOT_FOUND");
+    throw new ApiError(404, "Class is not available for cancellation request", "CLASS_NOT_FOUND");
   }
 }
 
@@ -282,7 +282,7 @@ async function cancelClassForApprovedRequest(
           cancellation_reason = $1,
           updated_at = NOW()
       WHERE id = $2
-        AND status = 'scheduled'
+        AND status IN ('scheduled', 'rescheduled', 'live')
     `,
     [reason, classId]
   );

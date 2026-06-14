@@ -319,8 +319,9 @@ async function issueTokenPair(userId: string, client?: PoolClient): Promise<{
   const tokenId = crypto.randomUUID();
   const accessToken = signAccessToken(userId);
   const refreshToken = signRefreshToken(userId, tokenId);
+  const refreshPayload = verifyRefreshToken(refreshToken);
   const tokenHash = await hashPassword(refreshToken);
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const expiresAt = refreshPayload.exp ? new Date(refreshPayload.exp * 1000) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
   const db = client ?? pool;
 
   await db.query(

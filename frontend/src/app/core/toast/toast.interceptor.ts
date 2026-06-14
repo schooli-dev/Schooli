@@ -11,7 +11,7 @@ type MaybeApiResponse = {
 export const toastInterceptor: HttpInterceptorFn = (req, next) => {
   const toasts = inject(ToastService);
 
-  if (!isApiRequest(req.url)) {
+  if (!isApiRequest(req.url) || isSilentRequest(req.url)) {
     return next(req);
   }
 
@@ -38,4 +38,8 @@ function successTone(method: string) {
 
 function isApiRequest(url: string): boolean {
   return url.startsWith('/api') || url.includes('/api/');
+}
+
+function isSilentRequest(url: string): boolean {
+  return url.includes('/auth/refresh');
 }

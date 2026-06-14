@@ -97,7 +97,7 @@
             class="form-control"
             placeholder="Search users..."
             [(ngModel)]="searchText"
-            (ngModelChange)="loadUsers(1)"
+            (ngModelChange)="handleSearchChange($event)"
           />
         </div>
       </div>

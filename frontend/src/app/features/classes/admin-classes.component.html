@@ -350,223 +350,373 @@
 
 <!-- Schedule Modal -->
 @if (scheduleOpen()) {
-  <section class="schedule-modal-overlay" role="dialog" aria-modal="true">
-    <div class="class-schedule-modal">
+  <section class="schedule-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="scheduleClassTitle">
+    <div class="class-schedule-modal upgraded-schedule-modal">
 
-      <header class="schedule-header">
+      <header class="schedule-header upgraded-schedule-header">
         <div class="d-flex align-items-start gap-3 min-w-0">
-          <span class="modal-icon">
+          <span class="modal-icon schedule-main-icon">
             <i class="bi bi-calendar-plus"></i>
           </span>
 
-          <div>
+          <div class="min-w-0">
             <p class="section-kicker mb-1">Class scheduling</p>
-            <h2>Schedule New Class</h2>
+            <h2 id="scheduleClassTitle">Schedule New Class</h2>
+            <p class="schedule-header-subtitle mb-0">
+              Select participants, check availability, and create a Daily.co room for the session.
+            </p>
           </div>
         </div>
 
-        <button class="btn-close" type="button" aria-label="Close" (click)="closeSchedule()"></button>
+        <button class="btn-close schedule-close-btn" type="button" aria-label="Close" (click)="closeSchedule()"></button>
       </header>
 
-      <div class="wizard-steps schedule-two-steps">
-        @for (step of steps; track step.index) {
-          <div [class.is-active]="step.index === scheduleStep()">
-            <span>{{ step.index }}</span>
-            <strong>{{ step.label }}</strong>
-          </div>
-        }
+      <div class="schedule-progress-wrap">
+        <div class="wizard-steps schedule-two-steps upgraded-steps">
+          @for (step of steps; track step.index) {
+            <div class="schedule-step-card" [class.is-active]="step.index === scheduleStep()" [class.is-complete]="step.index < scheduleStep()">
+              <span>
+                @if (step.index < scheduleStep()) {
+                  <i class="bi bi-check-lg"></i>
+                } @else {
+                  {{ step.index }}
+                }
+              </span>
+
+              <div class="min-w-0">
+                <strong>{{ step.label }}</strong>
+                <small>{{ step.index === 1 ? 'Teacher, student and topic' : 'Timing, conflicts and room' }}</small>
+              </div>
+            </div>
+          }
+        </div>
       </div>
 
       @if (scheduleStep() === 1) {
-        <form class="schedule-form-grid" id="participantsForm" (ngSubmit)="nextFromParticipants()">
-          <label>
-            <span class="field-label">
-              <i class="bi bi-person-video3"></i>
-              Teacher <b>*</b>
-            </span>
+        <form class="schedule-form-grid schedule-upgraded-grid" id="participantsForm" (ngSubmit)="nextFromParticipants()">
 
-            <select name="teacherId" [(ngModel)]="scheduleForm.teacherId" required (ngModelChange)="onTeacherChanged()">
-              <option value="">Select teacher</option>
+          <section class="schedule-section-card full">
+            <div class="schedule-section-heading">
+              <span class="schedule-section-icon">
+                <i class="bi bi-people"></i>
+              </span>
 
-              @for (teacher of teachers(); track teacher.id) {
-                <option [value]="teacher.id">{{ fullName(teacher) }}</option>
-              }
-            </select>
-          </label>
+              <div>
+                <h3>Participants</h3>
+                <p>Choose the teacher and student for this one-to-one class.</p>
+              </div>
+            </div>
 
-          <label>
-            <span class="field-label">
-              <i class="bi bi-person"></i>
-              Student <b>*</b>
-            </span>
+            <div class="row g-3">
+              <div class="col-12 col-md-6">
+                <label class="schedule-field">
+                  <span class="field-label">
+                    <i class="bi bi-person-video3"></i>
+                    Teacher <b>*</b>
+                  </span>
 
-            <select name="studentId" [(ngModel)]="scheduleForm.studentId" required (ngModelChange)="refreshBusySlots()">
-              <option value="">Select student</option>
+                  <div class="schedule-control-wrap">
+                    <span class="schedule-control-icon">
+                      <i class="bi bi-mortarboard"></i>
+                    </span>
 
-              @for (student of students(); track student.id) {
-                <option [value]="student.id">{{ fullName(student) }}</option>
-              }
-            </select>
-          </label>
+                    <select
+                      class="form-select"
+                      name="teacherId"
+                      [(ngModel)]="scheduleForm.teacherId"
+                      required
+                      (ngModelChange)="onTeacherChanged()"
+                    >
+                      <option value="">Select teacher</option>
 
-          <label class="full-field">
-            <span class="field-label">
-              <i class="bi bi-type"></i>
-              Class Title <b>*</b>
-            </span>
+                      @for (teacher of teachers(); track teacher.id) {
+                        <option [value]="teacher.id">{{ fullName(teacher) }}</option>
+                      }
+                    </select>
+                  </div>
+                </label>
+              </div>
 
-            <input
-              name="title"
-              [(ngModel)]="scheduleForm.title"
-              required
-              placeholder="Example: Advanced Algebra - Doubt Session"
-            />
-          </label>
+              <div class="col-12 col-md-6">
+                <label class="schedule-field">
+                  <span class="field-label">
+                    <i class="bi bi-person"></i>
+                    Student <b>*</b>
+                  </span>
 
-          <label class="full-field">
-            <span class="field-label">
-              <i class="bi bi-card-text"></i>
-              Meeting Description
-            </span>
+                  <div class="schedule-control-wrap">
+                    <span class="schedule-control-icon">
+                      <i class="bi bi-backpack"></i>
+                    </span>
 
-            <textarea
-              name="description"
-              [(ngModel)]="scheduleForm.description"
-              rows="4"
-              placeholder="Add agenda, preparation notes, learning goals, or anything the student should know."
-            ></textarea>
-          </label>
+                    <select
+                      class="form-select"
+                      name="studentId"
+                      [(ngModel)]="scheduleForm.studentId"
+                      required
+                      (ngModelChange)="refreshBusySlots()"
+                    >
+                      <option value="">Select student</option>
+
+                      @for (student of students(); track student.id) {
+                        <option [value]="student.id">{{ fullName(student) }}</option>
+                      }
+                    </select>
+                  </div>
+                </label>
+              </div>
+            </div>
+          </section>
+
+          <section class="schedule-section-card full">
+            <div class="schedule-section-heading">
+              <span class="schedule-section-icon">
+                <i class="bi bi-card-text"></i>
+              </span>
+
+              <div>
+                <h3>Class Details</h3>
+                <p>Add a clear title and optional agenda for the session.</p>
+              </div>
+            </div>
+
+            <div class="row g-3">
+              <div class="col-12">
+                <label class="schedule-field">
+                  <span class="field-label">
+                    <i class="bi bi-type"></i>
+                    Class Title <b>*</b>
+                  </span>
+
+                  <input
+                    class="form-control"
+                    name="title"
+                    [(ngModel)]="scheduleForm.title"
+                    required
+                    placeholder="Example: Advanced Algebra - Doubt Session"
+                  />
+                </label>
+              </div>
+
+              <div class="col-12">
+                <label class="schedule-field">
+                  <span class="field-label">
+                    <i class="bi bi-chat-left-text"></i>
+                    Meeting Description
+                  </span>
+
+                  <textarea
+                    class="form-control"
+                    name="description"
+                    [(ngModel)]="scheduleForm.description"
+                    rows="4"
+                    placeholder="Add agenda, preparation notes, learning goals, or anything the student should know."
+                  ></textarea>
+                </label>
+              </div>
+            </div>
+          </section>
 
           @if (scheduleMessage()) {
-            <article class="info-card full" [class.conflict-card]="scheduleMessageType() === 'error'">
-              <i class="bi bi-info-circle me-2"></i>
-              {{ scheduleMessage() }}
+            <article class="schedule-alert-card full" [class.error]="scheduleMessageType() === 'error'">
+              <span class="schedule-alert-icon">
+                <i class="bi" [class.bi-info-circle]="scheduleMessageType() !== 'error'" [class.bi-exclamation-triangle]="scheduleMessageType() === 'error'"></i>
+              </span>
+              <div>
+                <strong>{{ scheduleMessageType() === 'error' ? 'Action needed' : 'Note' }}</strong>
+                <p>{{ scheduleMessage() }}</p>
+              </div>
             </article>
           }
         </form>
       } @else {
-        <form class="schedule-form-grid" id="dateTimeForm" (ngSubmit)="validateAndSchedule()">
-          <label>
-            <span class="field-label">
-              <i class="bi bi-calendar-event"></i>
-              Start Date & Time <b>*</b>
-            </span>
+        <form class="schedule-form-grid schedule-upgraded-grid" id="dateTimeForm" (ngSubmit)="validateAndSchedule()">
 
-            <input
-              name="startTime"
-              type="datetime-local"
-              [(ngModel)]="scheduleForm.startTime"
-              [min]="minimumStartDateTime()"
-              required
-              (ngModelChange)="refreshBusySlots()"
-            />
+          <section class="schedule-section-card full">
+            <div class="schedule-section-heading">
+              <span class="schedule-section-icon">
+                <i class="bi bi-clock-history"></i>
+              </span>
 
-            @if (isStartTimeInPast()) {
-              <small class="text-danger d-flex align-items-center gap-1 mt-1">
-                <i class="bi bi-exclamation-circle"></i>
-                Choose a future date and time.
-              </small>
-            }
-          </label>
-
-          <label>
-            <span class="field-label">
-              <i class="bi bi-hourglass-split"></i>
-              Duration <b>*</b>
-            </span>
-
-            <select name="durationMinutes" [(ngModel)]="scheduleForm.durationMinutes" (ngModelChange)="clearConflicts()">
-              <option [ngValue]="30">30 min</option>
-              <option [ngValue]="45">45 min</option>
-              <option [ngValue]="60">60 min</option>
-              <option [ngValue]="90">90 min</option>
-            </select>
-          </label>
-
-          <article class="schedule-side-card">
-            <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
-              <strong>
-                <i class="bi bi-calendar-check me-2"></i>
-                Teacher working hours
-              </strong>
-              <span class="status-chip">{{ selectedTeacherAvailability().length }}</span>
+              <div>
+                <h3>Date & Time</h3>
+                <p>Pick a future slot and duration. Availability and busy slots update automatically.</p>
+              </div>
             </div>
 
-            <div class="slot-list">
+            <div class="row g-3">
+              <div class="col-12 col-md-7">
+                <label class="schedule-field">
+                  <span class="field-label">
+                    <i class="bi bi-calendar-event"></i>
+                    Start Date & Time <b>*</b>
+                  </span>
+
+                  <div class="schedule-control-wrap">
+                    <span class="schedule-control-icon">
+                      <i class="bi bi-calendar3"></i>
+                    </span>
+
+                    <input
+                      class="form-control"
+                      name="startTime"
+                      type="datetime-local"
+                      [(ngModel)]="scheduleForm.startTime"
+                      [min]="minimumStartDateTime()"
+                      required
+                      (ngModelChange)="refreshBusySlots()"
+                    />
+                  </div>
+
+                  @if (isStartTimeInPast()) {
+                    <small class="schedule-field-error">
+                      <i class="bi bi-exclamation-circle"></i>
+                      Choose a future date and time.
+                    </small>
+                  }
+                </label>
+              </div>
+
+              <div class="col-12 col-md-5">
+                <label class="schedule-field">
+                  <span class="field-label">
+                    <i class="bi bi-hourglass-split"></i>
+                    Duration <b>*</b>
+                  </span>
+
+                  <div class="schedule-control-wrap">
+                    <span class="schedule-control-icon">
+                      <i class="bi bi-stopwatch"></i>
+                    </span>
+
+                    <select
+                      class="form-select"
+                      name="durationMinutes"
+                      [(ngModel)]="scheduleForm.durationMinutes"
+                      (ngModelChange)="clearConflicts()"
+                    >
+                      <option [ngValue]="30">30 min</option>
+                      <option [ngValue]="45">45 min</option>
+                      <option [ngValue]="60">60 min</option>
+                      <option [ngValue]="90">90 min</option>
+                    </select>
+                  </div>
+                </label>
+              </div>
+            </div>
+          </section>
+
+          <article class="schedule-side-card upgraded-side-card">
+            <div class="schedule-card-header">
+              <span class="schedule-mini-icon success">
+                <i class="bi bi-calendar-check"></i>
+              </span>
+
+              <div class="min-w-0">
+                <strong>Teacher working hours</strong>
+                <small>{{ selectedTeacherAvailability().length }} active slot(s)</small>
+              </div>
+            </div>
+
+            <div class="slot-list upgraded-slot-list">
               @for (slot of selectedTeacherAvailability(); track slot.id) {
                 <span [class.is-match]="slot.dayOfWeek === selectedDayOfWeek()">
+                  <i class="bi bi-clock"></i>
                   {{ dayLabel(slot.dayOfWeek) }} {{ slot.startTime }} - {{ slot.endTime }}
                 </span>
               } @empty {
-                <span class="text-muted">No active availability found for this teacher.</span>
+                <span class="empty-slot">
+                  <i class="bi bi-calendar-x"></i>
+                  No active availability found for this teacher.
+                </span>
               }
             </div>
           </article>
 
-          <article class="schedule-side-card">
-            <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
-              <strong>
-                <i class="bi bi-calendar-x me-2"></i>
-                Busy on selected day
-              </strong>
-              <span class="status-chip">{{ busySlots().length }}</span>
+          <article class="schedule-side-card upgraded-side-card">
+            <div class="schedule-card-header">
+              <span class="schedule-mini-icon warning">
+                <i class="bi bi-calendar-x"></i>
+              </span>
+
+              <div class="min-w-0">
+                <strong>Busy on selected day</strong>
+                <small>{{ busySlots().length }} booked slot(s)</small>
+              </div>
             </div>
 
-            <div class="slot-list">
+            <div class="slot-list upgraded-slot-list">
               @for (slot of busySlots(); track slot.id) {
-                <span>{{ slot.startTime | date: 'hh:mm a' }} - {{ slot.endTime | date: 'hh:mm a' }} · {{ slot.title }}</span>
+                <span>
+                  <i class="bi bi-camera-video"></i>
+                  {{ slot.startTime | date: 'hh:mm a' }} - {{ slot.endTime | date: 'hh:mm a' }} · {{ slot.title }}
+                </span>
               } @empty {
-                <span class="success-text">No teacher/student overlap found for this day.</span>
+                <span class="empty-slot success-text">
+                  <i class="bi bi-check-circle"></i>
+                  No teacher/student overlap found for this day.
+                </span>
               }
             </div>
           </article>
 
           @if (conflicts().length) {
-            <article class="info-card full conflict-card">
-              <strong>
-                <i class="bi bi-exclamation-triangle me-2"></i>
-                Schedule conflicts
-              </strong>
+            <article class="schedule-alert-card full error">
+              <span class="schedule-alert-icon">
+                <i class="bi bi-exclamation-triangle"></i>
+              </span>
 
-              <ul class="mb-0 mt-2">
-                @for (conflict of conflicts(); track conflict.message) {
-                  <li>{{ conflict.message }}{{ conflictDetail(conflict) }}</li>
-                }
-              </ul>
+              <div>
+                <strong>Schedule conflicts</strong>
+                <ul class="mb-0 mt-2">
+                  @for (conflict of conflicts(); track conflict.message) {
+                    <li>{{ conflict.message }}{{ conflictDetail(conflict) }}</li>
+                  }
+                </ul>
+              </div>
             </article>
           } @else if (scheduleMessage()) {
             <article
-              class="info-card full"
-              [class.conflict-card]="scheduleMessageType() === 'error'"
-              [class.success-card]="scheduleMessageType() === 'success'"
+              class="schedule-alert-card full"
+              [class.error]="scheduleMessageType() === 'error'"
+              [class.success]="scheduleMessageType() === 'success'"
             >
-              <strong>
-                <i class="bi bi-check-circle me-2"></i>
-                {{ scheduleMessage() }}
-              </strong>
+              <span class="schedule-alert-icon">
+                <i
+                  class="bi"
+                  [class.bi-check-circle]="scheduleMessageType() === 'success'"
+                  [class.bi-exclamation-triangle]="scheduleMessageType() === 'error'"
+                ></i>
+              </span>
 
-              @if (scheduledClass()?.videoMeeting?.roomUrl) {
-                <div class="video-link-box mt-3">
-                  <span>Student / Teacher Join Link</span>
-                  <a [href]="scheduledClass()!.videoMeeting!.roomUrl!" target="_blank" rel="noopener noreferrer">
-                    {{ scheduledClass()!.videoMeeting!.roomUrl }}
-                  </a>
-                </div>
-              } @else if (scheduledClass()) {
-                <p class="mb-0 mt-2">Daily room link is not available yet. Check Daily configuration or refresh the class details.</p>
-              }
+              <div class="min-w-0">
+                <strong>{{ scheduleMessageType() === 'success' ? 'Class scheduled' : 'Action needed' }}</strong>
+                <p>{{ scheduleMessage() }}</p>
+
+                @if (scheduledClass()?.videoMeeting?.roomUrl) {
+                  <div class="video-link-box upgraded-video-link mt-3">
+                    <span>Student / Teacher Join Link</span>
+                    <a [href]="scheduledClass()!.videoMeeting!.roomUrl!" target="_blank" rel="noopener noreferrer">
+                      {{ scheduledClass()!.videoMeeting!.roomUrl }}
+                    </a>
+                  </div>
+                } @else if (scheduledClass()) {
+                  <p class="mb-0 mt-2">Daily room link is not available yet. Check Daily configuration or refresh the class details.</p>
+                }
+              </div>
             </article>
           }
         </form>
       }
 
-      <footer class="schedule-footer">
-        <button class="btn btn-outline-secondary" type="button" (click)="scheduleStep() === 1 ? closeSchedule() : previousStep()">
+      <footer class="schedule-footer upgraded-schedule-footer">
+        <button class="btn btn-outline-secondary btn-lg fw-bold" type="button" (click)="scheduleStep() === 1 ? closeSchedule() : previousStep()">
+          <i class="bi" [class.bi-x-lg]="scheduleStep() === 1" [class.bi-arrow-left]="scheduleStep() !== 1"></i>
           {{ scheduleStep() === 1 ? 'Cancel' : 'Previous' }}
         </button>
 
         <button
-          class="btn btn-primary"
+          class="btn btn-primary btn-lg fw-bold"
           type="submit"
           [attr.form]="scheduleStep() === 1 ? 'participantsForm' : 'dateTimeForm'"
           [disabled]="scheduleSubmitting()"
@@ -575,6 +725,9 @@
             <span class="spinner-border spinner-border-sm me-2"></span>
           }
           {{ scheduleStep() === 1 ? 'Next' : scheduledClass() ? 'Done' : scheduleSubmitting() ? 'Scheduling...' : 'Validate & Schedule' }}
+          @if (!scheduleSubmitting() && scheduleStep() === 1) {
+            <i class="bi bi-arrow-right ms-1"></i>
+          }
         </button>
       </footer>
     </div>
