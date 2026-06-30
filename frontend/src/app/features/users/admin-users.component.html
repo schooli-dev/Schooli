@@ -798,6 +798,20 @@
             </select>
           </div>
 
+          <div class="col-12 col-md-6">
+            <label class="form-label">Profile Timezone <span class="required">*</span></label>
+            <select class="form-select" name="profileTimezone" [(ngModel)]="createForm.timezone" required>
+              <option value="Asia/Kolkata">Asia/Kolkata</option>
+              <option value="Europe/Paris">Europe/Paris</option>
+              <option value="Europe/London">Europe/London</option>
+              <option value="Europe/Berlin">Europe/Berlin</option>
+              <option value="America/New_York">America/New_York</option>
+              <option value="America/Los_Angeles">America/Los_Angeles</option>
+              <option value="UTC">UTC</option>
+            </select>
+            <small class="text-muted">Used to show classes in the user's local time.</small>
+          </div>
+
           @if (createForm.role === 'teacher') {
             <div class="col-12">
               <label class="form-label">Working Days <span class="required">*</span></label>
@@ -815,24 +829,22 @@
               </div>
             </div>
 
-            <div class="col-12 col-md-4">
+            <div class="col-12 col-md-6">
               <label class="form-label">Start Time <span class="required">*</span></label>
               <input class="form-control" type="time" name="availabilityStart" [(ngModel)]="createForm.availabilityStartTime" required />
             </div>
 
-            <div class="col-12 col-md-4">
+            <div class="col-12 col-md-6">
               <label class="form-label">End Time <span class="required">*</span></label>
               <input class="form-control" type="time" name="availabilityEnd" [(ngModel)]="createForm.availabilityEndTime" required />
             </div>
 
-            <div class="col-12 col-md-4">
-              <label class="form-label">Timezone <span class="required">*</span></label>
-              <select class="form-select" name="timezone" [(ngModel)]="createForm.timezone" required>
-                <option value="Asia/Kolkata">Asia/Kolkata</option>
-                <option value="UTC">UTC</option>
-                <option value="America/New_York">America/New_York</option>
-                <option value="Europe/London">Europe/London</option>
-              </select>
+            <div class="col-12">
+              <div class="alert alert-light border mb-0">
+                <i class="bi bi-globe2 me-2"></i>
+                Teacher availability is saved in the selected profile timezone:
+                <strong>{{ createForm.timezone }}</strong>
+              </div>
             </div>
           }
 

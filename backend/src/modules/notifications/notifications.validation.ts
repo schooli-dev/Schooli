@@ -63,8 +63,15 @@ export const listDeliveryLogsSchema = z.object({
   })
 });
 
+export const listMyNotificationsSchema = z.object({
+  query: z.object({
+    limit: z.coerce.number().int().positive().max(20).default(5)
+  })
+});
+
 export type ListNotificationRulesInput = z.infer<typeof listNotificationRulesSchema>["query"];
 export type CreateNotificationRuleInput = z.infer<typeof createNotificationRuleSchema>["body"];
 export type UpdateNotificationRuleInput = z.infer<typeof updateNotificationRuleSchema>["body"];
 export type UpdateNotificationRuleStatusInput = z.infer<typeof updateNotificationRuleStatusSchema>["body"];
 export type ListDeliveryLogsInput = z.infer<typeof listDeliveryLogsSchema>["query"];
+export type ListMyNotificationsInput = z.infer<typeof listMyNotificationsSchema>["query"];

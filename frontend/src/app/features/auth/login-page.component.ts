@@ -13,7 +13,7 @@ import { getDefaultRoute } from '../../core/auth/auth.guard';
   styleUrl: './login-page.component.scss'
 })
 export class LoginPageComponent {
-  protected identifier = 'admin';
+  protected identifier = '';
   protected password = '';
   protected rememberMe = true;
   protected resetIdentifier = '';

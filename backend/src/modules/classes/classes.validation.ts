@@ -4,6 +4,17 @@ const uuid = z.string().uuid();
 const isoDateTime = z.string().refine((value) => !Number.isNaN(Date.parse(value)), {
   message: "Expected a valid ISO date-time"
 });
+const ianaTimezone = z.string().trim().min(1).refine(
+  (value) => {
+    try {
+      new Intl.DateTimeFormat("en-US", { timeZone: value }).format(new Date());
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  { message: "Expected a valid IANA timezone such as Asia/Kolkata or Europe/Paris" }
+);
 
 export const listClassesSchema = z.object({
   query: z.object({
@@ -29,7 +40,7 @@ export const checkConflictsSchema = z.object({
     studentId: uuid,
     startTime: isoDateTime,
     durationMinutes: z.number().int().positive().max(480),
-    timezone: z.string().trim().min(1).default("Asia/Kolkata"),
+    timezone: ianaTimezone.default("Asia/Kolkata"),
     excludeClassId: uuid.optional()
   })
 });
@@ -41,7 +52,7 @@ export const createClassSchema = z.object({
     title: z.string().trim().min(1),
     startTime: isoDateTime,
     durationMinutes: z.number().int().positive().max(480),
-    timezone: z.string().trim().min(1).default("Asia/Kolkata"),
+    timezone: ianaTimezone.default("Asia/Kolkata"),
     notes: z.string().trim().optional(),
     overrideConflicts: z.boolean().optional()
   })
@@ -77,7 +88,7 @@ export const rescheduleClassSchema = z.object({
   body: z.object({
     startTime: isoDateTime,
     durationMinutes: z.number().int().positive().max(480),
-    timezone: z.string().trim().min(1).default("Asia/Kolkata"),
+    timezone: ianaTimezone.default("Asia/Kolkata"),
     overrideConflicts: z.boolean().optional()
   })
 });

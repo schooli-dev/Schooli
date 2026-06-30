@@ -3,6 +3,7 @@ export type AuthenticatedUser = {
   username: string | null;
   email: string;
   phone: string | null;
+  timezone: string;
   firstName: string;
   lastName: string;
   roles: string[];

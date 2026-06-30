@@ -3,6 +3,8 @@ import { Component, OnInit, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { finalize } from 'rxjs';
 import { ClassListItem, ClassesApiService, SchedulingConflict } from '../../core/classes/classes-api.service';
+import { AuthTokenService } from '../../core/auth/auth-token.service';
+import { DateTimeService, TimePreview } from '../../core/datetime/date-time.service';
 import { PeopleApiService, PersonOption } from '../../core/people/people-api.service';
 import { TeacherAvailabilityApiService, TeacherAvailabilityItem } from '../../core/teachers/teacher-availability-api.service';
 
@@ -115,7 +117,9 @@ export class AdminClassesComponent implements OnInit {
   constructor(
     private readonly classesApi: ClassesApiService,
     private readonly peopleApi: PeopleApiService,
-    private readonly availabilityApi: TeacherAvailabilityApiService
+    private readonly availabilityApi: TeacherAvailabilityApiService,
+    private readonly dateTime: DateTimeService,
+    private readonly authTokens: AuthTokenService
   ) {}
 
   ngOnInit(): void {
@@ -162,7 +166,7 @@ export class AdminClassesComponent implements OnInit {
 
   protected openSchedule(): void {
     this.resetScheduleForm();
-    this.minimumStartDateTime.set(this.toDateTimeLocalValue(new Date(Date.now() + 60 * 1000)));
+    this.updateMinimumStartDateTime();
     this.scheduleOpen.set(true);
   }
 
@@ -243,9 +247,21 @@ export class AdminClassesComponent implements OnInit {
     this.selectedTeacherAvailability.set([]);
     this.busySlots.set([]);
     this.conflicts.set([]);
+    this.applyRecommendedScheduleTimezone();
     if (this.scheduleForm.teacherId) {
       this.loadSelectedTeacherAvailability();
     }
+    this.refreshBusySlots();
+  }
+
+  protected onStudentChanged(): void {
+    this.applyRecommendedScheduleTimezone();
+    this.refreshBusySlots();
+  }
+
+  protected onScheduleTimezoneChanged(): void {
+    this.updateMinimumStartDateTime();
+    this.clearConflicts();
     this.refreshBusySlots();
   }
 
@@ -261,11 +277,9 @@ export class AdminClassesComponent implements OnInit {
       return;
     }
 
-    const day = new Date(this.scheduleForm.startTime);
-    const from = new Date(day);
-    from.setHours(0, 0, 0, 0);
-    const to = new Date(day);
-    to.setHours(23, 59, 59, 999);
+    const selectedDate = this.scheduleForm.startTime.slice(0, 10);
+    const from = this.dateTime.localDateTimeToUtc(`${selectedDate}T00:00`, this.scheduleForm.timezone);
+    const to = new Date(this.dateTime.localDateTimeToUtc(`${selectedDate}T23:59`, this.scheduleForm.timezone).getTime() + 59 * 1000);
 
     const byId = new Map<string, ClassListItem>();
     const setSlots = (items: ClassListItem[]) => {
@@ -313,7 +327,7 @@ export class AdminClassesComponent implements OnInit {
     const payload = {
       teacherId: this.scheduleForm.teacherId,
       studentId: this.scheduleForm.studentId,
-      startTime: new Date(this.scheduleForm.startTime).toISOString(),
+      startTime: this.dateTime.localDateTimeToUtc(this.scheduleForm.startTime, this.scheduleForm.timezone).toISOString(),
       durationMinutes: Number(this.scheduleForm.durationMinutes),
       timezone: this.scheduleForm.timezone
     };
@@ -352,6 +366,14 @@ export class AdminClassesComponent implements OnInit {
     return item.participants[0]?.attendanceStatus ?? 'pending';
   }
 
+  protected displayStatus(item: ClassListItem): string {
+    return this.hasPendingCancellationRequest(item) ? 'Cancellation Requested' : item.status;
+  }
+
+  protected hasPendingCancellationRequest(item: ClassListItem): boolean {
+    return item.cancellationRequestStatus === 'pending' || Boolean(item.cancellationRequestsCount);
+  }
+
   protected matchesTab(item: ClassListItem, tab: ClassTabKey): boolean {
     const status = item.status.toLowerCase();
     const start = new Date(item.startTime);
@@ -375,10 +397,7 @@ export class AdminClassesComponent implements OnInit {
       case 'failed':
         return ['failed', 'no_show', 'no-show'].includes(status);
       case 'cancellation_requests':
-        return Boolean(
-          (item as ClassListItem & { cancellationRequestStatus?: string; cancellationRequestsCount?: number }).cancellationRequestStatus ||
-            (item as ClassListItem & { cancellationRequestsCount?: number }).cancellationRequestsCount
-        );
+        return this.hasPendingCancellationRequest(item);
     }
   }
 
@@ -394,7 +413,19 @@ export class AdminClassesComponent implements OnInit {
     if (!this.scheduleForm.startTime) {
       return '';
     }
-    return new Intl.DateTimeFormat('en-US', { weekday: 'long' }).format(new Date(this.scheduleForm.startTime)).toLowerCase();
+    const start = this.dateTime.localDateTimeToUtc(this.scheduleForm.startTime, this.scheduleForm.timezone);
+    return new Intl.DateTimeFormat('en-US', { timeZone: this.scheduleForm.timezone, weekday: 'long' }).format(start).toLowerCase();
+  }
+
+  protected availabilityMatchesSelectedSlot(slot: TeacherAvailabilityItem): boolean {
+    if (!this.scheduleForm.startTime) {
+      return false;
+    }
+
+    const start = this.dateTime.localDateTimeToUtc(this.scheduleForm.startTime, this.scheduleForm.timezone);
+    const slotDay = new Intl.DateTimeFormat('en-US', { timeZone: slot.timezone, weekday: 'long' }).format(start).toLowerCase();
+
+    return slot.dayOfWeek === slotDay;
   }
 
   protected conflictDetail(conflict: SchedulingConflict): string {
@@ -409,7 +440,76 @@ export class AdminClassesComponent implements OnInit {
       return false;
     }
 
-    return new Date(this.scheduleForm.startTime).getTime() <= Date.now();
+    return this.dateTime.localDateTimeToUtc(this.scheduleForm.startTime, this.scheduleForm.timezone).getTime() <= Date.now();
+  }
+
+  protected selectedTeacher(): PersonOption | null {
+    return this.teachers().find((teacher) => teacher.id === this.scheduleForm.teacherId) ?? null;
+  }
+
+  protected selectedStudent(): PersonOption | null {
+    return this.students().find((student) => student.id === this.scheduleForm.studentId) ?? null;
+  }
+
+  protected adminTimezone(): string {
+    return this.authTokens.getUser()?.timezone ?? this.dateTime.browserTimezone();
+  }
+
+  protected scheduleTimezoneOptions(): Array<{ label: string; value: string; hint: string }> {
+    const options = [
+      { label: 'Admin timezone', value: this.adminTimezone(), hint: 'Default scheduling view' },
+      { label: 'Teacher timezone', value: this.selectedTeacher()?.timezone ?? '', hint: this.selectedTeacher()?.timezone ?? 'Select teacher first' },
+      { label: 'Student timezone', value: this.selectedStudent()?.timezone ?? '', hint: this.selectedStudent()?.timezone ?? 'Select student first' },
+      { label: 'UTC', value: 'UTC', hint: 'System storage reference' }
+    ];
+    const seen = new Set<string>();
+
+    return options.filter((option) => {
+      if (!option.value || seen.has(`${option.label}:${option.value}`)) {
+        return false;
+      }
+      seen.add(`${option.label}:${option.value}`);
+      return true;
+    });
+  }
+
+  protected timePreview(): TimePreview[] {
+    if (!this.scheduleForm.startTime) {
+      return [];
+    }
+
+    try {
+      const start = this.dateTime.localDateTimeToUtc(this.scheduleForm.startTime, this.scheduleForm.timezone);
+      const end = new Date(start.getTime() + Number(this.scheduleForm.durationMinutes) * 60 * 1000);
+      const teacherTimezone = this.selectedTeacher()?.timezone ?? this.selectedTeacherAvailability()[0]?.timezone ?? this.scheduleForm.timezone;
+      const studentTimezone = this.selectedStudent()?.timezone ?? this.scheduleForm.timezone;
+
+      return [
+        {
+          label: 'Teacher joins at',
+          timezone: teacherTimezone,
+          value: this.dateTime.formatTimeRange(start, end, teacherTimezone)
+        },
+        {
+          label: 'Student joins at',
+          timezone: studentTimezone,
+          value: this.dateTime.formatTimeRange(start, end, studentTimezone)
+        },
+        {
+          label: 'Admin selected',
+          timezone: this.scheduleForm.timezone,
+          value: this.dateTime.formatTimeRange(start, end, this.scheduleForm.timezone)
+        },
+        {
+          label: 'Stored in system',
+          timezone: 'UTC',
+          value: this.dateTime.formatTimeRange(start, end, 'UTC'),
+          muted: true
+        }
+      ];
+    } catch {
+      return [];
+    }
   }
 
   private createClass(startTime: string): void {
@@ -470,7 +570,6 @@ export class AdminClassesComponent implements OnInit {
 
   private resetScheduleForm(): void {
     this.scheduleStep.set(1);
-    this.minimumStartDateTime.set(this.toDateTimeLocalValue(new Date(Date.now() + 60 * 1000)));
     this.scheduleForm = {
       teacherId: '',
       studentId: '',
@@ -478,8 +577,9 @@ export class AdminClassesComponent implements OnInit {
       description: '',
       startTime: '',
       durationMinutes: 60,
-      timezone: 'Asia/Kolkata'
+      timezone: this.adminTimezone()
     };
+    this.updateMinimumStartDateTime();
     this.selectedTeacherAvailability.set([]);
     this.busySlots.set([]);
     this.conflicts.set([]);
@@ -492,19 +592,19 @@ export class AdminClassesComponent implements OnInit {
     this.scheduleMessage.set(message);
   }
 
-  private toDateTimeLocalValue(date: Date): string {
-    const pad = (value: number) => value.toString().padStart(2, '0');
+  private updateMinimumStartDateTime(): void {
+    this.minimumStartDateTime.set(this.dateTime.toLocalInputValue(new Date(Date.now() + 60 * 1000), this.scheduleForm.timezone));
+  }
 
-    return [
-      date.getFullYear(),
-      '-',
-      pad(date.getMonth() + 1),
-      '-',
-      pad(date.getDate()),
-      'T',
-      pad(date.getHours()),
-      ':',
-      pad(date.getMinutes())
-    ].join('');
+  private applyRecommendedScheduleTimezone(): void {
+    const current = this.scheduleForm.timezone;
+    const validTimezones = this.scheduleTimezoneOptions().map((option) => option.value);
+
+    if (validTimezones.includes(current)) {
+      return;
+    }
+
+    this.scheduleForm.timezone = this.selectedTeacher()?.timezone ?? this.selectedStudent()?.timezone ?? this.adminTimezone();
+    this.updateMinimumStartDateTime();
   }
 }

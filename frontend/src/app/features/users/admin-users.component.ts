@@ -229,6 +229,7 @@ export class AdminUsersComponent implements OnInit, OnDestroy {
         username: this.createForm.username || undefined,
         email: this.createForm.email,
         phone: `${this.createForm.isdCode}${this.createForm.phoneNumber}`,
+        timezone: this.createForm.timezone,
         password: this.createForm.password,
         roles: [this.createForm.role]
       })
@@ -316,6 +317,7 @@ export class AdminUsersComponent implements OnInit, OnDestroy {
       /^\d{6,15}$/.test(this.createForm.phoneNumber) &&
       this.createForm.role !== '' &&
       this.createForm.role !== 'admin' &&
+      Boolean(this.createForm.timezone) &&
       this.isStrongPassword();
 
     if (!hasBaseFields) {

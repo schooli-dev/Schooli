@@ -8,6 +8,7 @@ type AuthUserRow = {
   username: string | null;
   email: string;
   phone: string | null;
+  timezone: string;
   first_name: string;
   last_name: string;
   roles: string[];
@@ -26,6 +27,7 @@ export async function authMiddleware(req: Request, _res: Response, next: NextFun
           u.username,
           u.email,
           u.phone,
+          u.timezone,
           u.first_name,
           u.last_name,
           COALESCE(array_agg(DISTINCT r.name) FILTER (WHERE r.name IS NOT NULL), '{}') AS roles,
@@ -54,6 +56,7 @@ export async function authMiddleware(req: Request, _res: Response, next: NextFun
       username: user.username,
       email: user.email,
       phone: user.phone,
+      timezone: user.timezone,
       firstName: user.first_name,
       lastName: user.last_name,
       roles: user.roles,

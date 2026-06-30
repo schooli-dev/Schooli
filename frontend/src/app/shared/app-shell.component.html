@@ -67,13 +67,77 @@
         <input [placeholder]="searchPlaceholder()" />
       </label>
 
-      <div
-        class="topbar-actions"
-        (mouseenter)="openProfile()"
-        (mouseleave)="closeProfile()"
-        (focusin)="openProfile()"
-        (focusout)="closeProfileOnFocusOut($event)"
-      >
+      <div class="topbar-actions">
+        <div
+          class="notification-area"
+          (focusin)="openNotifications()"
+          (focusout)="closeNotificationsOnFocusOut($event)"
+        >
+          <button
+            class="notification-btn"
+            type="button"
+            aria-label="Open notifications"
+            aria-haspopup="dialog"
+            [attr.aria-expanded]="notificationOpen()"
+            (click)="toggleNotifications()"
+          >
+            <i class="bi bi-bell"></i>
+
+            @if (unreadCount() > 0) {
+              <span class="notification-count">{{ unreadCount() > 99 ? '99+' : unreadCount() }}</span>
+            }
+          </button>
+
+          @if (notificationOpen()) {
+            <section class="notification-menu shadow-lg" role="dialog" aria-label="Notifications">
+              <div class="notification-header">
+                <div>
+                  <strong>Notifications</strong>
+                  <span>{{ unreadCount() }} unread</span>
+                </div>
+              </div>
+
+              <div class="notification-list">
+                @for (notification of notifications(); track notification.id) {
+                  <article class="notification-item" [class.is-unread]="!notification.isRead">
+                    <span class="notification-dot" aria-hidden="true"></span>
+
+                    <div class="min-w-0">
+                      <div class="d-flex align-items-start justify-content-between gap-2">
+                        <strong class="text-truncate">{{ notification.title }}</strong>
+                        <time>{{ notificationTime(notification.createdAt) }}</time>
+                      </div>
+
+                      <p>{{ notification.message }}</p>
+                    </div>
+                  </article>
+                } @empty {
+                  <div class="notification-empty">
+                    <i class="bi bi-bell-slash"></i>
+                    <span>No notifications yet.</span>
+                  </div>
+                }
+              </div>
+
+              <button
+                class="btn btn-primary btn-sm fw-bold w-100"
+                type="button"
+                [disabled]="unreadCount() === 0"
+                (click)="markNotificationsRead()"
+              >
+                Mark as read
+              </button>
+            </section>
+          }
+        </div>
+
+        <div
+          class="profile-area"
+          (mouseenter)="openProfile()"
+          (mouseleave)="closeProfile()"
+          (focusin)="openProfile()"
+          (focusout)="closeProfileOnFocusOut($event)"
+        >
         <button
           class="avatar-btn"
           type="button"
@@ -121,6 +185,7 @@
             </button>
           </section>
         }
+        </div>
       </div>
     </header>
 

@@ -13,6 +13,7 @@ import type {
 } from "./classes.validation.js";
 import { checkSchedulingConflicts, type SchedulingConflict } from "./scheduling.service.js";
 import { cancelDailyRoomForClass, createDailyRoomForClass } from "../daily/daily.service.js";
+import { createInAppNotifications } from "../notifications/notifications.service.js";
 
 export type ClassItem = {
   id: string;
@@ -245,6 +246,30 @@ export async function createClass(input: CreateClassInput, user: AuthenticatedUs
       client
     );
 
+    await createInAppNotifications(
+      {
+        eventKey: "class.scheduled",
+        recipientUserIds: [input.teacherId],
+        title: "New class scheduled",
+        message: `${input.title} has been scheduled for ${formatNotificationTime(start)}.`,
+        linkPath: "/teacher/classes",
+        payload: { classId, title: input.title, startTime: start, endTime: end }
+      },
+      client
+    );
+
+    await createInAppNotifications(
+      {
+        eventKey: "class.scheduled",
+        recipientUserIds: [input.studentId],
+        title: "New class scheduled",
+        message: `${input.title} has been scheduled for ${formatNotificationTime(start)}.`,
+        linkPath: "/student/classes",
+        payload: { classId, title: input.title, startTime: start, endTime: end }
+      },
+      client
+    );
+
     await client.query("COMMIT");
 
     return await getClassById(classId, user);
@@ -335,6 +360,7 @@ export async function cancelClass(id: string, input: CancelClassInput, user: Aut
 
     await cancelDailyRoomForClass(id, client);
     await updateTeacherWorkSessionStatus(client, id, "cancelled");
+    await notifyClassCancelled(client, id, input.reason);
 
     await client.query("COMMIT");
   } catch (error) {
@@ -639,6 +665,54 @@ async function updateTeacherWorkSessionStatus(
   );
 }
 
+async function notifyClassCancelled(client: PoolClient, classId: string, reason: string): Promise<void> {
+  const result = await client.query<{
+    title: string;
+    teacher_id: string;
+    student_ids: string[];
+  }>(
+    `
+      SELECT c.title,
+             c.teacher_id,
+             COALESCE(ARRAY_AGG(cp.student_id) FILTER (WHERE cp.student_id IS NOT NULL), '{}') AS student_ids
+      FROM classes c
+      LEFT JOIN class_participants cp ON cp.class_id = c.id
+      WHERE c.id = $1
+      GROUP BY c.id
+    `,
+    [classId]
+  );
+  const classItem = result.rows[0];
+
+  if (!classItem) {
+    return;
+  }
+
+  await createInAppNotifications(
+    {
+      eventKey: "class.cancelled",
+      recipientUserIds: [classItem.teacher_id],
+      title: "Class cancelled",
+      message: `${classItem.title} was cancelled. Reason: ${reason}`,
+      linkPath: "/teacher/classes",
+      payload: { classId, reason }
+    },
+    client
+  );
+
+  await createInAppNotifications(
+    {
+      eventKey: "class.cancelled",
+      recipientUserIds: classItem.student_ids,
+      title: "Class cancelled",
+      message: `${classItem.title} was cancelled. Reason: ${reason}`,
+      linkPath: "/student/classes",
+      payload: { classId, reason }
+    },
+    client
+  );
+}
+
 function mapClass(row: ClassRow): ClassItem {
   return {
     id: row.id,
@@ -680,6 +754,10 @@ function addUpdate(
 
 function formatIcsDate(date: Date): string {
   return date.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+}
+
+function formatNotificationTime(date: Date): string {
+  return `${date.toISOString().replace("T", " ").slice(0, 16)} UTC`;
 }
 
 function escapeIcsText(value: string): string {

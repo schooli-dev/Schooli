@@ -4,6 +4,7 @@ import { getPagination, getPaginationMeta, type PaginationMeta } from "../../uti
 import type {
   CreateNotificationRuleInput,
   ListDeliveryLogsInput,
+  ListMyNotificationsInput,
   ListNotificationRulesInput,
   UpdateNotificationRuleInput,
   UpdateNotificationRuleStatusInput
@@ -39,6 +40,28 @@ type DeliveryLogRow = {
   payload: Record<string, unknown>;
   sent_at: Date | null;
   created_at: Date;
+};
+
+type NotificationRow = {
+  id: string;
+  event_key: string;
+  title: string;
+  message: string;
+  link_path: string | null;
+  payload: Record<string, unknown>;
+  read_at: Date | null;
+  created_at: Date;
+};
+
+type NotificationClient = Pick<typeof pool, "query">;
+
+export type CreateInAppNotificationInput = {
+  eventKey: string;
+  recipientUserIds: Array<string | null | undefined>;
+  title: string;
+  message: string;
+  linkPath?: string | null;
+  payload?: Record<string, unknown>;
 };
 
 export async function listNotificationRules(input: ListNotificationRulesInput): Promise<{
@@ -258,6 +281,103 @@ export async function listDeliveryLogs(input: ListDeliveryLogsInput): Promise<{
   };
 }
 
+export async function listMyNotifications(
+  userId: string,
+  input: ListMyNotificationsInput
+): Promise<{ notifications: ReturnType<typeof mapNotification>[]; unreadCount: number }> {
+  const limit = input.limit ?? 5;
+
+  const [notificationsResult, countResult] = await Promise.all([
+    pool.query<NotificationRow>(
+      `
+        SELECT id, event_key, title, message, link_path, payload, read_at, created_at
+        FROM notifications
+        WHERE recipient_user_id = $1
+        ORDER BY created_at DESC
+        LIMIT $2
+      `,
+      [userId, limit]
+    ),
+    pool.query<{ total: string }>(
+      `
+        SELECT COUNT(*) AS total
+        FROM notifications
+        WHERE recipient_user_id = $1
+          AND read_at IS NULL
+      `,
+      [userId]
+    )
+  ]);
+
+  return {
+    notifications: notificationsResult.rows.map(mapNotification),
+    unreadCount: Number(countResult.rows[0]?.total ?? 0)
+  };
+}
+
+export async function markMyNotificationsRead(userId: string): Promise<{ unreadCount: number }> {
+  await pool.query(
+    `
+      UPDATE notifications
+      SET read_at = NOW()
+      WHERE recipient_user_id = $1
+        AND read_at IS NULL
+    `,
+    [userId]
+  );
+
+  return { unreadCount: 0 };
+}
+
+export async function createInAppNotifications(
+  input: CreateInAppNotificationInput,
+  client: NotificationClient = pool
+): Promise<void> {
+  const recipientUserIds = [...new Set(input.recipientUserIds.filter(Boolean))] as string[];
+
+  if (!recipientUserIds.length) {
+    return;
+  }
+
+  await client.query(
+    `
+      INSERT INTO notifications (
+        event_key,
+        recipient_user_id,
+        title,
+        message,
+        link_path,
+        payload
+      )
+      SELECT $1, recipient_id, $2, $3, $4, $5::JSONB
+      FROM UNNEST($6::UUID[]) AS recipient_id
+    `,
+    [
+      input.eventKey,
+      input.title,
+      input.message,
+      input.linkPath ?? null,
+      JSON.stringify(input.payload ?? {}),
+      recipientUserIds
+    ]
+  );
+}
+
+export async function getAdminRecipientIds(client: NotificationClient = pool): Promise<string[]> {
+  const result = await client.query<{ id: string }>(
+    `
+      SELECT DISTINCT u.id
+      FROM users u
+      JOIN user_roles ur ON ur.user_id = u.id
+      JOIN roles r ON r.id = ur.role_id
+      WHERE r.name = 'admin'
+        AND u.is_active = TRUE
+    `
+  );
+
+  return result.rows.map((row) => row.id);
+}
+
 async function assertEmailTemplateExistsIfProvided(emailTemplateId: string | null): Promise<void> {
   if (!emailTemplateId) {
     return;
@@ -315,6 +435,20 @@ function mapDeliveryLog(row: DeliveryLogRow) {
     errorMessage: row.error_message,
     payload: row.payload,
     sentAt: row.sent_at,
+    createdAt: row.created_at
+  };
+}
+
+function mapNotification(row: NotificationRow) {
+  return {
+    id: row.id,
+    eventKey: row.event_key,
+    title: row.title,
+    message: row.message,
+    linkPath: row.link_path,
+    payload: row.payload,
+    isRead: Boolean(row.read_at),
+    readAt: row.read_at,
     createdAt: row.created_at
   };
 }

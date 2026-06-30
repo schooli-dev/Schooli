@@ -39,42 +39,59 @@ export async function checkSchedulingConflicts(input: CheckConflictsInput): Prom
   const start = new Date(input.startTime);
   const end = new Date(start.getTime() + input.durationMinutes * 60 * 1000);
   const conflicts: SchedulingConflict[] = [];
+  const availability = await pool.query<AvailabilityRow>(
+    `
+      SELECT id, day_of_week, start_time, end_time, timezone
+      FROM teacher_availability
+      WHERE teacher_id = $1
+        AND is_active = TRUE
+      ORDER BY day_of_week, start_time
+    `,
+    [input.teacherId]
+  );
 
-  const localStart = getLocalDateTimeParts(start, input.timezone);
-  const localEnd = getLocalDateTimeParts(end, input.timezone);
+  const matchingAvailability = availability.rows.find((slot) => {
+    const localStart = getLocalDateTimeParts(start, slot.timezone);
+    const localEnd = getLocalDateTimeParts(end, slot.timezone);
 
-  if (localStart.date !== localEnd.date) {
+    return (
+      localStart.date === localEnd.date &&
+      slot.day_of_week === localStart.dayOfWeek &&
+      toMinutes(slot.start_time) <= toMinutes(localStart.time) &&
+      toMinutes(slot.end_time) >= toMinutes(localEnd.time)
+    );
+  });
+
+  if (!matchingAvailability) {
+    const fallbackTimezone = availability.rows[0]?.timezone ?? input.timezone;
+    const localStart = getLocalDateTimeParts(start, fallbackTimezone);
+    const localEnd = getLocalDateTimeParts(end, fallbackTimezone);
+
     conflicts.push({
       type: "teacher_availability",
-      message: "Class must fit within one local calendar day for availability validation",
-      details: { startDate: localStart.date, endDate: localEnd.date, timezone: input.timezone }
+      message:
+        localStart.date === localEnd.date
+          ? "Teacher is not available for the requested time window"
+          : "Class must fit within one local calendar day for teacher availability validation",
+      details: {
+        dayOfWeek: localStart.dayOfWeek,
+        startTime: localStart.time,
+        endTime: localEnd.time,
+        timezone: fallbackTimezone,
+        scheduleTimezone: input.timezone
+      }
     });
-  } else {
-    const availability = await pool.query<AvailabilityRow>(
-      `
-        SELECT id, day_of_week, start_time, end_time, timezone
-        FROM teacher_availability
-        WHERE teacher_id = $1
-          AND day_of_week = $2
-          AND is_active = TRUE
-          AND start_time <= $3::TIME
-          AND end_time >= $4::TIME
-        LIMIT 1
-      `,
-      [input.teacherId, localStart.dayOfWeek, localStart.time, localEnd.time]
-    );
+  }
 
-    if (!availability.rows[0]) {
-      conflicts.push({
-        type: "teacher_availability",
-        message: "Teacher is not available for the requested time window",
-        details: {
-          dayOfWeek: localStart.dayOfWeek,
-          startTime: localStart.time,
-          endTime: localEnd.time,
-          timezone: input.timezone
-        }
-      });
+  const unavailableTimezones = [...new Set([matchingAvailability?.timezone, ...availability.rows.map((slot) => slot.timezone), input.timezone].filter(Boolean))] as string[];
+  const unavailableConflicts = new Set<string>();
+
+  for (const timezone of unavailableTimezones) {
+    const localStart = getLocalDateTimeParts(start, timezone);
+    const localEnd = getLocalDateTimeParts(end, timezone);
+
+    if (localStart.date !== localEnd.date) {
+      continue;
     }
 
     const unavailableDates = await pool.query<UnavailableDateRow>(
@@ -93,6 +110,11 @@ export async function checkSchedulingConflicts(input: CheckConflictsInput): Prom
     );
 
     for (const block of unavailableDates.rows) {
+      if (unavailableConflicts.has(block.id)) {
+        continue;
+      }
+
+      unavailableConflicts.add(block.id);
       conflicts.push({
         type: "teacher_unavailable",
         message: "Teacher has an unavailable date block during this time",
@@ -101,7 +123,8 @@ export async function checkSchedulingConflicts(input: CheckConflictsInput): Prom
           date: block.unavailable_date,
           startTime: block.start_time,
           endTime: block.end_time,
-          reason: block.reason
+          reason: block.reason,
+          timezone
         }
       });
     }
@@ -213,6 +236,11 @@ function getLocalDateTimeParts(date: Date, timezone: string): {
     time: `${map.get("hour")}:${map.get("minute")}`,
     dayOfWeek: map.get("weekday")?.toLowerCase() ?? ""
   };
+}
+
+function toMinutes(value: string): number {
+  const [hour = "0", minute = "0"] = value.split(":");
+  return Number(hour) * 60 + Number(minute);
 }
 
 function mapOverlap(overlap: OverlapRow) {

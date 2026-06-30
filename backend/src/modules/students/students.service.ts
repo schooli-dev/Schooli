@@ -10,6 +10,7 @@ export type StudentItem = {
   lastName: string;
   email: string;
   phone: string | null;
+  timezone: string;
   avatarUrl: string | null;
   status: string;
   isActive: boolean;
@@ -24,6 +25,7 @@ type StudentRow = {
   last_name: string;
   email: string;
   phone: string | null;
+  timezone: string;
   avatar_url: string | null;
   status: string;
   is_active: boolean;
@@ -116,6 +118,7 @@ function baseStudentSelect(): string {
       u.last_name,
       u.email,
       u.phone,
+      u.timezone,
       u.avatar_url,
       u.status,
       u.is_active,
@@ -135,6 +138,7 @@ function mapStudent(row: StudentRow): StudentItem {
     lastName: row.last_name,
     email: row.email,
     phone: row.phone,
+    timezone: row.timezone,
     avatarUrl: row.avatar_url,
     status: row.status,
     isActive: row.is_active,

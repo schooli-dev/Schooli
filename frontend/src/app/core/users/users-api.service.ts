@@ -8,6 +8,7 @@ export type UserListItem = {
   lastName: string;
   email: string;
   phone: string | null;
+  timezone: string;
   avatarUrl: string | null;
   status: 'active' | 'inactive' | 'suspended';
   isActive: boolean;
@@ -44,6 +45,7 @@ export type CreateUserRequest = {
   username?: string;
   email: string;
   phone: string;
+  timezone: string;
   password: string;
   roles: string[];
 };

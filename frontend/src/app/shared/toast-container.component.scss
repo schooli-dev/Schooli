@@ -1,8 +1,14 @@
 :host {
   position: relative;
-  z-index: 2000;
+  z-index: 10000;
+  pointer-events: none;
 }
 
 .toast-container {
-  z-index: 2000;
+  z-index: 10000;
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
 }

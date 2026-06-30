@@ -6,6 +6,7 @@ import * as notificationController from "./notifications.controller.js";
 import {
   createNotificationRuleSchema,
   listDeliveryLogsSchema,
+  listMyNotificationsSchema,
   listNotificationRulesSchema,
   updateNotificationRuleSchema,
   updateNotificationRuleStatusSchema
@@ -13,9 +14,11 @@ import {
 
 export const notificationRulesRoutes = Router();
 export const notificationDeliveryLogsRoutes = Router();
+export const notificationsRoutes = Router();
 
 notificationRulesRoutes.use(authMiddleware);
 notificationDeliveryLogsRoutes.use(authMiddleware);
+notificationsRoutes.use(authMiddleware);
 
 notificationRulesRoutes.get(
   "/",
@@ -47,4 +50,15 @@ notificationDeliveryLogsRoutes.get(
   requirePermission("notification.view"),
   validate(listDeliveryLogsSchema),
   notificationController.listDeliveryLogs
+);
+
+notificationsRoutes.get(
+  "/",
+  validate(listMyNotificationsSchema),
+  notificationController.listMyNotifications
+);
+
+notificationsRoutes.post(
+  "/mark-read",
+  notificationController.markMyNotificationsRead
 );

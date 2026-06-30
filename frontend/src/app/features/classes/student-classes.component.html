@@ -452,6 +452,16 @@
         <p class="mb-0 text-muted">{{ selectedClass()!.notes || 'No description added for this class.' }}</p>
       </article>
 
+      @if (selectedClass()!.status === 'cancelled' && selectedClass()!.cancellationReason) {
+        <article class="alert alert-danger d-flex align-items-start gap-2 mb-3" role="alert">
+          <i class="bi bi-calendar-x flex-shrink-0"></i>
+          <div>
+            <strong class="d-block">Cancellation Reason</strong>
+            <span>{{ selectedClass()!.cancellationReason }}</span>
+          </div>
+        </article>
+      }
+
       <article class="description-panel">
         <span class="fw-bold d-inline-flex align-items-center gap-2 mb-2">
           <i class="bi bi-camera-video text-primary"></i>

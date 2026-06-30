@@ -1,10 +1,11 @@
 import { CommonModule } from '@angular/common';
-import { Component, computed, signal } from '@angular/core';
+import { Component, OnDestroy, computed, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
-import { filter } from 'rxjs';
+import { Subscription, filter, interval } from 'rxjs';
 import { AuthApiService } from '../core/auth/auth-api.service';
 import { AuthTokenService } from '../core/auth/auth-token.service';
 import { NavigationApiService, NavigationPage } from '../core/navigation/navigation-api.service';
+import { NotificationsApiService, UserNotification } from '../core/notifications/notifications-api.service';
 import { ToastService } from '../core/toast/toast.service';
 
 type ShellRole = 'admin' | 'teacher' | 'student';
@@ -77,12 +78,18 @@ function page(
   templateUrl: './app-shell.component.html',
   styleUrl: './app-shell.component.scss'
 })
-export class AppShellComponent {
+export class AppShellComponent implements OnDestroy {
   protected readonly menuOpen = signal(false);
   protected readonly profileOpen = signal(false);
+  protected readonly notificationOpen = signal(false);
+  protected readonly notifications = signal<UserNotification[]>([]);
+  protected readonly unreadCount = signal(0);
   private readonly currentUrl = signal('');
   private readonly policyPages = signal<NavigationPage[]>([]);
   private readonly user = signal<ReturnType<AuthTokenService['getUser']>>(null);
+  private readonly subscriptions = new Subscription();
+  private readonly notificationAudio = typeof Audio !== 'undefined' ? new Audio('/audio/notification.mp3') : null;
+  private lastUnreadCount = 0;
 
   protected readonly role = computed<ShellRole>(() => {
     const url = this.currentUrl();
@@ -127,6 +134,7 @@ export class AppShellComponent {
   constructor(
     private readonly router: Router,
     private readonly navigationApi: NavigationApiService,
+    private readonly notificationsApi: NotificationsApiService,
     private readonly authApi: AuthApiService,
     private readonly tokens: AuthTokenService,
     private readonly toasts: ToastService
@@ -134,13 +142,22 @@ export class AppShellComponent {
     this.user.set(this.tokens.getUser());
     this.currentUrl.set(this.router.url);
 
-    this.router.events.pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd)).subscribe((event) => {
-      this.currentUrl.set(event.urlAfterRedirects);
-      this.closeMenu();
-      this.profileOpen.set(false);
-    });
+    this.subscriptions.add(
+      this.router.events.pipe(filter((event): event is NavigationEnd => event instanceof NavigationEnd)).subscribe((event) => {
+        this.currentUrl.set(event.urlAfterRedirects);
+        this.closeMenu();
+        this.profileOpen.set(false);
+        this.notificationOpen.set(false);
+      })
+    );
 
     this.loadNavigationPolicy();
+    this.loadNotifications(false);
+    this.subscriptions.add(interval(60000).subscribe(() => this.loadNotifications(true)));
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.unsubscribe();
   }
 
   protected toggleMenu(): void {
@@ -159,6 +176,29 @@ export class AppShellComponent {
     this.profileOpen.set(false);
   }
 
+  protected openNotifications(): void {
+    this.notificationOpen.set(true);
+  }
+
+  protected closeNotifications(): void {
+    this.notificationOpen.set(false);
+  }
+
+  protected toggleNotifications(): void {
+    this.notificationOpen.update((open) => !open);
+  }
+
+  protected closeNotificationsOnFocusOut(event: FocusEvent): void {
+    const currentTarget = event.currentTarget as Node | null;
+    const nextTarget = event.relatedTarget as Node | null;
+
+    if (currentTarget && nextTarget && currentTarget.contains(nextTarget)) {
+      return;
+    }
+
+    this.closeNotifications();
+  }
+
   protected closeProfileOnFocusOut(event: FocusEvent): void {
     const currentTarget = event.currentTarget as Node | null;
     const nextTarget = event.relatedTarget as Node | null;
@@ -173,8 +213,11 @@ export class AppShellComponent {
   protected logout(): void {
     this.authApi.logout().subscribe(() => {
       this.policyPages.set([]);
+      this.notifications.set([]);
+      this.unreadCount.set(0);
       this.closeMenu();
       this.profileOpen.set(false);
+      this.notificationOpen.set(false);
       void this.router.navigate(['/login'], { skipLocationChange: true });
     });
   }
@@ -217,6 +260,26 @@ export class AppShellComponent {
     return this.user()?.phone ?? 'No phone available';
   }
 
+  protected markNotificationsRead(): void {
+    this.notificationsApi.markAllRead().subscribe({
+      next: () => {
+        this.unreadCount.set(0);
+        this.lastUnreadCount = 0;
+        this.notifications.update((items) => items.map((item) => ({ ...item, isRead: true, readAt: new Date().toISOString() })));
+      },
+      error: () => this.toasts.error('Could not mark notifications as read.')
+    });
+  }
+
+  protected notificationTime(value: string): string {
+    return new Intl.DateTimeFormat(undefined, {
+      day: '2-digit',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit'
+    }).format(new Date(value));
+  }
+
   protected roleLabelShort(): string {
     return this.role().replace(/^./, (char) => char.toUpperCase());
   }
@@ -226,5 +289,33 @@ export class AppShellComponent {
       next: (response) => this.policyPages.set(response.data.pages),
       error: () => this.policyPages.set(fallbackNavByRole[this.role()])
     });
+  }
+
+  private loadNotifications(playSoundOnIncrease: boolean): void {
+    this.notificationsApi.getMine(5).subscribe({
+      next: (response) => {
+        const nextUnreadCount = response.data.unreadCount;
+        this.notifications.set(response.data.notifications);
+        this.unreadCount.set(nextUnreadCount);
+
+        if (nextUnreadCount > 0 && (!playSoundOnIncrease || nextUnreadCount > this.lastUnreadCount)) {
+          this.playNotificationSound();
+        }
+
+        this.lastUnreadCount = nextUnreadCount;
+      },
+      error: () => {
+        this.notifications.set([]);
+      }
+    });
+  }
+
+  private playNotificationSound(): void {
+    if (!this.notificationAudio) {
+      return;
+    }
+
+    this.notificationAudio.currentTime = 0;
+    void this.notificationAudio.play().catch(() => undefined);
   }
 }

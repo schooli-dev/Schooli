@@ -5,6 +5,7 @@
     "ng": "ng",
     "start": "ng serve --proxy-config proxy.conf.json",
     "build": "ng build",
+    "render:env": "node scripts/write-render-env.cjs",
     "watch": "ng build --watch --configuration development",
     "test": "ng test"
   },

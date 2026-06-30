@@ -30,6 +30,7 @@ export const openApiSpec = swaggerJSDoc({
       { name: "Attendance" },
       { name: "Daily" },
       { name: "Email Templates" },
+      { name: "Notifications" },
       { name: "Notification Manager" }
     ],
     components: {
@@ -1206,6 +1207,29 @@ export const openApiSpec = swaggerJSDoc({
           },
           responses: {
             "200": { description: "Email template status updated" }
+          }
+        }
+      },
+      "/api/notifications": {
+        get: {
+          tags: ["Notifications"],
+          summary: "Get current user's top notifications and unread count",
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { name: "limit", in: "query", schema: { type: "integer", default: 5, maximum: 20 } }
+          ],
+          responses: {
+            "200": { description: "Notifications fetched" }
+          }
+        }
+      },
+      "/api/notifications/mark-read": {
+        post: {
+          tags: ["Notifications"],
+          summary: "Mark all current user's notifications as read",
+          security: [{ bearerAuth: [] }],
+          responses: {
+            "200": { description: "Notifications marked as read" }
           }
         }
       },

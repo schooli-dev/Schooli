@@ -20,6 +20,7 @@ import { dailyClassRoutes, dailyRoutes } from "./modules/daily/daily.routes.js";
 import { emailTemplatesRoutes } from "./modules/emailTemplates/emailTemplates.routes.js";
 import {
   notificationDeliveryLogsRoutes,
+  notificationsRoutes,
   notificationRulesRoutes
 } from "./modules/notifications/notifications.routes.js";
 import { navigationRoutes } from "./modules/navigation/navigation.routes.js";
@@ -91,6 +92,7 @@ app.use("/api/calendar", calendarRoutes);
 app.use("/api/attendance", attendanceRoutes);
 app.use("/api/daily", dailyRoutes);
 app.use("/api/email-templates", emailTemplatesRoutes);
+app.use("/api/notifications", notificationsRoutes);
 app.use("/api/notification-rules", notificationRulesRoutes);
 app.use("/api/notification-delivery-logs", notificationDeliveryLogsRoutes);
 

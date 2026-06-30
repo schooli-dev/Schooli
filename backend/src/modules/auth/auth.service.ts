@@ -22,6 +22,7 @@ type UserAuthRow = {
   last_name: string;
   email: string;
   phone: string | null;
+  timezone: string;
   password_hash: string;
   last_login_at: Date | null;
   must_change_password: boolean;
@@ -360,6 +361,7 @@ function userAuthQuery(whereClause: string): string {
       u.last_name,
       u.email,
       u.phone,
+      u.timezone,
       u.password_hash,
       u.last_login_at,
       u.must_change_password,
@@ -387,6 +389,7 @@ function mapUser(user: UserAuthRow): AuthenticatedUser {
     username: user.username,
     email: user.email,
     phone: user.phone,
+    timezone: user.timezone,
     firstName: user.first_name,
     lastName: user.last_name,
     roles: user.roles,

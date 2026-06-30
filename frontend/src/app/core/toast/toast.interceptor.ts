@@ -41,5 +41,5 @@ function isApiRequest(url: string): boolean {
 }
 
 function isSilentRequest(url: string): boolean {
-  return url.includes('/auth/refresh');
+  return url.includes('/auth/refresh') || url.includes('/notifications');
 }

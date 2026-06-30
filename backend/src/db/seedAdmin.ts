@@ -6,7 +6,8 @@ const DEFAULT_ADMIN = {
   lastName: "Admin",
   username: "admin",
   email: "admin@schooliedu.local",
-  password: "Schooli@2025"
+  password: "Schooli@2025",
+  timezone: "Asia/Kolkata"
 };
 
 async function seedAdmin(): Promise<void> {
@@ -23,15 +24,17 @@ async function seedAdmin(): Promise<void> {
           last_name,
           username,
           email,
+          timezone,
           password_hash,
           status,
           is_active
         )
-        VALUES ($1, $2, $3, $4, $5, 'active', TRUE)
+        VALUES ($1, $2, $3, $4, $5, $6, 'active', TRUE)
         ON CONFLICT (email) DO UPDATE
         SET first_name = EXCLUDED.first_name,
             last_name = EXCLUDED.last_name,
             username = EXCLUDED.username,
+            timezone = EXCLUDED.timezone,
             password_hash = EXCLUDED.password_hash,
             status = 'active',
             is_active = TRUE,
@@ -43,6 +46,7 @@ async function seedAdmin(): Promise<void> {
         DEFAULT_ADMIN.lastName,
         DEFAULT_ADMIN.username,
         DEFAULT_ADMIN.email,
+        DEFAULT_ADMIN.timezone,
         passwordHash
       ]
     );

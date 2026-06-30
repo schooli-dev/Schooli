@@ -19,6 +19,7 @@ export type ClassListItem = {
   timezone: string;
   status: string;
   notes?: string | null;
+  cancellationReason?: string | null;
   cancellationRequestStatus?: string | null;
   cancellationRequestsCount?: number;
   participants: ClassParticipant[];
@@ -67,6 +68,8 @@ export type SchedulingConflict = {
     endTime?: string;
     status?: string;
     dayOfWeek?: string;
+    timezone?: string;
+    scheduleTimezone?: string;
     startTimeLocal?: string;
     endTimeLocal?: string;
     reason?: string | null;

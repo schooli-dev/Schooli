@@ -502,6 +502,16 @@
       </div>
     </div>
 
+    @if (selectedClass()!.status === 'cancelled' && selectedClass()!.cancellationReason) {
+      <div class="alert alert-danger d-flex align-items-start gap-2 mb-3" role="alert">
+        <i class="bi bi-calendar-x flex-shrink-0"></i>
+        <div>
+          <strong class="d-block">Cancellation Reason</strong>
+          <span>{{ selectedClass()!.cancellationReason }}</span>
+        </div>
+      </div>
+    }
+
     <div class="evidence-card rounded-4 p-3 mb-3">
       <strong class="d-block mb-2">
         <i class="bi bi-person-check me-2"></i>

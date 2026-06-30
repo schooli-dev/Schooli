@@ -64,6 +64,34 @@ export const listDeliveryLogs: RequestHandler = asyncHandler(async (req, res) =>
   });
 });
 
+export const listMyNotifications: RequestHandler = asyncHandler(async (req, res) => {
+  if (!req.user) {
+    throw new ApiError(401, "Authentication required", "UNAUTHORIZED");
+  }
+
+  const result = await notificationService.listMyNotifications(req.user.id, {
+    limit: Number(req.query.limit ?? 5)
+  });
+
+  sendSuccess(res, {
+    message: "Notifications fetched",
+    data: result
+  });
+});
+
+export const markMyNotificationsRead: RequestHandler = asyncHandler(async (req, res) => {
+  if (!req.user) {
+    throw new ApiError(401, "Authentication required", "UNAUTHORIZED");
+  }
+
+  const result = await notificationService.markMyNotificationsRead(req.user.id);
+
+  sendSuccess(res, {
+    message: "Notifications marked as read",
+    data: result
+  });
+});
+
 function getIdParam(req: Request): string {
   const id = req.params.id;
 

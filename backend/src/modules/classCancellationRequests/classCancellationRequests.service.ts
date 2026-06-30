@@ -4,6 +4,7 @@ import type { AuthenticatedUser } from "../../types/express.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { getPagination, getPaginationMeta, type PaginationMeta } from "../../utils/pagination.js";
 import { cancelDailyRoomForClass } from "../daily/daily.service.js";
+import { createInAppNotifications, getAdminRecipientIds } from "../notifications/notifications.service.js";
 import type {
   CreateCancellationRequestInput,
   ListCancellationRequestsInput,
@@ -140,7 +141,28 @@ export async function createCancellationRequest(
     [classId, user.id, getPrimaryRequesterRole(user), input.reason]
   );
 
-  return await getCancellationRequestById(result.rows[0].id, user);
+  const request = await getCancellationRequestById(result.rows[0].id, user);
+  const adminRecipientIds = await getAdminRecipientIds();
+
+  await createInAppNotifications({
+    eventKey: "class.cancellation_requested",
+    recipientUserIds: adminRecipientIds,
+    title: "Cancellation request received",
+    message: `${request.requestedByName} requested cancellation for ${request.classTitle}.`,
+    linkPath: "/admin/classes",
+    payload: { classId, cancellationRequestId: request.id, reason: request.reason }
+  });
+
+  await createInAppNotifications({
+    eventKey: "class.cancellation_requested",
+    recipientUserIds: [user.id],
+    title: "Cancellation request submitted",
+    message: `Your cancellation request for ${request.classTitle} has been submitted.`,
+    linkPath: user.roles.includes("teacher") ? "/teacher/classes" : "/student/classes",
+    payload: { classId, cancellationRequestId: request.id, reason: request.reason }
+  });
+
+  return request;
 }
 
 export async function updateCancellationRequestStatus(
@@ -193,10 +215,13 @@ export async function updateCancellationRequestStatus(
       [input.status, input.adminNote ?? null, user.id, id]
     );
 
-  if (input.status === "approved") {
+    if (input.status === "approved") {
       await cancelClassForApprovedRequest(client, request.class_id, input.adminNote ?? "Cancellation request approved");
       await cancelDailyRoomForClass(request.class_id, client);
       await updateTeacherWorkSessionStatus(client, request.class_id, "cancelled");
+      await notifyCancellationDecision(client, request.class_id, request.requested_by_user_id, "approved", input.adminNote);
+    } else if (input.status === "rejected") {
+      await notifyCancellationDecision(client, request.class_id, request.requested_by_user_id, "rejected", input.adminNote);
     }
 
     await client.query("COMMIT");
@@ -306,6 +331,68 @@ async function updateTeacherWorkSessionStatus(
     `,
     [status, classId]
   );
+}
+
+async function notifyCancellationDecision(
+  client: PoolClient,
+  classId: string,
+  requesterUserId: string,
+  status: "approved" | "rejected",
+  adminNote?: string
+): Promise<void> {
+  const result = await client.query<{
+    title: string;
+    teacher_id: string;
+    student_ids: string[];
+  }>(
+    `
+      SELECT c.title,
+             c.teacher_id,
+             COALESCE(ARRAY_AGG(cp.student_id) FILTER (WHERE cp.student_id IS NOT NULL), '{}') AS student_ids
+      FROM classes c
+      LEFT JOIN class_participants cp ON cp.class_id = c.id
+      WHERE c.id = $1
+      GROUP BY c.id
+    `,
+    [classId]
+  );
+  const classItem = result.rows[0];
+
+  if (!classItem) {
+    return;
+  }
+
+  const title = status === "approved" ? "Cancellation approved" : "Cancellation rejected";
+  const message =
+    status === "approved"
+      ? `${classItem.title} has been cancelled.${adminNote ? ` Note: ${adminNote}` : ""}`
+      : `Cancellation request for ${classItem.title} was rejected.${adminNote ? ` Note: ${adminNote}` : ""}`;
+
+  await createInAppNotifications(
+    {
+      eventKey: `class.cancellation_${status}`,
+      recipientUserIds: [requesterUserId],
+      title,
+      message,
+      linkPath: "/student/classes",
+      payload: { classId, status, adminNote: adminNote ?? null }
+    },
+    client
+  );
+
+  if (status === "approved") {
+    await createInAppNotifications(
+      {
+        eventKey: "class.cancelled",
+        recipientUserIds: [classItem.teacher_id, ...classItem.student_ids].filter((id) => id !== requesterUserId),
+        title: "Class cancelled",
+        message,
+        linkPath: "/teacher/classes",
+        payload: { classId, status, adminNote: adminNote ?? null }
+      },
+      client
+    );
+  }
 }
 
 function baseCancellationRequestSelect(): string {

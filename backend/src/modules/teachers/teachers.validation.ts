@@ -15,6 +15,17 @@ const dayOfWeek = z.enum([
 ]);
 
 const timeString = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/, "Expected HH:mm or HH:mm:ss");
+const ianaTimezone = z.string().trim().min(1).refine(
+  (value) => {
+    try {
+      new Intl.DateTimeFormat("en-US", { timeZone: value }).format(new Date());
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  { message: "Expected a valid IANA timezone such as Asia/Kolkata or Europe/Paris" }
+);
 
 export const listTeachersSchema = z.object({
   query: z.object({
@@ -35,7 +46,7 @@ export const createAvailabilitySchema = z.object({
     dayOfWeek,
     startTime: timeString,
     endTime: timeString,
-    timezone: z.string().trim().min(1).default("Asia/Kolkata"),
+    timezone: ianaTimezone.default("Asia/Kolkata"),
     isActive: z.boolean().optional()
   })
 });
@@ -45,7 +56,7 @@ const availabilityInput = z
     dayOfWeek,
     startTime: timeString,
     endTime: timeString,
-    timezone: z.string().trim().min(1).default("Asia/Kolkata"),
+    timezone: ianaTimezone.default("Asia/Kolkata"),
     isActive: z.boolean().optional()
   })
   .refine((value) => value.startTime < value.endTime, {

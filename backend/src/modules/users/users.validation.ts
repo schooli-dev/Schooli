@@ -5,6 +5,17 @@ const uuidParam = z.object({
 });
 
 const userStatus = z.enum(["active", "inactive", "suspended"]);
+const ianaTimezone = z.string().trim().min(1).refine(
+  (value) => {
+    try {
+      new Intl.DateTimeFormat("en-US", { timeZone: value }).format(new Date());
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  { message: "Expected a valid IANA timezone such as Asia/Kolkata or Europe/Paris" }
+);
 const isoDateTime = z.string().refine((value) => !Number.isNaN(Date.parse(value)), {
   message: "Expected a valid ISO date-time"
 });
@@ -46,6 +57,7 @@ export const createUserSchema = z.object({
     username: z.string().trim().min(3).max(50).regex(/^[a-zA-Z0-9._-]+$/).optional(),
     email: z.string().trim().email(),
     phone: z.string().trim().min(8).max(20).regex(/^\+\d{1,4}\d{6,15}$/, "Expected ISD code followed by phone number"),
+    timezone: ianaTimezone.default("Asia/Kolkata"),
     password: strongPassword,
     avatarUrl: z.string().url().optional(),
     roles: z.array(z.string().trim().min(1)).min(1).optional()
@@ -61,6 +73,7 @@ export const updateUserSchema = z.object({
       username: z.string().trim().min(3).max(50).regex(/^[a-zA-Z0-9._-]+$/).nullable().optional(),
       email: z.string().trim().email().optional(),
       phone: z.string().trim().min(5).max(30).nullable().optional(),
+      timezone: ianaTimezone.optional(),
       avatarUrl: z.string().url().nullable().optional()
     })
     .refine((body) => Object.keys(body).length > 0, {

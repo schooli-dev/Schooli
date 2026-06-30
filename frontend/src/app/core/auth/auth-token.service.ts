@@ -10,6 +10,7 @@ export type AuthUser = {
   username: string | null;
   email: string;
   phone?: string | null;
+  timezone?: string;
   firstName: string;
   lastName: string;
   roles: string[];

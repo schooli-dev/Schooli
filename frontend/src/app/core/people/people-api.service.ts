@@ -6,6 +6,7 @@ export type PersonOption = {
   firstName: string;
   lastName: string;
   email: string;
+  timezone: string;
 };
 
 @Injectable({ providedIn: 'root' })

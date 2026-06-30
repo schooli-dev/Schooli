@@ -16,6 +16,7 @@ export type TeacherItem = {
   lastName: string;
   email: string;
   phone: string | null;
+  timezone: string;
   avatarUrl: string | null;
   status: string;
   isActive: boolean;
@@ -30,6 +31,7 @@ type TeacherRow = {
   last_name: string;
   email: string;
   phone: string | null;
+  timezone: string;
   avatar_url: string | null;
   status: string;
   is_active: boolean;
@@ -306,6 +308,7 @@ function baseTeacherSelect(): string {
       u.last_name,
       u.email,
       u.phone,
+      u.timezone,
       u.avatar_url,
       u.status,
       u.is_active,
@@ -325,6 +328,7 @@ function mapTeacher(row: TeacherRow): TeacherItem {
     lastName: row.last_name,
     email: row.email,
     phone: row.phone,
+    timezone: row.timezone,
     avatarUrl: row.avatar_url,
     status: row.status,
     isActive: row.is_active,

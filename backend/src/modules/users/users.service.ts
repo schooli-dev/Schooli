@@ -19,6 +19,7 @@ export type UserListItem = {
   lastName: string;
   email: string;
   phone: string | null;
+  timezone: string;
   avatarUrl: string | null;
   status: string;
   isActive: boolean;
@@ -56,6 +57,7 @@ type UserRow = {
   last_name: string;
   email: string;
   phone: string | null;
+  timezone: string;
   avatar_url: string | null;
   status: string;
   is_active: boolean;
@@ -156,13 +158,14 @@ export async function createUser(input: CreateUserInput): Promise<UserListItem> 
           username,
           email,
           phone,
+          timezone,
           password_hash,
           avatar_url,
           status,
           is_active,
           must_change_password
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, 'active', TRUE, $8)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'active', TRUE, $9)
         RETURNING id
       `,
       [
@@ -171,6 +174,7 @@ export async function createUser(input: CreateUserInput): Promise<UserListItem> 
         input.username ?? null,
         input.email,
         input.phone ?? null,
+        input.timezone,
         passwordHash,
         input.avatarUrl ?? null,
         !(input.roles ?? []).includes("admin")
@@ -242,6 +246,7 @@ export async function updateUser(
   addUpdate(updates, values, "username", input.username);
   addUpdate(updates, values, "email", input.email);
   addUpdate(updates, values, "phone", input.phone);
+  addUpdate(updates, values, "timezone", input.timezone);
   addUpdate(updates, values, "avatar_url", input.avatarUrl);
 
   if (updates.length === 0) {
@@ -454,6 +459,7 @@ function baseUserSelect(): string {
       u.last_name,
       u.email,
       u.phone,
+      u.timezone,
       u.avatar_url,
       u.status,
       u.is_active,
@@ -475,6 +481,7 @@ function mapUser(row: UserRow): UserListItem {
     lastName: row.last_name,
     email: row.email,
     phone: row.phone,
+    timezone: row.timezone,
     avatarUrl: row.avatar_url,
     status: row.status,
     isActive: row.is_active,

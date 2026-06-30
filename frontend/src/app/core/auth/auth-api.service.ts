@@ -16,6 +16,7 @@ export type LoginResponse = {
     id: string;
     username: string | null;
     email: string;
+    timezone?: string;
     firstName: string;
     lastName: string;
     roles: string[];
