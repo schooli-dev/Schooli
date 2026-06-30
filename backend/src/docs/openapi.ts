@@ -1,4 +1,17 @@
 import swaggerJSDoc from "swagger-jsdoc";
+import { env } from "../config/env.js";
+
+function getApiServerUrl(): string {
+  if (!env.PUBLIC_API_BASE_URL) {
+    return "http://localhost:5000";
+  }
+
+  try {
+    return new URL(env.PUBLIC_API_BASE_URL).origin;
+  } catch {
+    return "http://localhost:5000";
+  }
+}
 
 export const openApiSpec = swaggerJSDoc({
   definition: {
@@ -10,8 +23,8 @@ export const openApiSpec = swaggerJSDoc({
     },
     servers: [
       {
-        url: "http://localhost:5000",
-        description: "Local development"
+        url: getApiServerUrl(),
+        description: env.NODE_ENV === "production" ? "Deployed API" : "Local development"
       }
     ],
     tags: [
