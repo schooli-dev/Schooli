@@ -1,0 +1,66 @@
+<main class="error-page min-vh-100 d-flex align-items-center py-4 py-md-5">
+  <div class="container">
+    <section class="error-shell row g-0 overflow-hidden mx-auto">
+      <div class="col-lg-5 error-visual p-4 p-sm-5 d-flex flex-column justify-content-between">
+        <div class="d-flex align-items-center gap-3">
+          <div class="error-logo d-inline-flex align-items-center justify-content-center">
+            <span>S</span>
+          </div>
+          <div>
+            <strong class="d-block">SchooliEdu</strong>
+            <small class="text-white-50 text-uppercase fw-bold">Learning Portal</small>
+          </div>
+        </div>
+
+        <div class="my-5">
+          <span class="badge rounded-pill bg-white text-primary fw-bold px-3 py-2 mb-4">{{ page().eyebrow }}</span>
+          <h1 class="display-code fw-black mb-3">{{ page().code }}</h1>
+          <p class="lead mb-0 text-white-75">Secure learning, classes, and attendance stay protected.</p>
+        </div>
+
+        <div class="d-none d-sm-grid error-stats gap-3">
+          <div class="rounded-3 border border-white border-opacity-25 bg-white bg-opacity-10 p-3">
+            <i class="bi bi-shield-check me-2"></i>
+            <span class="fw-bold">Protected access</span>
+          </div>
+          <div class="rounded-3 border border-white border-opacity-25 bg-white bg-opacity-10 p-3">
+            <i class="bi bi-router me-2"></i>
+            <span class="fw-bold">Guided navigation</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-7 bg-white p-4 p-sm-5 d-flex align-items-center">
+        <div class="error-content w-100 mx-auto">
+          <div class="error-icon mb-4" [class.warning]="page().tone === 'warning'" [class.danger]="page().tone === 'danger'" [class.info]="page().tone === 'info'">
+            <i class="bi" [class]="page().icon"></i>
+          </div>
+
+          <p class="text-uppercase text-primary fw-bold small mb-2">{{ page().eyebrow }}</p>
+          <h2 class="fw-bold mb-3">{{ page().title }}</h2>
+          <p class="text-secondary fs-5 mb-4">{{ page().message }}</p>
+
+          @if (returnUrl()) {
+            <div class="alert alert-light border d-flex gap-2 align-items-start mb-4" role="note">
+              <i class="bi bi-link-45deg text-primary"></i>
+              <div class="small text-secondary text-break">
+                Requested page: <strong>{{ returnUrl() }}</strong>
+              </div>
+            </div>
+          }
+
+          <div class="d-grid d-sm-flex gap-3">
+            <button class="btn btn-primary btn-lg px-4 fw-bold" type="button" (click)="goHome()">
+              <i class="bi bi-house-door me-2"></i>
+              {{ isAuthenticated() ? 'Go to dashboard' : 'Go to sign in' }}
+            </button>
+            <button class="btn btn-outline-secondary btn-lg px-4 fw-bold" type="button" onclick="history.back()">
+              <i class="bi bi-arrow-left me-2"></i>
+              Go back
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>

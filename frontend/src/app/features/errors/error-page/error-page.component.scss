@@ -1,0 +1,122 @@
+:host {
+  display: block;
+}
+
+.error-page {
+  background:
+    radial-gradient(circle at top right, rgba(0, 83, 219, 0.12), transparent 32rem),
+    linear-gradient(135deg, #f8fbff 0%, #faf8ff 100%);
+}
+
+.error-shell {
+  max-width: 1080px;
+  min-height: min(720px, calc(100dvh - 48px));
+  border: 1px solid var(--color-border-soft);
+  border-radius: 22px;
+  box-shadow: 0 28px 90px rgba(30, 64, 175, 0.14);
+}
+
+.error-visual {
+  color: #fff;
+  background:
+    linear-gradient(135deg, rgba(0, 83, 219, 0.94), rgba(113, 42, 226, 0.94)),
+    radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.24), transparent 22rem);
+}
+
+.error-logo {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: #fff;
+  color: var(--color-primary);
+  font-weight: 900;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.16);
+}
+
+.display-code {
+  font-size: clamp(5.2rem, 15vw, 10rem);
+  line-height: 0.85;
+  letter-spacing: 0;
+}
+
+.text-white-75 {
+  color: rgba(255, 255, 255, 0.76);
+}
+
+.error-content {
+  max-width: 560px;
+}
+
+.error-content h2 {
+  color: var(--color-text);
+  font-size: clamp(2rem, 4vw, 3.15rem);
+  line-height: 1.04;
+}
+
+.error-icon {
+  width: 78px;
+  height: 78px;
+  display: grid;
+  place-items: center;
+  border-radius: 20px;
+  background: #e8f0ff;
+  color: var(--color-primary);
+  font-size: 2.15rem;
+}
+
+.error-icon.warning {
+  background: #fff7ed;
+  color: var(--color-warning);
+}
+
+.error-icon.danger {
+  background: #fee2e2;
+  color: var(--color-danger);
+}
+
+.error-icon.info {
+  background: #ecfeff;
+  color: #0e7490;
+}
+
+.fw-black {
+  font-weight: 900;
+}
+
+@media (max-width: 991.98px) {
+  .error-shell {
+    min-height: auto;
+  }
+
+  .error-visual {
+    min-height: 320px;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .error-page {
+    align-items: stretch !important;
+    padding: 0 !important;
+  }
+
+  .error-page .container {
+    padding: 0;
+  }
+
+  .error-shell {
+    min-height: 100dvh;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .error-visual {
+    min-height: 260px;
+  }
+
+  .error-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 18px;
+    font-size: 1.8rem;
+  }
+}

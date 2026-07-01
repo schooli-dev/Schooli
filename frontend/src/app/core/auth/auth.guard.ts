@@ -7,7 +7,7 @@ export const authGuard: CanActivateFn = (route, state): boolean => {
   const router = inject(Router);
 
   if (!tokens.isAuthenticated()) {
-    void router.navigate(['/login'], { queryParams: { returnUrl: state.url }, skipLocationChange: true });
+    void router.navigate(['/401'], { queryParams: { returnUrl: state.url }, skipLocationChange: true });
     return false;
   }
 
@@ -22,12 +22,12 @@ export const authGuard: CanActivateFn = (route, state): boolean => {
   const canUseAdminPermissionRoute = state.url.startsWith('/admin/') && Boolean(requiredPermission) && hasRequiredPermission;
 
   if (allowedRoles?.length && !allowedRoles.some((role) => tokens.getRoles().includes(role)) && !canUseAdminPermissionRoute) {
-    void router.navigateByUrl(getDefaultRoute(tokens.getRoles(), tokens.getPermissions()), { skipLocationChange: true });
+    void router.navigate(['/403'], { queryParams: { returnUrl: state.url }, skipLocationChange: true });
     return false;
   }
 
   if (!hasRequiredPermission) {
-    void router.navigateByUrl(getDefaultRoute(tokens.getRoles(), tokens.getPermissions()), { skipLocationChange: true });
+    void router.navigate(['/403'], { queryParams: { returnUrl: state.url }, skipLocationChange: true });
     return false;
   }
 

@@ -12,8 +12,69 @@ import { TeacherDashboardComponent } from './features/dashboards/teacher-dashboa
 import { AppShellComponent } from './shared/app-shell.component';
 import { authGuard, loginRedirectGuard } from './core/auth/auth.guard';
 import { RoleRedirectComponent } from './core/auth/role-redirect.component';
+import { ErrorPageComponent } from './features/errors/error-page/error-page.component';
 
 export const routes: Routes = [
+  {
+    path: '401',
+    component: ErrorPageComponent,
+    title: 'Unauthorized | SchooliEdu',
+    data: {
+      errorPage: {
+        code: '401',
+        eyebrow: 'Unauthorized',
+        title: 'Sign in to continue',
+        message: 'Your session is missing or has expired. Sign in again to access your SchooliEdu workspace.',
+        icon: 'bi-shield-lock',
+        tone: 'warning'
+      }
+    }
+  },
+  {
+    path: '403',
+    component: ErrorPageComponent,
+    title: 'Access Denied | SchooliEdu',
+    data: {
+      errorPage: {
+        code: '403',
+        eyebrow: 'Access denied',
+        title: 'This area is not available for your role',
+        message: 'Your account does not have permission to open this page. Use your dashboard or ask an admin to update your access.',
+        icon: 'bi-person-lock',
+        tone: 'danger'
+      }
+    }
+  },
+  {
+    path: '404',
+    component: ErrorPageComponent,
+    title: 'Page Not Found | SchooliEdu',
+    data: {
+      errorPage: {
+        code: '404',
+        eyebrow: 'Page not found',
+        title: 'That page is not in this workspace',
+        message: 'The link may be outdated, mistyped, or moved. Head back to your dashboard and continue from there.',
+        icon: 'bi-compass',
+        tone: 'info'
+      }
+    }
+  },
+  {
+    path: 'error',
+    component: ErrorPageComponent,
+    title: 'Error | SchooliEdu',
+    data: {
+      errorPage: {
+        code: '500',
+        eyebrow: 'Unexpected error',
+        title: 'Something did not load correctly',
+        message: 'Please retry the action. If it still fails, contact support with the page and time of the issue.',
+        icon: 'bi-exclamation-octagon',
+        tone: 'danger'
+      }
+    }
+  },
   {
     path: 'login',
     component: LoginPageComponent,
@@ -115,5 +176,6 @@ export const routes: Routes = [
         title: 'Live Classroom | SchooliEdu'
       }
     ]
-  }
+  },
+  { path: '**', redirectTo: '404' }
 ];
