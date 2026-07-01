@@ -1,19 +1,20 @@
-import { DatePipe } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AuthTokenService } from '../../core/auth/auth-token.service';
 import { ClassListItem, ClassesApiService } from '../../core/classes/classes-api.service';
+import { DateTimeService } from '../../core/datetime/date-time.service';
 
 @Component({
   selector: 'app-student-dashboard',
   standalone: true,
-  imports: [DatePipe, RouterLink],
+  imports: [RouterLink],
   templateUrl: './student-dashboard.component.html',
   styleUrl: './student-dashboard.component.scss'
 })
 export class StudentDashboardComponent implements OnInit {
   private readonly authToken = inject(AuthTokenService);
   private readonly classesApi = inject(ClassesApiService);
+  private readonly dateTime = inject(DateTimeService);
 
   protected readonly classes = signal<ClassListItem[]>([]);
   protected readonly user = this.authToken.getUser();
@@ -31,11 +32,8 @@ export class StudentDashboardComponent implements OnInit {
     this.classes().filter((item) => this.attendance(item).toLowerCase() === 'pending').length
   );
   protected readonly monthCount = computed(() => {
-    const now = new Date();
-    return this.classes().filter((item) => {
-      const start = new Date(item.startTime);
-      return start.getMonth() === now.getMonth() && start.getFullYear() === now.getFullYear();
-    }).length;
+    const currentMonth = this.monthKey(new Date());
+    return this.classes().filter((item) => this.monthKey(item.startTime) === currentMonth).length;
   });
   protected readonly attendancePercent = computed(() => {
     const attended = this.classes().filter((item) => ['present', 'in session'].includes(this.attendance(item).toLowerCase())).length;
@@ -71,6 +69,34 @@ export class StudentDashboardComponent implements OnInit {
     return 'Good evening';
   });
 
+  protected userTimezone(): string {
+    const timezone = this.user?.timezone;
+    return this.dateTime.isValidTimezone(timezone) ? timezone : this.dateTime.browserTimezone();
+  }
+
+  protected classMonth(item: ClassListItem): string {
+    return new Intl.DateTimeFormat('en-US', { timeZone: this.userTimezone(), month: 'short' }).format(new Date(item.startTime));
+  }
+
+  protected classDay(item: ClassListItem): string {
+    return new Intl.DateTimeFormat('en-US', { timeZone: this.userTimezone(), day: 'numeric' }).format(new Date(item.startTime));
+  }
+
+  protected classTimeRange(item: ClassListItem): string {
+    return this.dateTime.formatTimeRange(item.startTime, item.endTime, this.userTimezone());
+  }
+
+  protected classTimeOnlyRange(item: ClassListItem): string {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: this.userTimezone(),
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZoneName: 'short'
+    });
+
+    return `${formatter.format(new Date(item.startTime))} to ${formatter.format(new Date(item.endTime))}`;
+  }
+
   ngOnInit(): void {
     this.classesApi.listClasses({ limit: 100 }).subscribe({
       next: (response) => this.classes.set(response.data),
@@ -80,5 +106,13 @@ export class StudentDashboardComponent implements OnInit {
 
   private attendance(item: ClassListItem): string {
     return item.participants[0]?.attendanceStatus ?? 'pending';
+  }
+
+  private monthKey(value: Date | string): string {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: this.userTimezone(),
+      year: 'numeric',
+      month: '2-digit'
+    }).format(new Date(value));
   }
 }

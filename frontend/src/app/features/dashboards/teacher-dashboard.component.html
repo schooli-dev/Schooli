@@ -80,8 +80,7 @@
                   Class Time
                 </div>
                 <strong>
-                  {{ nextClass()!.startTime | date: 'MMM d, hh:mm a' }} -
-                  {{ nextClass()!.endTime | date: 'hh:mm a' }}
+                  {{ classTimeRange(nextClass()!) }}
                 </strong>
               </div>
 
@@ -194,7 +193,7 @@
                   <div class="col-12 col-md-3">
                     <div class="d-flex align-items-center gap-2 text-primary fw-bold">
                       <i class="bi bi-clock"></i>
-                      <span>{{ item.startTime | date: 'hh:mm a' }} - {{ item.endTime | date: 'hh:mm a' }}</span>
+                      <span>{{ classTimeOnlyRange(item) }}</span>
                     </div>
                   </div>
 

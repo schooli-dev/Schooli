@@ -169,7 +169,7 @@
 
                     <span class="small text-muted d-inline-flex align-items-center gap-1">
                       <i class="bi bi-calendar-event"></i>
-                      {{ item.startTime | date: 'MMM d, h:mm a' }} - {{ item.endTime | date: 'h:mm a' }}
+                      {{ classTimeRange(item) }}
                     </span>
 
                     @if (hasPendingCancellationRequest(item)) {
@@ -425,7 +425,8 @@
         <div class="col-12 col-sm-6">
           <div class="detail-tile">
             <span><i class="bi bi-clock"></i> Schedule</span>
-            <strong>{{ selectedClass()!.startTime | date: 'MMM d, y, h:mm a' }}</strong>
+            <strong>{{ classDateTime(selectedClass()!) }}</strong>
+            <small class="text-muted d-block mt-1">{{ userTimezone() }}</small>
           </div>
         </div>
 

@@ -1,16 +1,17 @@
-import { DatePipe } from '@angular/common';
 import { Component, OnInit, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { finalize } from 'rxjs';
+import { AuthTokenService } from '../../core/auth/auth-token.service';
 import { ClassListItem, ClassesApiService } from '../../core/classes/classes-api.service';
+import { DateTimeService } from '../../core/datetime/date-time.service';
 
 type StudentClassTab = 'upcoming' | 'completed' | 'cancelled' | 'all';
 
 @Component({
   selector: 'app-student-classes',
   standalone: true,
-  imports: [DatePipe, FormsModule],
+  imports: [FormsModule],
   templateUrl: './student-classes.component.html',
   styleUrl: './student-classes.component.scss'
 })
@@ -66,11 +67,8 @@ export class StudentClassesComponent implements OnInit {
   );
 
   protected readonly monthCount = computed(() => {
-    const now = new Date();
-    return this.classes().filter((item) => {
-      const start = new Date(item.startTime);
-      return start.getMonth() === now.getMonth() && start.getFullYear() === now.getFullYear();
-    }).length;
+    const currentMonth = this.monthKey(new Date());
+    return this.classes().filter((item) => this.monthKey(item.startTime) === currentMonth).length;
   });
 
   protected readonly completedCount = computed(() => this.classes().filter((item) => item.status === 'completed').length);
@@ -102,7 +100,9 @@ export class StudentClassesComponent implements OnInit {
 
   constructor(
     private readonly classesApi: ClassesApiService,
-    private readonly router: Router
+    private readonly router: Router,
+    private readonly authToken: AuthTokenService,
+    private readonly dateTime: DateTimeService
   ) {}
 
   ngOnInit(): void {
@@ -134,6 +134,19 @@ export class StudentClassesComponent implements OnInit {
 
   protected tabCount(tab: StudentClassTab): number {
     return this.classes().filter((item) => this.matchesTab(item, tab)).length;
+  }
+
+  protected userTimezone(): string {
+    const timezone = this.authToken.getUser()?.timezone;
+    return this.dateTime.isValidTimezone(timezone) ? timezone : this.dateTime.browserTimezone();
+  }
+
+  protected classDateTime(item: ClassListItem): string {
+    return this.dateTime.formatDateTime(item.startTime, this.userTimezone());
+  }
+
+  protected classTimeRange(item: ClassListItem): string {
+    return this.dateTime.formatTimeRange(item.startTime, item.endTime, this.userTimezone());
   }
 
   protected canJoin(item: ClassListItem): boolean {
@@ -261,5 +274,13 @@ export class StudentClassesComponent implements OnInit {
 
   protected hasPendingCancellationRequest(item: ClassListItem): boolean {
     return item.cancellationRequestStatus === 'pending' || Boolean(item.cancellationRequestsCount);
+  }
+
+  private monthKey(value: Date | string): string {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: this.userTimezone(),
+      year: 'numeric',
+      month: '2-digit'
+    }).format(new Date(value));
   }
 }

@@ -186,8 +186,8 @@
 
                   <td>
                     <div class="date-cell">
-                      <strong>{{ item.startTime | date: 'MMM d' }}</strong>
-                      <span>{{ item.startTime | date: 'hh:mm a' }} - {{ item.endTime | date: 'hh:mm a' }}</span>
+                      <strong>{{ classDate(item) }}</strong>
+                      <span>{{ classTimeOnlyRange(item) }}</span>
                       <small>{{ item.durationMinutes }} min</small>
                     </div>
                   </td>
@@ -296,7 +296,7 @@
 
                     <span>
                       <i class="bi bi-calendar-event"></i>
-                      {{ item.startTime | date: 'MMM d, hh:mm a' }}
+                      {{ classDateTime(item) }}
                     </span>
 
                     <span>
@@ -483,7 +483,8 @@
     <div class="detail-grid mb-3">
       <div class="detail-box">
         <span>Schedule</span>
-        <strong>{{ selectedClass()!.startTime | date: 'MMM d, hh:mm a' }}</strong>
+        <strong>{{ classDateTime(selectedClass()!) }}</strong>
+        <small class="text-muted d-block mt-1">{{ userTimezone() }}</small>
       </div>
 
       <div class="detail-box">

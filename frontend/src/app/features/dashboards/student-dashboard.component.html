@@ -42,7 +42,7 @@
                 <div class="min-w-0">
                   <small class="d-block text-uppercase fw-bold text-white-50">Class Time</small>
                   <strong class="d-block text-white">
-                    {{ nextClass()!.startTime | date: 'MMM d, hh:mm a' }} - {{ nextClass()!.endTime | date: 'hh:mm a' }}
+                    {{ classTimeRange(nextClass()!) }}
                   </strong>
                 </div>
               </div>
@@ -116,8 +116,8 @@
 
                     <div class="col-12 col-sm-auto">
                       <div class="date-tile text-center rounded-4 p-3">
-                        <span class="d-block small text-uppercase fw-bold">{{ item.startTime | date: 'MMM' }}</span>
-                        <strong class="d-block fs-4 lh-1">{{ item.startTime | date: 'd' }}</strong>
+                        <span class="d-block small text-uppercase fw-bold">{{ classMonth(item) }}</span>
+                        <strong class="d-block fs-4 lh-1">{{ classDay(item) }}</strong>
                       </div>
                     </div>
 
@@ -132,7 +132,7 @@
 
                         <span class="d-inline-flex align-items-center gap-1">
                           <i class="bi bi-clock"></i>
-                          {{ item.startTime | date: 'hh:mm a' }} to {{ item.endTime | date: 'hh:mm a' }}
+                          {{ classTimeOnlyRange(item) }}
                         </span>
                       </div>
                     </div>

@@ -112,6 +112,7 @@
           <tr>
             <th>User</th>
             <th>Role</th>
+            <th>Timezone</th>
             <th>Status</th>
             <th>Last Login</th>
             <th class="text-end">Actions</th>
@@ -138,6 +139,13 @@
                 <span class="role-chip">
                   <i class="bi bi-shield-check"></i>
                   {{ primaryRole(user) }}
+                </span>
+              </td>
+
+              <td>
+                <span class="text-muted d-inline-flex align-items-center gap-1">
+                  <i class="bi bi-globe2"></i>
+                  {{ user.timezone || 'Not set' }}
                 </span>
               </td>
 
@@ -196,7 +204,7 @@
             </tr>
           } @empty {
             <tr>
-              <td colspan="5">
+              <td colspan="6">
                 <div class="empty-state">
                   <i class="bi bi-people"></i>
                   <strong>No users found</strong>
@@ -243,6 +251,11 @@
                 Last login:
                 {{ user.lastLoginAt ? (user.lastLoginAt | date: 'MMM d, hh:mm a') : 'Never' }}
               </span>
+            </div>
+
+            <div class="mobile-meta mt-2">
+              <i class="bi bi-globe2"></i>
+              <span>Timezone: {{ user.timezone || 'Not set' }}</span>
             </div>
           </div>
         </div>
@@ -464,6 +477,14 @@
               <article class="info-tile">
                 <span>Assigned Roles</span>
                 <strong>{{ selectedUser()!.roles.length || 0 }}</strong>
+              </article>
+
+              <article class="info-tile">
+                <span>Profile Timezone</span>
+                <strong>
+                  <i class="bi bi-globe2 me-1"></i>
+                  {{ selectedUser()!.timezone || 'Not set' }}
+                </strong>
               </article>
             </div>
           </section>

@@ -1,15 +1,16 @@
-import { DatePipe } from '@angular/common';
 import { Component, OnInit, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { AuthTokenService } from '../../core/auth/auth-token.service';
 import { ClassListItem, ClassesApiService } from '../../core/classes/classes-api.service';
+import { DateTimeService } from '../../core/datetime/date-time.service';
 
 type TeacherClassTab = 'today' | 'upcoming' | 'completed' | 'cancelled' | 'all';
 
 @Component({
   selector: 'app-teacher-classes',
   standalone: true,
-  imports: [DatePipe, FormsModule],
+  imports: [FormsModule],
   templateUrl: './teacher-classes.component.html',
   styleUrl: './teacher-classes.component.scss'
 })
@@ -71,7 +72,7 @@ export class TeacherClassesComponent implements OnInit {
 
   protected readonly nextClassTime = computed(() => {
     const next = this.nextClass();
-    return next ? new Date(next.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--';
+    return next ? this.classTimeOnlyRange(next) : '--';
   });
 
   protected readonly nextClassStatus = computed(() => this.nextClass()?.status ?? 'none');
@@ -83,7 +84,9 @@ export class TeacherClassesComponent implements OnInit {
 
   constructor(
     private readonly classesApi: ClassesApiService,
-    private readonly router: Router
+    private readonly router: Router,
+    private readonly authToken: AuthTokenService,
+    private readonly dateTime: DateTimeService
   ) {}
 
   ngOnInit(): void {
@@ -134,6 +137,34 @@ export class TeacherClassesComponent implements OnInit {
     return item.participants[0]?.attendanceStatus ?? 'pending';
   }
 
+  protected userTimezone(): string {
+    const timezone = this.authToken.getUser()?.timezone;
+    return this.dateTime.isValidTimezone(timezone) ? timezone : this.dateTime.browserTimezone();
+  }
+
+  protected classDate(item: ClassListItem): string {
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: this.userTimezone(),
+      month: 'short',
+      day: 'numeric'
+    }).format(new Date(item.startTime));
+  }
+
+  protected classDateTime(item: ClassListItem): string {
+    return this.dateTime.formatDateTime(item.startTime, this.userTimezone());
+  }
+
+  protected classTimeOnlyRange(item: ClassListItem): string {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: this.userTimezone(),
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZoneName: 'short'
+    });
+
+    return `${formatter.format(new Date(item.startTime))} - ${formatter.format(new Date(item.endTime))}`;
+  }
+
   protected initials(name: string): string {
     return name
       .split(' ')
@@ -179,6 +210,15 @@ export class TeacherClassesComponent implements OnInit {
   }
 
   private isToday(item: ClassListItem): boolean {
-    return new Date(item.startTime).toDateString() === new Date().toDateString();
+    return this.dateKey(item.startTime) === this.dateKey(new Date());
+  }
+
+  private dateKey(value: Date | string): string {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: this.userTimezone(),
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(new Date(value));
   }
 }

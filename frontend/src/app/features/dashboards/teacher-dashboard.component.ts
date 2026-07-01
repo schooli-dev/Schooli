@@ -1,15 +1,15 @@
-import { DatePipe } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AuthTokenService } from '../../core/auth/auth-token.service';
 import { ClassListItem, ClassesApiService } from '../../core/classes/classes-api.service';
+import { DateTimeService } from '../../core/datetime/date-time.service';
 import { TeacherAvailabilityApiService, TeacherAvailabilityItem } from '../../core/teachers/teacher-availability-api.service';
 
 @Component({
   selector: 'app-teacher-dashboard',
   standalone: true,
-  imports: [DatePipe, FormsModule, RouterLink],
+  imports: [FormsModule, RouterLink],
   templateUrl: './teacher-dashboard.component.html',
   styleUrl: './teacher-dashboard.component.scss'
 })
@@ -17,6 +17,7 @@ export class TeacherDashboardComponent implements OnInit {
   private readonly authToken = inject(AuthTokenService);
   private readonly classesApi = inject(ClassesApiService);
   private readonly availabilityApi = inject(TeacherAvailabilityApiService);
+  private readonly dateTime = inject(DateTimeService);
 
   protected readonly classes = signal<ClassListItem[]>([]);
   protected readonly availability = signal<TeacherAvailabilityItem[]>([]);
@@ -29,7 +30,7 @@ export class TeacherDashboardComponent implements OnInit {
 
   protected readonly todayClasses = computed(() =>
     this.classes()
-      .filter((item) => new Date(item.startTime).toDateString() === new Date().toDateString())
+      .filter((item) => this.dateKey(item.startTime) === this.dateKey(new Date()))
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())
   );
   protected readonly nextClass = computed(() =>
@@ -74,7 +75,7 @@ export class TeacherDashboardComponent implements OnInit {
     if (next.status === 'live') {
       return 'Live now';
     }
-    return minutes < 60 ? `Next class in ${minutes} min` : `Next class on ${new Date(next.startTime).toLocaleDateString()}`;
+    return minutes < 60 ? `Next class in ${minutes} min` : `Next class on ${this.classDate(next)}`;
   });
 
   ngOnInit(): void {
@@ -96,6 +97,34 @@ export class TeacherDashboardComponent implements OnInit {
 
   protected studentName(item: ClassListItem): string {
     return item.participants[0]?.studentName ?? 'Unassigned student';
+  }
+
+  protected userTimezone(): string {
+    const timezone = this.user?.timezone;
+    return this.dateTime.isValidTimezone(timezone) ? timezone : this.dateTime.browserTimezone();
+  }
+
+  protected classDate(item: ClassListItem): string {
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: this.userTimezone(),
+      month: 'short',
+      day: 'numeric'
+    }).format(new Date(item.startTime));
+  }
+
+  protected classTimeRange(item: ClassListItem): string {
+    return this.dateTime.formatTimeRange(item.startTime, item.endTime, this.userTimezone());
+  }
+
+  protected classTimeOnlyRange(item: ClassListItem): string {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: this.userTimezone(),
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZoneName: 'short'
+    });
+
+    return `${formatter.format(new Date(item.startTime))} - ${formatter.format(new Date(item.endTime))}`;
   }
 
   protected dayLabel(day: string): string {
@@ -157,6 +186,15 @@ export class TeacherDashboardComponent implements OnInit {
           this.availabilitySaving.set(false);
         }
       });
+  }
+
+  private dateKey(value: Date | string): string {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: this.userTimezone(),
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).format(new Date(value));
   }
 
   private resetAvailabilityDraft(slots: TeacherAvailabilityItem[]): void {
