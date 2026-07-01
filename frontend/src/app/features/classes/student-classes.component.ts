@@ -150,7 +150,11 @@ export class StudentClassesComponent implements OnInit {
   }
 
   protected canJoin(item: ClassListItem): boolean {
-    return ['live', 'scheduled', 'rescheduled'].includes(item.status) && Boolean(item.videoMeeting?.roomUrl);
+    return !this.isClassOver(item) && ['live', 'scheduled', 'rescheduled'].includes(item.status) && Boolean(item.videoMeeting?.roomUrl);
+  }
+
+  protected isClassOver(item: ClassListItem): boolean {
+    return new Date(item.endTime).getTime() < Date.now();
   }
 
   protected joinClass(item: ClassListItem): void {
@@ -173,7 +177,7 @@ export class StudentClassesComponent implements OnInit {
   protected canRequestCancellation(item: ClassListItem): boolean {
     return (
       ['scheduled', 'rescheduled', 'live'].includes(item.status) &&
-      new Date(item.endTime).getTime() > Date.now() &&
+      !this.isClassOver(item) &&
       !this.hasPendingCancellationRequest(item)
     );
   }

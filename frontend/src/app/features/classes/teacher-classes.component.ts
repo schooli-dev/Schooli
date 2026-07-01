@@ -175,7 +175,11 @@ export class TeacherClassesComponent implements OnInit {
   }
 
   protected canJoin(item: ClassListItem): boolean {
-    return ['live', 'scheduled', 'rescheduled'].includes(item.status) && Boolean(item.videoMeeting?.roomUrl);
+    return !this.isClassOver(item) && ['live', 'scheduled', 'rescheduled'].includes(item.status) && Boolean(item.videoMeeting?.roomUrl);
+  }
+
+  protected isClassOver(item: ClassListItem): boolean {
+    return new Date(item.endTime).getTime() < Date.now();
   }
 
   protected joinClass(item: ClassListItem): void {

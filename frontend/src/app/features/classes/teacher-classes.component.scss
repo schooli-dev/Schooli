@@ -178,6 +178,32 @@
   color: var(--color-success);
 }
 
+
+.ended-row,
+.ended-class {
+  opacity: 0.68;
+  filter: grayscale(0.18);
+}
+
+.ended-row {
+  background: #f8fafc;
+}
+
+.ended-class {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.ended-class:hover,
+.ended-row:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.status-ended {
+  background: #e5e7eb;
+  color: #475569;
+}
+
 .status-chip.status-danger {
   background: #fee2e2;
   color: var(--color-danger);

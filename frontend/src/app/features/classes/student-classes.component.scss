@@ -105,6 +105,32 @@
   min-height: 38px;
 }
 
+
+.ended-row,
+.ended-class {
+  opacity: 0.68;
+  filter: grayscale(0.18);
+}
+
+.ended-row {
+  background: #f8fafc;
+}
+
+.ended-class {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.ended-class:hover,
+.ended-row:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.status-ended {
+  background: #e5e7eb;
+  color: #475569;
+}
+
 .class-card-modern.current {
   border-color: rgba(37, 99, 235, 0.38) !important;
   background:
