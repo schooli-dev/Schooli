@@ -1,10 +1,11 @@
 import { Component, OnInit, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+// import { Router } from '@angular/router';
 import { finalize } from 'rxjs';
 import { AuthTokenService } from '../../core/auth/auth-token.service';
 import { ClassListItem, ClassesApiService } from '../../core/classes/classes-api.service';
 import { DateTimeService } from '../../core/datetime/date-time.service';
+import { ToastService } from '../../core/toast/toast.service';
 
 type StudentClassTab = 'upcoming' | 'completed' | 'cancelled' | 'all';
 
@@ -100,9 +101,10 @@ export class StudentClassesComponent implements OnInit {
 
   constructor(
     private readonly classesApi: ClassesApiService,
-    private readonly router: Router,
+    // private readonly router: Router,
     private readonly authToken: AuthTokenService,
-    private readonly dateTime: DateTimeService
+    private readonly dateTime: DateTimeService,
+    private readonly toasts: ToastService
   ) {}
 
   ngOnInit(): void {
@@ -158,7 +160,9 @@ export class StudentClassesComponent implements OnInit {
   }
 
   protected joinClass(item: ClassListItem): void {
-    void this.router.navigate(['/student/classes', item.id, 'room'], { skipLocationChange: true });
+    // Joining is temporarily disabled. Restore this line when classroom join is enabled again.
+    // void this.router.navigate(['/student/classes', item.id, 'room'], { skipLocationChange: true });
+    this.toasts.info('Classroom joining will be available shortly.');
   }
 
   protected openClassDetails(item: ClassListItem): void {
