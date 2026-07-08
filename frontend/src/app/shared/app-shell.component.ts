@@ -1,4 +1,4 @@
-import { CommonModule } from '@angular/common';
+﻿import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, computed, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { Subscription, filter, interval } from 'rxjs';
@@ -176,6 +176,11 @@ export class AppShellComponent implements OnDestroy {
     this.profileOpen.set(false);
   }
 
+  protected toggleProfile(): void {
+    this.profileOpen.update((open) => !open);
+    this.notificationOpen.set(false);
+  }
+
   protected openNotifications(): void {
     this.notificationOpen.set(true);
   }
@@ -319,3 +324,4 @@ export class AppShellComponent implements OnDestroy {
     void this.notificationAudio.play().catch(() => undefined);
   }
 }
+

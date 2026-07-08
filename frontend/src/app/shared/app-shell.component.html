@@ -1,4 +1,4 @@
-<div class="shell-layout">
+﻿<div class="shell-layout">
 
   <!-- Sidebar -->
   <aside class="app-sidebar" [class.sidebar-open]="menuOpen()">
@@ -133,9 +133,6 @@
 
         <div
           class="profile-area"
-          (mouseenter)="openProfile()"
-          (mouseleave)="closeProfile()"
-          (focusin)="openProfile()"
           (focusout)="closeProfileOnFocusOut($event)"
         >
         <button
@@ -144,6 +141,7 @@
           aria-label="Open profile menu"
           aria-haspopup="dialog"
           [attr.aria-expanded]="profileOpen()"
+          (click)="toggleProfile()"
         >
           {{ userInitials() }}
         </button>
@@ -195,3 +193,4 @@
 
   </main>
 </div>
+
