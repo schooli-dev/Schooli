@@ -6,6 +6,7 @@ import { AdminDashboardApiService, AdminDashboardStats } from '../../core/admin/
 import { AuthTokenService } from '../../core/auth/auth-token.service';
 import { RoleListItem, RolesApiService } from '../../core/roles/roles-api.service';
 import { TeacherAvailabilityApiService } from '../../core/teachers/teacher-availability-api.service';
+import { timezoneShortLabel, TIMEZONE_OPTIONS } from '../../core/datetime/timezone-options';
 import { UserListItem, UsersApiService } from '../../core/users/users-api.service';
 
 type DialogMode = 'view' | 'edit';
@@ -82,6 +83,7 @@ export class AdminUsersComponent implements OnInit, OnDestroy {
   protected readonly dialogMode = signal<DialogMode>('view');
   protected readonly dialogTab = signal<UserDialogTab>('details');
   protected readonly selectedRole = signal('');
+  protected readonly createPasswordVisible = signal(false);
   protected readonly saving = signal(false);
   protected readonly createError = signal('');
   protected searchText = '';
@@ -89,6 +91,8 @@ export class AdminUsersComponent implements OnInit, OnDestroy {
   protected statusFilter = '';
   protected dateFilter = '30';
   protected readonly workingDays = WORKING_DAYS;
+  protected readonly timezoneOptions = TIMEZONE_OPTIONS;
+  protected readonly timezoneShortLabel = timezoneShortLabel;
   protected createForm: CreateUserForm = this.getEmptyCreateForm();
   private readonly searchChanges = new Subject<string>();
   private readonly destroy$ = new Subject<void>();
@@ -211,6 +215,7 @@ export class AdminUsersComponent implements OnInit, OnDestroy {
 
   protected closeCreateDialog(): void {
     this.createDialogOpen.set(false);
+    this.createPasswordVisible.set(false);
   }
 
   protected createUser(): void {
@@ -273,6 +278,14 @@ export class AdminUsersComponent implements OnInit, OnDestroy {
     }
   }
 
+  protected toggleCreatePasswordVisibility(): void {
+    if (this.createForm.autoGeneratePassword) {
+      return;
+    }
+
+    this.createPasswordVisible.update((visible) => !visible);
+  }
+
   protected generatePassword(): void {
     const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
     const lower = 'abcdefghijkmnopqrstuvwxyz';
@@ -287,6 +300,7 @@ export class AdminUsersComponent implements OnInit, OnDestroy {
     }
 
     this.createForm.password = chars.sort(() => Math.random() - 0.5).join('');
+    this.createPasswordVisible.set(true);
   }
 
   protected handleCreateRoleChange(): void {
@@ -430,3 +444,6 @@ export class AdminUsersComponent implements OnInit, OnDestroy {
     this.loadStats();
   }
 }
+
+
+

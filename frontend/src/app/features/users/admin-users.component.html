@@ -779,7 +779,7 @@
               <input
                 class="form-control"
                 name="password"
-                [type]="createForm.autoGeneratePassword ? 'text' : 'password'"
+                [type]="createForm.autoGeneratePassword || !createPasswordVisible() ? 'password' : 'text'"
                 [(ngModel)]="createForm.password"
                 required
                 minlength="12"
@@ -790,6 +790,15 @@
               @if (createForm.autoGeneratePassword) {
                 <button class="btn btn-outline-secondary" type="button" (click)="generatePassword()">
                   <i class="bi bi-arrow-repeat"></i>
+                </button>
+              } @else {
+                <button
+                  class="btn btn-outline-secondary"
+                  type="button"
+                  (click)="toggleCreatePasswordVisibility()"
+                  [attr.aria-label]="createPasswordVisible() ? 'Hide password' : 'Show password'"
+                >
+                  <i class="bi" [class.bi-eye]="!createPasswordVisible()" [class.bi-eye-slash]="createPasswordVisible()"></i>
                 </button>
               }
             </div>
@@ -822,13 +831,9 @@
           <div class="col-12 col-md-6">
             <label class="form-label">Profile Timezone <span class="required">*</span></label>
             <select class="form-select" name="profileTimezone" [(ngModel)]="createForm.timezone" required>
-              <option value="Asia/Kolkata">Asia/Kolkata</option>
-              <option value="Europe/Paris">Europe/Paris</option>
-              <option value="Europe/London">Europe/London</option>
-              <option value="Europe/Berlin">Europe/Berlin</option>
-              <option value="America/New_York">America/New_York</option>
-              <option value="America/Los_Angeles">America/Los_Angeles</option>
-              <option value="UTC">UTC</option>
+              @for (timezone of timezoneOptions; track timezone.value) {
+                <option [value]="timezone.value">{{ timezone.label }}</option>
+              }
             </select>
             <small class="text-muted">Used to show classes in the user's local time.</small>
           </div>
@@ -864,7 +869,8 @@
               <div class="alert alert-light border mb-0">
                 <i class="bi bi-globe2 me-2"></i>
                 Teacher availability is saved in the selected profile timezone:
-                <strong>{{ createForm.timezone }}</strong>
+                <strong>{{ timezoneShortLabel(createForm.timezone) }}</strong>
+                <span class="ms-1">({{ createForm.timezone }})</span>
               </div>
             </div>
           }
@@ -949,3 +955,6 @@
     </div>
   </section>
 }
+
+
+

@@ -594,7 +594,7 @@
                       (ngModelChange)="onScheduleTimezoneChanged()"
                     >
                       @for (option of scheduleTimezoneOptions(); track option.label + option.value) {
-                        <option [value]="option.value">{{ option.label }} - {{ option.value }}</option>
+                        <option [value]="option.value">{{ option.label }}</option>
                       }
                     </select>
                   </div>
@@ -962,3 +962,4 @@
     </div>
   </section>
 }
+

@@ -5,6 +5,7 @@ import { finalize } from 'rxjs';
 import { ClassListItem, ClassesApiService, SchedulingConflict } from '../../core/classes/classes-api.service';
 import { AuthTokenService } from '../../core/auth/auth-token.service';
 import { DateTimeService, TimePreview } from '../../core/datetime/date-time.service';
+import { timezoneShortLabel } from '../../core/datetime/timezone-options';
 import { PeopleApiService, PersonOption } from '../../core/people/people-api.service';
 import { TeacherAvailabilityApiService, TeacherAvailabilityItem } from '../../core/teachers/teacher-availability-api.service';
 
@@ -457,9 +458,9 @@ export class AdminClassesComponent implements OnInit {
 
   protected scheduleTimezoneOptions(): Array<{ label: string; value: string; hint: string }> {
     const options = [
-      { label: 'Admin timezone', value: this.adminTimezone(), hint: 'Default scheduling view' },
-      { label: 'Teacher timezone', value: this.selectedTeacher()?.timezone ?? '', hint: this.selectedTeacher()?.timezone ?? 'Select teacher first' },
-      { label: 'Student timezone', value: this.selectedStudent()?.timezone ?? '', hint: this.selectedStudent()?.timezone ?? 'Select student first' },
+      { label: `${timezoneShortLabel(this.adminTimezone())} (Admin)`, value: this.adminTimezone(), hint: 'Default scheduling view' },
+      { label: `${timezoneShortLabel(this.selectedTeacher()?.timezone)} (Teacher)`, value: this.selectedTeacher()?.timezone ?? '', hint: this.selectedTeacher()?.timezone ?? 'Select teacher first' },
+      { label: `${timezoneShortLabel(this.selectedStudent()?.timezone)} (Student)`, value: this.selectedStudent()?.timezone ?? '', hint: this.selectedStudent()?.timezone ?? 'Select student first' },
       { label: 'UTC', value: 'UTC', hint: 'System storage reference' }
     ];
     const seen = new Set<string>();
@@ -608,3 +609,5 @@ export class AdminClassesComponent implements OnInit {
     this.updateMinimumStartDateTime();
   }
 }
+
+
