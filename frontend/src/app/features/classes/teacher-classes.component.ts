@@ -1,6 +1,6 @@
 import { Component, OnInit, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-// import { Router } from '@angular/router';
+import { Router } from '@angular/router';
 import { AuthTokenService } from '../../core/auth/auth-token.service';
 import { ClassListItem, ClassesApiService } from '../../core/classes/classes-api.service';
 import { DateTimeService } from '../../core/datetime/date-time.service';
@@ -85,7 +85,7 @@ export class TeacherClassesComponent implements OnInit {
 
   constructor(
     private readonly classesApi: ClassesApiService,
-    // private readonly router: Router,
+    private readonly router: Router,
     private readonly authToken: AuthTokenService,
     private readonly dateTime: DateTimeService,
     private readonly toasts: ToastService
@@ -187,7 +187,8 @@ export class TeacherClassesComponent implements OnInit {
   protected joinClass(item: ClassListItem): void {
     // Joining is temporarily disabled. Restore this line when classroom join is enabled again.
     // void this.router.navigate(['/teacher/classes', item.id, 'room'], { skipLocationChange: true });
-    this.toasts.info('Classroom joining will be available shortly.');
+    //this.toasts.info('Classroom joining will be available shortly.');
+    void this.router.navigate(['/teacher/classes', item.id, 'room'], { skipLocationChange: true });
   }
 
   private loadClasses(): void {
@@ -230,3 +231,4 @@ export class TeacherClassesComponent implements OnInit {
     }).format(new Date(value));
   }
 }
+
