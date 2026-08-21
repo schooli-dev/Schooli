@@ -41,6 +41,12 @@ html {
   background: var(--color-bg);
 }
 
+@media (min-width: 1200px) {
+  html {
+    zoom: 0.9;
+  }
+}
+
 body {
   min-height: 100%;
   margin: 0;
