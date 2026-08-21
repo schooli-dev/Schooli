@@ -88,31 +88,83 @@
         />
       </div>
 
-      <select
-        class="form-select"
-        multiple
-        size="3"
-        aria-label="Filter by teachers"
-        [ngModel]="selectedTeacherIds()"
-        (ngModelChange)="setTeacherFilters($event)"
-      >
-        @for (teacher of teachers(); track teacher.id) {
-          <option [value]="teacher.id">{{ personLabel(teacher) }}</option>
-        }
-      </select>
+      <div class="filter-multiselect" [class.is-open]="teacherFilterOpen()">
+        <button
+          class="filter-multiselect-toggle"
+          type="button"
+          aria-haspopup="menu"
+          [attr.aria-expanded]="teacherFilterOpen()"
+          (click)="toggleTeacherFilterMenu()"
+        >
+          <span class="text-truncate">{{ teacherFilterLabel() }}</span>
+          <i class="bi bi-chevron-down" aria-hidden="true"></i>
+        </button>
 
-      <select
-        class="form-select"
-        multiple
-        size="3"
-        aria-label="Filter by students"
-        [ngModel]="selectedStudentIds()"
-        (ngModelChange)="setStudentFilters($event)"
-      >
-        @for (student of students(); track student.id) {
-          <option [value]="student.id">{{ personLabel(student) }}</option>
+        @if (teacherFilterOpen()) {
+          <div class="filter-multiselect-menu" role="menu" aria-label="Filter by teachers">
+            <div class="filter-multiselect-header">
+              <strong>Teachers</strong>
+              @if (selectedTeacherIds().length) {
+                <button class="btn btn-link btn-sm p-0" type="button" (click)="clearTeacherFilters()">Clear</button>
+              }
+            </div>
+            <div class="filter-multiselect-options">
+              @for (teacher of teachers(); track teacher.id) {
+                <label class="filter-multiselect-option">
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    [checked]="selectedTeacherIds().includes(teacher.id)"
+                    (change)="toggleTeacherFilter(teacher.id, $any($event.target).checked)"
+                  />
+                  <span class="text-truncate">{{ personLabel(teacher) }}</span>
+                </label>
+              } @empty {
+                <span class="filter-multiselect-empty">No teachers found.</span>
+              }
+            </div>
+          </div>
         }
-      </select>
+      </div>
+
+      <div class="filter-multiselect" [class.is-open]="studentFilterOpen()">
+        <button
+          class="filter-multiselect-toggle"
+          type="button"
+          aria-haspopup="menu"
+          [attr.aria-expanded]="studentFilterOpen()"
+          (click)="toggleStudentFilterMenu()"
+        >
+          <span class="text-truncate">{{ studentFilterLabel() }}</span>
+          <i class="bi bi-chevron-down" aria-hidden="true"></i>
+        </button>
+
+        @if (studentFilterOpen()) {
+          <div class="filter-multiselect-menu" role="menu" aria-label="Filter by students">
+            <div class="filter-multiselect-header">
+              <strong>Students</strong>
+              @if (selectedStudentIds().length) {
+                <button class="btn btn-link btn-sm p-0" type="button" (click)="clearStudentFilters()">Clear</button>
+              }
+            </div>
+            <div class="filter-multiselect-options">
+              @for (student of students(); track student.id) {
+                <label class="filter-multiselect-option">
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    [checked]="selectedStudentIds().includes(student.id)"
+                    (change)="toggleStudentFilter(student.id, $any($event.target).checked)"
+                  />
+                  <span class="text-truncate">{{ personLabel(student) }}</span>
+                </label>
+              } @empty {
+                <span class="filter-multiselect-empty">No students found.</span>
+              }
+            </div>
+          </div>
+        }
+      </div>
 
       <select
         class="form-select"

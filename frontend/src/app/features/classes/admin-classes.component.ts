@@ -40,6 +40,8 @@ export class AdminClassesComponent implements OnInit {
   protected readonly searchText = signal('');
   protected readonly selectedTeacherIds = signal<string[]>([]);
   protected readonly selectedStudentIds = signal<string[]>([]);
+  protected readonly teacherFilterOpen = signal(false);
+  protected readonly studentFilterOpen = signal(false);
   protected readonly activeTab = signal<ClassTabKey>('all');
   protected readonly currentPage = signal(1);
   protected readonly pageSize = 10;
@@ -205,8 +207,54 @@ export class AdminClassesComponent implements OnInit {
     this.currentPage.set(1);
   }
 
+  protected toggleTeacherFilterMenu(): void {
+    this.teacherFilterOpen.update((isOpen) => !isOpen);
+    this.studentFilterOpen.set(false);
+  }
+
+  protected toggleStudentFilterMenu(): void {
+    this.studentFilterOpen.update((isOpen) => !isOpen);
+    this.teacherFilterOpen.set(false);
+  }
+
+  protected toggleTeacherFilter(teacherId: string, selected: boolean): void {
+    this.setTeacherFilters(this.updateFilterSelection(this.selectedTeacherIds(), teacherId, selected));
+  }
+
+  protected toggleStudentFilter(studentId: string, selected: boolean): void {
+    this.setStudentFilters(this.updateFilterSelection(this.selectedStudentIds(), studentId, selected));
+  }
+
+  protected clearTeacherFilters(): void {
+    this.setTeacherFilters([]);
+  }
+
+  protected clearStudentFilters(): void {
+    this.setStudentFilters([]);
+  }
+
+  protected teacherFilterLabel(): string {
+    return this.filterLabel('Teacher', this.selectedTeacherIds().length);
+  }
+
+  protected studentFilterLabel(): string {
+    return this.filterLabel('Student', this.selectedStudentIds().length);
+  }
+
   protected personLabel(person: PersonOption): string {
     return `${person.firstName} ${person.lastName}`.trim();
+  }
+
+  private updateFilterSelection(ids: string[], id: string, selected: boolean): string[] {
+    return selected ? [...new Set([...ids, id])] : ids.filter((currentId) => currentId !== id);
+  }
+
+  private filterLabel(entity: string, count: number): string {
+    if (!count) {
+      return `All ${entity.toLowerCase()}s`;
+    }
+
+    return `${entity}${count > 1 ? 's' : ''} (${count})`;
   }
 
   protected setPage(page: number): void {

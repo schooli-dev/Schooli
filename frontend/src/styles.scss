@@ -1039,3 +1039,119 @@ label input {
     padding: 18px;
   }
 }
+// Reusable compact multi-select filter dropdowns.
+.filter-multiselect {
+  position: relative;
+  min-width: 0;
+}
+
+.filter-multiselect.is-open {
+  z-index: 12;
+}
+
+.filter-multiselect-toggle {
+  width: 100%;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: #ffffff;
+  color: var(--color-text);
+  padding: 0 11px;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: left;
+}
+
+.filter-multiselect-toggle:hover,
+.filter-multiselect.is-open .filter-multiselect-toggle {
+  border-color: var(--color-primary);
+}
+
+.filter-multiselect.is-open .filter-multiselect-toggle {
+  box-shadow: 0 0 0 0.22rem rgba(37, 99, 235, 0.14);
+}
+
+.filter-multiselect-toggle i {
+  flex: 0 0 auto;
+  color: var(--color-muted);
+  transition: transform 0.16s ease;
+}
+
+.filter-multiselect.is-open .filter-multiselect-toggle i {
+  transform: rotate(180deg);
+}
+
+.filter-multiselect-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 25;
+  width: max(100%, 190px);
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-soft);
+}
+
+.filter-multiselect-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--color-border-soft);
+  padding: 8px 10px;
+  color: var(--color-text);
+  font-size: 13px;
+}
+
+.filter-multiselect-header .btn-link {
+  min-height: auto;
+  color: var(--color-primary);
+  font-weight: 800;
+}
+
+.filter-multiselect-options {
+  max-height: 180px;
+  overflow-y: auto;
+  padding: 6px;
+}
+
+.filter-multiselect-option {
+  min-height: 32px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  padding: 5px 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.filter-multiselect-option:hover {
+  background: var(--color-surface-soft);
+}
+
+.filter-multiselect-option .form-check-input {
+  flex: 0 0 auto;
+  margin: 0;
+  width: 1rem;
+  height: 1rem;
+  min-height: 1rem;
+  font-size: 1rem;
+}
+
+.filter-multiselect-empty {
+  display: block;
+  padding: 12px;
+  color: var(--color-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
