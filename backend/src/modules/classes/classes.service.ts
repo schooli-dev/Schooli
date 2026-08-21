@@ -7,6 +7,7 @@ import type {
   CancelClassInput,
   CheckConflictsInput,
   CreateClassInput,
+  CreateClassSeriesInput,
   ListClassesInput,
   RescheduleClassInput,
   UpdateClassInput
@@ -49,7 +50,19 @@ export type ClassItem = {
   } | null;
   createdAt: Date;
   updatedAt: Date;
+  seriesId: string | null;
+  seriesSequence: number | null;
 };
+
+export type ClassSeriesResult = {
+  id: string;
+  timezone: string;
+  weekdays: string[];
+  classCount: number;
+  classes: ClassItem[];
+};
+
+type Weekday = "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
 
 type ClassRow = {
   id: string;
@@ -72,6 +85,8 @@ type ClassRow = {
   video_meeting: ClassItem["videoMeeting"];
   created_at: Date;
   updated_at: Date;
+  class_series_id: string | null;
+  series_sequence: number | null;
 };
 
 export async function checkConflicts(input: CheckConflictsInput): Promise<{
@@ -82,6 +97,35 @@ export async function checkConflicts(input: CheckConflictsInput): Promise<{
 
   return {
     hasConflicts: conflicts.length > 0,
+    conflicts
+  };
+}
+
+export async function checkSeriesConflicts(input: CreateClassSeriesInput): Promise<{
+  hasConflicts: boolean;
+  occurrences: Array<{ occurrenceNumber: number; startTime: Date }>;
+  conflicts: Array<SchedulingConflict & { occurrenceNumber: number; startTime: Date }>;
+}> {
+  const occurrences = buildSeriesOccurrences(input);
+  const conflicts: Array<SchedulingConflict & { occurrenceNumber: number; startTime: Date }> = [];
+
+  for (const occurrence of occurrences) {
+    const occurrenceConflicts = await checkSchedulingConflicts({
+      teacherId: input.teacherId,
+      studentId: input.studentId,
+      startTime: occurrence.start.toISOString(),
+      durationMinutes: input.durationMinutes,
+      timezone: input.timezone
+    });
+
+    for (const conflict of occurrenceConflicts) {
+      conflicts.push({ ...conflict, occurrenceNumber: occurrence.sequence, startTime: occurrence.start });
+    }
+  }
+
+  return {
+    hasConflicts: conflicts.length > 0,
+    occurrences: occurrences.map((occurrence) => ({ occurrenceNumber: occurrence.sequence, startTime: occurrence.start })),
     conflicts
   };
 }
@@ -173,107 +217,77 @@ export async function createClass(input: CreateClassInput, user: AuthenticatedUs
 
   try {
     await client.query("BEGIN");
-
-    const classResult = await client.query<{ id: string }>(
-      `
-        INSERT INTO classes (
-          teacher_id,
-          title,
-          start_time,
-          end_time,
-          duration_minutes,
-          timezone,
-          status,
-          created_by_admin_id,
-          notes
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, 'scheduled', $7, $8)
-        RETURNING id
-      `,
-      [
-        input.teacherId,
-        input.title,
-        start,
-        end,
-        input.durationMinutes,
-        input.timezone,
-        user.id,
-        input.notes ?? null
-      ]
-    );
-
-    const classId = classResult.rows[0].id;
-
-    await client.query(
-      `
-        INSERT INTO class_participants (class_id, student_id, attendance_status)
-        VALUES ($1, $2, 'pending')
-      `,
-      [classId, input.studentId]
-    );
-
-    await client.query(
-      `
-        INSERT INTO class_attendance (class_id, student_id, status, source)
-        VALUES ($1, $2, 'pending', 'teacher_manual')
-      `,
-      [classId, input.studentId]
-    );
-
-    await upsertTeacherWorkSession(
-      client,
-      {
-        classId,
-        teacherId: input.teacherId,
-        studentId: input.studentId,
-        start,
-        end,
-        durationMinutes: input.durationMinutes,
-        timezone: input.timezone,
-        status: "scheduled",
-        createdByUserId: user.id
-      }
-    );
-
-    await createDailyRoomForClass(
-      {
-        classId,
-        topic: input.title,
-        startTime: start,
-        endTime: end,
-        durationMinutes: input.durationMinutes,
-      },
-      client
-    );
-
-    await createInAppNotifications(
-      {
-        eventKey: "class.scheduled",
-        recipientUserIds: [input.teacherId],
-        title: "New class scheduled",
-        message: `${input.title} has been scheduled for ${formatNotificationTime(start)}.`,
-        linkPath: "/teacher/classes",
-        payload: { classId, title: input.title, startTime: start, endTime: end }
-      },
-      client
-    );
-
-    await createInAppNotifications(
-      {
-        eventKey: "class.scheduled",
-        recipientUserIds: [input.studentId],
-        title: "New class scheduled",
-        message: `${input.title} has been scheduled for ${formatNotificationTime(start)}.`,
-        linkPath: "/student/classes",
-        payload: { classId, title: input.title, startTime: start, endTime: end }
-      },
-      client
-    );
+    const classId = await createClassRecords(client, input, user, start, end);
 
     await client.query("COMMIT");
 
     return await getClassById(classId, user);
   } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function createClassSeries(input: CreateClassSeriesInput, user: AuthenticatedUser): Promise<ClassSeriesResult> {
+  const conflictCheck = await checkSeriesConflicts(input);
+  assertCanProceedWithConflicts(conflictCheck.conflicts, input.overrideConflicts, user);
+
+  const occurrences = buildSeriesOccurrences(input);
+  const initialLocal = getLocalDateTimeParts(new Date(input.startTime), input.timezone);
+  const client = await pool.connect();
+  const createdClassIds: string[] = [];
+
+  try {
+    await client.query("BEGIN");
+    const seriesResult = await client.query<{ id: string }>(
+      `
+        INSERT INTO class_series (
+          teacher_id, student_id, title, notes, schedule_timezone, start_date, start_time,
+          duration_minutes, weekdays, scheduled_class_count, created_by_admin_id
+        )
+        VALUES ($1, $2, $3, $4, $5, $6::DATE, $7::TIME, $8, $9::TEXT[], $10, $11)
+        RETURNING id
+      `,
+      [
+        input.teacherId,
+        input.studentId,
+        input.title,
+        input.notes ?? null,
+        input.timezone,
+        initialLocal.date,
+        initialLocal.time,
+        input.durationMinutes,
+        [...new Set(input.weekdays)],
+        input.classCount,
+        user.id
+      ]
+    );
+    const seriesId = seriesResult.rows[0].id;
+
+    for (const occurrence of occurrences) {
+      const end = new Date(occurrence.start.getTime() + input.durationMinutes * 60 * 1000);
+      const classId = await createClassRecords(client, input, user, occurrence.start, end, {
+        seriesId,
+        sequence: occurrence.sequence
+      });
+      createdClassIds.push(classId);
+    }
+
+    await client.query("COMMIT");
+
+    return {
+      id: seriesId,
+      timezone: input.timezone,
+      weekdays: [...new Set(input.weekdays)],
+      classCount: input.classCount,
+      classes: await Promise.all(createdClassIds.map((classId) => getClassById(classId, user)))
+    };
+  } catch (error) {
+    for (const classId of createdClassIds) {
+      await cancelDailyRoomForClass(classId, client).catch(() => undefined);
+    }
     await client.query("ROLLBACK");
     throw error;
   } finally {
@@ -413,7 +427,7 @@ export async function rescheduleClass(
             end_time = $2,
             duration_minutes = $3,
             timezone = $4,
-            status = 'scheduled',
+            status = 'rescheduled',
             updated_at = NOW()
         WHERE id = $5
           AND status IN ('scheduled', 'rescheduled')
@@ -437,6 +451,18 @@ export async function rescheduleClass(
       status: "rescheduled",
       createdByUserId: user.id
     });
+
+    await cancelDailyRoomForClass(id, client);
+    await createDailyRoomForClass(
+      {
+        classId: id,
+        topic: existing.title,
+        startTime: start,
+        endTime: end,
+        durationMinutes: input.durationMinutes
+      },
+      client
+    );
 
     await client.query("COMMIT");
   } catch (error) {
@@ -511,6 +537,157 @@ function assertClassStartsInFuture(start: Date): void {
   }
 }
 
+async function createClassRecords(
+  client: PoolClient,
+  input: CreateClassInput | CreateClassSeriesInput,
+  user: AuthenticatedUser,
+  start: Date,
+  end: Date,
+  series?: { seriesId: string; sequence: number }
+): Promise<string> {
+  const classResult = await client.query<{ id: string }>(
+    `
+      INSERT INTO classes (
+        teacher_id, title, start_time, end_time, duration_minutes, timezone, status,
+        created_by_admin_id, notes, class_series_id, series_sequence
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, 'scheduled', $7, $8, $9, $10)
+      RETURNING id
+    `,
+    [
+      input.teacherId,
+      input.title,
+      start,
+      end,
+      input.durationMinutes,
+      input.timezone,
+      user.id,
+      input.notes ?? null,
+      series?.seriesId ?? null,
+      series?.sequence ?? null
+    ]
+  );
+  const classId = classResult.rows[0].id;
+
+  await client.query(
+    `INSERT INTO class_participants (class_id, student_id, attendance_status) VALUES ($1, $2, 'pending')`,
+    [classId, input.studentId]
+  );
+  await client.query(
+    `INSERT INTO class_attendance (class_id, student_id, status, source) VALUES ($1, $2, 'pending', 'teacher_manual')`,
+    [classId, input.studentId]
+  );
+  await upsertTeacherWorkSession(client, {
+    classId,
+    teacherId: input.teacherId,
+    studentId: input.studentId,
+    start,
+    end,
+    durationMinutes: input.durationMinutes,
+    timezone: input.timezone,
+    status: "scheduled",
+    createdByUserId: user.id
+  });
+  await createDailyRoomForClass({ classId, topic: input.title, startTime: start, endTime: end, durationMinutes: input.durationMinutes }, client);
+
+  const notificationPayload = { classId, title: input.title, startTime: start, endTime: end };
+  await createInAppNotifications(
+    {
+      eventKey: "class.scheduled",
+      recipientUserIds: [input.teacherId],
+      title: "New class scheduled",
+      message: `${input.title} has been scheduled for ${formatNotificationTime(start)}.`,
+      linkPath: "/teacher/classes",
+      payload: notificationPayload
+    },
+    client
+  );
+  await createInAppNotifications(
+    {
+      eventKey: "class.scheduled",
+      recipientUserIds: [input.studentId],
+      title: "New class scheduled",
+      message: `${input.title} has been scheduled for ${formatNotificationTime(start)}.`,
+      linkPath: "/student/classes",
+      payload: notificationPayload
+    },
+    client
+  );
+
+  return classId;
+}
+
+function buildSeriesOccurrences(input: CreateClassSeriesInput): Array<{ sequence: number; start: Date }> {
+  const firstLocal = getLocalDateTimeParts(new Date(input.startTime), input.timezone);
+  const weekdaySet = new Set(input.weekdays);
+  const occurrences: Array<{ sequence: number; start: Date }> = [];
+  let currentDate = firstLocal.date;
+
+  while (occurrences.length < input.classCount) {
+    if (weekdaySet.has(weekdayForDate(currentDate))) {
+      const start = localDateTimeToUtc(`${currentDate}T${firstLocal.time}`, input.timezone);
+      assertClassStartsInFuture(start);
+      occurrences.push({ sequence: occurrences.length + 1, start });
+    }
+    currentDate = addCalendarDays(currentDate, 1);
+  }
+
+  return occurrences;
+}
+
+function weekdayForDate(date: string): Weekday {
+  const [year, month, day] = date.split("-").map(Number);
+  return ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"][new Date(Date.UTC(year, month - 1, day)).getUTCDay()] as Weekday;
+}
+
+function addCalendarDays(date: string, days: number): string {
+  const [year, month, day] = date.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
+}
+
+function localDateTimeToUtc(localValue: string, timezone: string): Date {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(localValue);
+  if (!match) {
+    throw new ApiError(400, "Invalid series schedule start time", "INVALID_SERIES_START_TIME");
+  }
+
+  const [, year, month, day, hour, minute] = match;
+  const targetMinutes = Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute)) / 60000;
+  let utc = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute)));
+
+  for (let index = 0; index < 4; index += 1) {
+    const actual = getLocalDateTimeParts(utc, timezone);
+    const actualParts = actual.date.split("-").map(Number);
+    const [actualHour, actualMinute] = actual.time.split(":").map(Number);
+    const actualMinutes = Date.UTC(actualParts[0], actualParts[1] - 1, actualParts[2], actualHour, actualMinute) / 60000;
+    const deltaMinutes = targetMinutes - actualMinutes;
+    if (deltaMinutes === 0) {
+      break;
+    }
+    utc = new Date(utc.getTime() + deltaMinutes * 60 * 1000);
+  }
+
+  return utc;
+}
+
+function getLocalDateTimeParts(date: Date, timezone: string): { date: string; time: string } {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23"
+  }).formatToParts(date);
+  const map = new Map(parts.map((part) => [part.type, part.value]));
+
+  return {
+    date: `${map.get("year")}-${map.get("month")}-${map.get("day")}`,
+    time: `${map.get("hour")}:${map.get("minute")}`
+  };
+}
+
 function baseClassSelect(): string {
   return `
     SELECT
@@ -566,7 +743,9 @@ function baseClassSelect(): string {
         )
       END AS video_meeting,
       c.created_at,
-      c.updated_at
+      c.updated_at,
+      c.class_series_id,
+      c.series_sequence
     FROM classes c
     JOIN users teacher ON teacher.id = c.teacher_id
     LEFT JOIN class_participants cp ON cp.class_id = c.id
@@ -734,7 +913,9 @@ function mapClass(row: ClassRow): ClassItem {
     participants: row.participants ?? [],
     videoMeeting: row.video_meeting,
     createdAt: row.created_at,
-    updatedAt: row.updated_at
+    updatedAt: row.updated_at,
+    seriesId: row.class_series_id,
+    seriesSequence: row.series_sequence
   };
 }
 

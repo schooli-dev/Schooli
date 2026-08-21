@@ -41,6 +41,29 @@ export const createClass: RequestHandler = asyncHandler(async (req, res) => {
   });
 });
 
+export const checkSeriesConflicts: RequestHandler = asyncHandler(async (req, res) => {
+  const result = await classesService.checkSeriesConflicts(req.body);
+
+  sendSuccess(res, {
+    message: result.hasConflicts ? "Scheduling conflicts found" : "No scheduling conflicts found",
+    data: result
+  });
+});
+
+export const createClassSeries: RequestHandler = asyncHandler(async (req, res) => {
+  if (!req.user) {
+    throw new ApiError(401, "Authentication required", "UNAUTHORIZED");
+  }
+
+  const series = await classesService.createClassSeries(req.body, req.user);
+
+  sendSuccess(res, {
+    statusCode: 201,
+    message: `${series.classes.length} classes scheduled`,
+    data: series
+  });
+});
+
 export const getClass: RequestHandler = asyncHandler(async (req, res) => {
   if (!req.user) {
     throw new ApiError(401, "Authentication required", "UNAUTHORIZED");

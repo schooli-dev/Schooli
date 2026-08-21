@@ -8,6 +8,7 @@ import {
   checkConflictsSchema,
   classIdSchema,
   createClassSchema,
+  createClassSeriesSchema,
   listClassesSchema,
   rescheduleClassSchema,
   updateClassSchema
@@ -24,8 +25,20 @@ classesRoutes.post(
   validate(checkConflictsSchema),
   classesController.checkConflicts
 );
+classesRoutes.post(
+  "/series/check-conflicts",
+  requirePermission("class.create"),
+  validate(createClassSeriesSchema),
+  classesController.checkSeriesConflicts
+);
 classesRoutes.get("/", requirePermission("class.view"), validate(listClassesSchema), classesController.listClasses);
 classesRoutes.post("/", requirePermission("class.create"), validate(createClassSchema), classesController.createClass);
+classesRoutes.post(
+  "/series",
+  requirePermission("class.create"),
+  validate(createClassSeriesSchema),
+  classesController.createClassSeries
+);
 classesRoutes.get("/:id", requirePermission("class.view"), validate(classIdSchema), classesController.getClass);
 classesRoutes.patch("/:id", requirePermission("class.update"), validate(updateClassSchema), classesController.updateClass);
 classesRoutes.post(

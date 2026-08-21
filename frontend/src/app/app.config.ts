@@ -7,6 +7,7 @@ import {
   provideZoneChangeDetection
 } from '@angular/core';
 import { provideRouter } from '@angular/router';
+import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 
 import { routes } from './app.routes';
 import { authInterceptor } from './core/auth/auth.interceptor';
@@ -17,6 +18,7 @@ import { toastInterceptor } from './core/toast/toast.interceptor';
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
+    provideAnimationsAsync(),
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideAppInitializer(() => inject(RuntimeConfigService).load()),
     provideHttpClient(withInterceptors([loadingInterceptor, toastInterceptor, authInterceptor])),

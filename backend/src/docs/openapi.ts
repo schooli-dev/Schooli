@@ -795,6 +795,25 @@ export const openApiSpec = swaggerJSDoc({
           }
         }
       },
+      "/api/classes/series/check-conflicts": {
+        post: {
+          tags: ["Classes"],
+          summary: "Validate all occurrences in a recurring class schedule",
+          security: [{ bearerAuth: [] }],
+          responses: { "200": { description: "Recurring schedule conflict check completed" } }
+        }
+      },
+      "/api/classes/series": {
+        post: {
+          tags: ["Classes"],
+          summary: "Create a recurring class series and its individual class occurrences",
+          security: [{ bearerAuth: [] }],
+          responses: {
+            "201": { description: "Class series scheduled" },
+            "409": { description: "One or more occurrences conflict" }
+          }
+        }
+      },
       "/api/classes": {
         get: {
           tags: ["Classes"],

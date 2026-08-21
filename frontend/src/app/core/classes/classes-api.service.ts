@@ -18,6 +18,8 @@ export type ClassListItem = {
   durationMinutes: number;
   timezone: string;
   status: string;
+  seriesId?: string | null;
+  seriesSequence?: number | null;
   notes?: string | null;
   cancellationReason?: string | null;
   cancellationRequestStatus?: string | null;
@@ -58,9 +60,24 @@ export type CreateClassRequest = {
   overrideConflicts?: boolean;
 };
 
+export type CreateClassSeriesRequest = CreateClassRequest & {
+  weekdays: Array<'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday'>;
+  classCount: number;
+};
+
+export type ClassSeriesResult = {
+  id: string;
+  timezone: string;
+  weekdays: string[];
+  classCount: number;
+  classes: ClassListItem[];
+};
+
 export type SchedulingConflict = {
   type: 'teacher_availability' | 'teacher_unavailable' | 'teacher_overlap' | 'student_overlap';
   message: string;
+  occurrenceNumber?: number;
+  startTime?: string;
   details?: {
     id?: string;
     title?: string;
@@ -88,6 +105,10 @@ export type CheckConflictsRequest = {
 export type CheckConflictsResponse = {
   hasConflicts: boolean;
   conflicts: SchedulingConflict[];
+};
+
+export type CheckSeriesConflictsResponse = CheckConflictsResponse & {
+  occurrences: Array<{ occurrenceNumber: number; startTime: string }>;
 };
 
 export type ClassCancellationRequest = {
@@ -129,6 +150,10 @@ export class ClassesApiService {
     return this.api.post<ClassListItem>('/classes', payload);
   }
 
+  createClassSeries(payload: CreateClassSeriesRequest) {
+    return this.api.post<ClassSeriesResult>('/classes/series', payload);
+  }
+
   getClass(id: string) {
     return this.api.get<ClassListItem>(`/classes/${id}`);
   }
@@ -137,12 +162,20 @@ export class ClassesApiService {
     return this.api.post<ClassListItem>(`/classes/${id}/cancel`, { reason });
   }
 
+  rescheduleClass(id: string, payload: { startTime: string; durationMinutes: number; timezone: string }) {
+    return this.api.post<ClassListItem>(`/classes/${id}/reschedule`, payload);
+  }
+
   requestCancellation(id: string, reason: string) {
     return this.api.post<ClassCancellationRequest>(`/classes/${id}/cancel-requests`, { reason });
   }
 
   checkConflicts(payload: CheckConflictsRequest) {
     return this.api.post<CheckConflictsResponse>('/classes/check-conflicts', payload);
+  }
+
+  checkSeriesConflicts(payload: CreateClassSeriesRequest) {
+    return this.api.post<CheckSeriesConflictsResponse>('/classes/series/check-conflicts', payload);
   }
 
   joinClass(id: string) {

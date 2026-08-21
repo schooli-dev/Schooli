@@ -1,5 +1,4 @@
 import { Routes } from '@angular/router';
-import { AdminClassesComponent } from './features/classes/admin-classes.component';
 import { StudentClassesComponent } from './features/classes/student-classes.component';
 import { TeacherClassesComponent } from './features/classes/teacher-classes.component';
 import { AdminUsersComponent } from './features/users/admin-users.component';
@@ -102,7 +101,8 @@ export const routes: Routes = [
       },
       {
         path: 'admin/classes',
-        component: AdminClassesComponent,
+        loadComponent: () =>
+          import('./features/classes/admin-classes.component').then((module) => module.AdminClassesComponent),
         canActivate: [authGuard],
         data: { permission: 'class.view' },
         title: 'Classes | SchooliEdu'

@@ -1,8 +1,9 @@
 import { DatePipe } from '@angular/common';
 import { Component, OnInit, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { finalize } from 'rxjs';
-import { ClassListItem, ClassesApiService, SchedulingConflict } from '../../core/classes/classes-api.service';
+import { ClassListItem, ClassesApiService, CreateClassSeriesRequest, SchedulingConflict } from '../../core/classes/classes-api.service';
 import { AuthTokenService } from '../../core/auth/auth-token.service';
 import { DateTimeService, TimePreview } from '../../core/datetime/date-time.service';
 import { timezoneShortLabel } from '../../core/datetime/timezone-options';
@@ -20,10 +21,16 @@ type ClassTabKey =
   | 'failed'
   | 'cancellation_requests';
 
+type Weekday = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
+
 @Component({
   selector: 'app-admin-classes',
   standalone: true,
-  imports: [DatePipe, FormsModule],
+  imports: [
+    DatePipe,
+    FormsModule,
+    MatButtonToggleModule
+  ],
   templateUrl: './admin-classes.component.html',
   styleUrl: './admin-classes.component.scss'
 })
@@ -31,6 +38,8 @@ export class AdminClassesComponent implements OnInit {
   protected readonly scheduleOpen = signal(false);
   protected readonly scheduleStep = signal<1 | 2>(1);
   protected readonly searchText = signal('');
+  protected readonly selectedTeacherIds = signal<string[]>([]);
+  protected readonly selectedStudentIds = signal<string[]>([]);
   protected readonly activeTab = signal<ClassTabKey>('all');
   protected readonly currentPage = signal(1);
   protected readonly pageSize = 10;
@@ -46,6 +55,7 @@ export class AdminClassesComponent implements OnInit {
   protected readonly scheduleMessage = signal('');
   protected readonly scheduleMessageType = signal<'success' | 'error'>('success');
   protected readonly scheduledClass = signal<ClassListItem | null>(null);
+  protected readonly scheduledClassCount = signal(0);
   protected readonly minimumStartDateTime = signal('');
   protected readonly selectedClass = signal<ClassListItem | null>(null);
   protected readonly classDrawerOpen = signal(false);
@@ -53,7 +63,14 @@ export class AdminClassesComponent implements OnInit {
   protected readonly cancelConfirmOpen = signal(false);
   protected readonly cancelSubmitting = signal(false);
   protected readonly cancelMessage = signal('');
+  protected readonly classToReschedule = signal<ClassListItem | null>(null);
+  protected readonly rescheduleOpen = signal(false);
+  protected readonly rescheduleSubmitting = signal(false);
+  protected readonly rescheduleMessage = signal('');
   protected cancelReason = '';
+  protected rescheduleForm = { startTime: '', durationMinutes: 60, timezone: 'Asia/Kolkata' };
+  protected scheduleDate = '';
+  protected scheduleTime = '';
 
   protected scheduleForm = {
     teacherId: '',
@@ -62,8 +79,29 @@ export class AdminClassesComponent implements OnInit {
     description: '',
     startTime: '',
     durationMinutes: 60,
-    timezone: 'Asia/Kolkata'
+    timezone: 'Asia/Kolkata',
+    weekdays: [] as Weekday[],
+    classCount: 1
   };
+
+  protected readonly weekdayOptions: Array<{ key: Weekday; label: string }> = [
+    { key: 'monday', label: 'Mon' },
+    { key: 'tuesday', label: 'Tue' },
+    { key: 'wednesday', label: 'Wed' },
+    { key: 'thursday', label: 'Thu' },
+    { key: 'friday', label: 'Fri' },
+    { key: 'saturday', label: 'Sat' },
+    { key: 'sunday', label: 'Sun' }
+  ];
+
+  protected openTimePicker(input: HTMLInputElement): void {
+    try {
+      input.showPicker();
+      return;
+    } catch {
+      input.focus();
+    }
+  }
 
   protected readonly steps = [
     { index: 1, label: 'Participants' },
@@ -84,7 +122,14 @@ export class AdminClassesComponent implements OnInit {
 
   protected readonly filteredClasses = computed(() => {
     const query = this.searchText().trim().toLowerCase();
-    const tabFiltered = this.classes().filter((item) => this.matchesTab(item, this.activeTab()));
+    const teacherIds = this.selectedTeacherIds();
+    const studentIds = this.selectedStudentIds();
+    const tabFiltered = this.classes().filter(
+      (item) =>
+        this.matchesTab(item, this.activeTab()) &&
+        (!teacherIds.length || teacherIds.includes(item.teacherId)) &&
+        (!studentIds.length || item.participants.some((participant) => studentIds.includes(participant.studentId)))
+    );
 
     if (!query) {
       return tabFiltered;
@@ -94,6 +139,7 @@ export class AdminClassesComponent implements OnInit {
       [item.title, item.teacherName, this.participantName(item), item.status].some((value) => value.toLowerCase().includes(query))
     );
   });
+
 
   protected readonly totalPages = computed(() => Math.max(1, Math.ceil(this.filteredClasses().length / this.pageSize)));
 
@@ -149,6 +195,20 @@ export class AdminClassesComponent implements OnInit {
     this.currentPage.set(1);
   }
 
+  protected setTeacherFilters(ids: string[]): void {
+    this.selectedTeacherIds.set(ids);
+    this.currentPage.set(1);
+  }
+
+  protected setStudentFilters(ids: string[]): void {
+    this.selectedStudentIds.set(ids);
+    this.currentPage.set(1);
+  }
+
+  protected personLabel(person: PersonOption): string {
+    return `${person.firstName} ${person.lastName}`.trim();
+  }
+
   protected setPage(page: number): void {
     this.currentPage.set(Math.min(Math.max(page, 1), this.totalPages()));
   }
@@ -197,6 +257,56 @@ export class AdminClassesComponent implements OnInit {
 
   protected closeCancelConfirm(): void {
     this.cancelConfirmOpen.set(false);
+  }
+
+  protected openReschedule(item: ClassListItem): void {
+    this.classToReschedule.set(item);
+    this.rescheduleForm = {
+      startTime: this.dateTime.toLocalInputValue(item.startTime, item.timezone),
+      durationMinutes: item.durationMinutes,
+      timezone: item.timezone
+    };
+    this.rescheduleMessage.set('');
+    this.rescheduleOpen.set(true);
+  }
+
+  protected closeReschedule(): void {
+    this.rescheduleOpen.set(false);
+  }
+
+  protected confirmReschedule(): void {
+    const item = this.classToReschedule();
+    if (!item || !this.rescheduleForm.startTime) {
+      this.rescheduleMessage.set('Choose a new date and time.');
+      return;
+    }
+
+    const startTime = this.dateTime.localDateTimeToUtc(this.rescheduleForm.startTime, this.rescheduleForm.timezone);
+    if (startTime.getTime() <= Date.now()) {
+      this.rescheduleMessage.set('Choose a future date and time.');
+      return;
+    }
+
+    this.rescheduleSubmitting.set(true);
+    this.rescheduleMessage.set('');
+    this.classesApi
+      .rescheduleClass(item.id, {
+        startTime: startTime.toISOString(),
+        durationMinutes: Number(this.rescheduleForm.durationMinutes),
+        timezone: this.rescheduleForm.timezone
+      })
+      .pipe(finalize(() => this.rescheduleSubmitting.set(false)))
+      .subscribe({
+        next: (response) => {
+          this.classes.update((classes) => classes.map((classItem) => (classItem.id === response.data.id ? response.data : classItem)));
+          this.selectedClass.set(response.data);
+          this.closeReschedule();
+        },
+        error: (error) => {
+          const conflicts = error?.error?.error?.details?.conflicts as SchedulingConflict[] | undefined;
+          this.rescheduleMessage.set(conflicts?.length ? conflicts.map((conflict) => conflict.message).join(' ') : 'Could not reschedule this class.');
+        }
+      });
   }
 
   protected confirmCancelClass(): void {
@@ -266,6 +376,14 @@ export class AdminClassesComponent implements OnInit {
     this.refreshBusySlots();
   }
 
+  protected onScheduleDateChanged(): void {
+    this.syncScheduleDateTime();
+  }
+
+  protected onScheduleTimeChanged(): void {
+    this.syncScheduleDateTime();
+  }
+
   protected clearConflicts(): void {
     this.conflicts.set([]);
     this.scheduleMessage.set('');
@@ -319,28 +437,38 @@ export class AdminClassesComponent implements OnInit {
       return;
     }
 
+    if (!this.scheduleForm.weekdays.length) {
+      this.showScheduleError('Select at least one weekday for this schedule.');
+      return;
+    }
+
     if (this.isStartTimeInPast()) {
       this.showScheduleError('Please choose a future start date and time.');
       return;
     }
 
     this.scheduleSubmitting.set(true);
-    const payload = {
+    const payload: CreateClassSeriesRequest = {
       teacherId: this.scheduleForm.teacherId,
       studentId: this.scheduleForm.studentId,
+      title: this.scheduleForm.title.trim(),
       startTime: this.dateTime.localDateTimeToUtc(this.scheduleForm.startTime, this.scheduleForm.timezone).toISOString(),
       durationMinutes: Number(this.scheduleForm.durationMinutes),
-      timezone: this.scheduleForm.timezone
+      timezone: this.scheduleForm.timezone,
+      weekdays: this.scheduleForm.weekdays,
+      classCount: Number(this.scheduleForm.classCount),
+      notes: this.scheduleForm.description.trim() || undefined,
+      overrideConflicts: false
     };
 
-    this.classesApi.checkConflicts(payload).subscribe({
+    this.classesApi.checkSeriesConflicts(payload).subscribe({
       next: (response) => {
         if (response.data.hasConflicts) {
           this.conflicts.set(response.data.conflicts);
           this.scheduleSubmitting.set(false);
           return;
         }
-        this.createClass(payload.startTime);
+        this.createClassSeries(payload);
       },
       error: (error) => {
         const conflicts = error?.error?.error?.details?.conflicts as SchedulingConflict[] | undefined;
@@ -430,10 +558,8 @@ export class AdminClassesComponent implements OnInit {
   }
 
   protected conflictDetail(conflict: SchedulingConflict): string {
-    if (!conflict.details?.title) {
-      return '';
-    }
-    return `: ${conflict.details.title}`;
+    const occurrence = conflict.occurrenceNumber ? ` (class ${conflict.occurrenceNumber})` : '';
+    return conflict.details?.title ? `${occurrence}: ${conflict.details.title}` : occurrence;
   }
 
   protected isStartTimeInPast(): boolean {
@@ -442,6 +568,10 @@ export class AdminClassesComponent implements OnInit {
     }
 
     return this.dateTime.localDateTimeToUtc(this.scheduleForm.startTime, this.scheduleForm.timezone).getTime() <= Date.now();
+  }
+
+  protected minimumStartDate(): string {
+    return this.dateTime.toLocalInputValue(new Date(), this.scheduleForm.timezone).slice(0, 10);
   }
 
   protected selectedTeacher(): PersonOption | null {
@@ -513,24 +643,40 @@ export class AdminClassesComponent implements OnInit {
     }
   }
 
-  private createClass(startTime: string): void {
+  protected recurrenceSummary(): string {
+    const selectedDays = this.weekdayOptions
+      .filter((option) => this.scheduleForm.weekdays.includes(option.key))
+      .map((option) => option.label)
+      .join(', ');
+    return selectedDays ? `${this.scheduleForm.classCount} class(es) across ${selectedDays}` : 'Select weekdays and class count';
+  }
+
+  protected setWeekdays(days: Weekday[]): void {
+    this.scheduleForm.weekdays = [...new Set(days)];
+    this.clearConflicts();
+  }
+
+  protected onStartTimeChanged(): void {
+    if (!this.scheduleForm.weekdays.length && this.scheduleForm.startTime) {
+      const day = this.selectedDayOfWeek() as Weekday;
+      if (this.weekdayOptions.some((option) => option.key === day)) {
+        this.scheduleForm.weekdays = [day];
+      }
+    }
+    this.refreshBusySlots();
+  }
+
+  private createClassSeries(payload: CreateClassSeriesRequest): void {
     this.classesApi
-      .createClass({
-        teacherId: this.scheduleForm.teacherId,
-        studentId: this.scheduleForm.studentId,
-        title: this.scheduleForm.title.trim(),
-        startTime,
-        durationMinutes: Number(this.scheduleForm.durationMinutes),
-        timezone: this.scheduleForm.timezone,
-        notes: this.scheduleForm.description.trim() || undefined,
-        overrideConflicts: false
-      })
+      .createClassSeries(payload)
       .pipe(finalize(() => this.scheduleSubmitting.set(false)))
       .subscribe({
         next: (response) => {
-          this.scheduledClass.set(response.data);
+          this.scheduledClass.set(response.data.classes[0] ?? null);
+          this.scheduledClassCount.set(response.data.classes.length);
           this.scheduleMessageType.set('success');
-          this.scheduleMessage.set(response.data.videoMeeting?.roomUrl ? 'Class scheduled successfully. Daily room link is ready.' : 'Class scheduled successfully.');
+          const count = response.data.classes.length;
+          this.scheduleMessage.set(count === 1 ? 'Class scheduled. Daily room is ready.' : `${count} classes scheduled. Daily rooms are ready.`);
           this.loadClasses();
           this.refreshBusySlots();
         },
@@ -578,13 +724,18 @@ export class AdminClassesComponent implements OnInit {
       description: '',
       startTime: '',
       durationMinutes: 60,
-      timezone: this.adminTimezone()
+      timezone: this.adminTimezone(),
+      weekdays: [],
+      classCount: 1
     };
+    this.scheduleDate = '';
+    this.scheduleTime = '';
     this.updateMinimumStartDateTime();
     this.selectedTeacherAvailability.set([]);
     this.busySlots.set([]);
     this.conflicts.set([]);
     this.scheduledClass.set(null);
+    this.scheduledClassCount.set(0);
     this.scheduleMessage.set('');
   }
 
@@ -596,6 +747,18 @@ export class AdminClassesComponent implements OnInit {
   private updateMinimumStartDateTime(): void {
     this.minimumStartDateTime.set(this.dateTime.toLocalInputValue(new Date(Date.now() + 60 * 1000), this.scheduleForm.timezone));
   }
+
+  private syncScheduleDateTime(): void {
+    if (!this.scheduleDate || !this.scheduleTime) {
+      this.scheduleForm.startTime = '';
+      this.refreshBusySlots();
+      return;
+    }
+
+    this.scheduleForm.startTime = `${this.scheduleDate}T${this.scheduleTime}`;
+    this.onStartTimeChanged();
+  }
+
 
   private applyRecommendedScheduleTimezone(): void {
     const current = this.scheduleForm.timezone;

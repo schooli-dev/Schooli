@@ -88,12 +88,30 @@
         />
       </div>
 
-      <select class="form-select">
-        <option>Teacher: All</option>
+      <select
+        class="form-select"
+        multiple
+        size="3"
+        aria-label="Filter by teachers"
+        [ngModel]="selectedTeacherIds()"
+        (ngModelChange)="setTeacherFilters($event)"
+      >
+        @for (teacher of teachers(); track teacher.id) {
+          <option [value]="teacher.id">{{ personLabel(teacher) }}</option>
+        }
       </select>
 
-      <select class="form-select">
-        <option>Student: All</option>
+      <select
+        class="form-select"
+        multiple
+        size="3"
+        aria-label="Filter by students"
+        [ngModel]="selectedStudentIds()"
+        (ngModelChange)="setStudentFilters($event)"
+      >
+        @for (student of students(); track student.id) {
+          <option [value]="student.id">{{ personLabel(student) }}</option>
+        }
       </select>
 
       <select
@@ -445,19 +463,9 @@
                   </span>
 
                   <div class="schedule-control-wrap">
-                    <span class="schedule-control-icon">
-                      <i class="bi bi-mortarboard"></i>
-                    </span>
-
-                    <select
-                      class="form-select"
-                      name="teacherId"
-                      [(ngModel)]="scheduleForm.teacherId"
-                      required
-                      (ngModelChange)="onTeacherChanged()"
-                    >
+                    <span class="schedule-control-icon"><i class="bi bi-mortarboard"></i></span>
+                    <select class="form-select" name="teacherId" [(ngModel)]="scheduleForm.teacherId" required (ngModelChange)="onTeacherChanged()">
                       <option value="">Select teacher</option>
-
                       @for (teacher of teachers(); track teacher.id) {
                         <option [value]="teacher.id">{{ fullName(teacher) }}</option>
                       }
@@ -474,19 +482,9 @@
                   </span>
 
                   <div class="schedule-control-wrap">
-                    <span class="schedule-control-icon">
-                      <i class="bi bi-backpack"></i>
-                    </span>
-
-                    <select
-                      class="form-select"
-                      name="studentId"
-                      [(ngModel)]="scheduleForm.studentId"
-                      required
-                      (ngModelChange)="onStudentChanged()"
-                    >
+                    <span class="schedule-control-icon"><i class="bi bi-backpack"></i></span>
+                    <select class="form-select" name="studentId" [(ngModel)]="scheduleForm.studentId" required (ngModelChange)="onStudentChanged()">
                       <option value="">Select student</option>
-
                       @for (student of students(); track student.id) {
                         <option [value]="student.id">{{ fullName(student) }}</option>
                       }
@@ -606,25 +604,17 @@
               </div>
 
               <div class="col-12 col-md-7">
-                <label class="schedule-field">
-                  <span class="field-label">
-                    <i class="bi bi-calendar-event"></i>
-                    Start Date & Time <b>*</b>
-                  </span>
-
-                  <div class="schedule-control-wrap">
-                    <span class="schedule-control-icon">
-                      <i class="bi bi-calendar3"></i>
-                    </span>
-
+                <div class="schedule-field">
+                  <span class="field-label"><i class="bi bi-calendar-event"></i> Start Date <b>*</b></span>
+                  <div class="input-group input-group-lg">
                     <input
                       class="form-control"
-                      name="startTime"
-                      type="datetime-local"
-                      [(ngModel)]="scheduleForm.startTime"
-                      [min]="minimumStartDateTime()"
-                      required
-                      (ngModelChange)="refreshBusySlots()"
+                      type="date"
+                      name="startDate"
+                      [(ngModel)]="scheduleDate"
+                      [min]="minimumStartDate()"
+                      aria-label="Start date"
+                      (ngModelChange)="onScheduleDateChanged()"
                     />
                   </div>
 
@@ -634,33 +624,81 @@
                       Choose a future date and time.
                     </small>
                   }
-                </label>
+                </div>
+              </div>
+
+              <div class="col-12 col-md-5">
+                <div class="schedule-field">
+                  <span class="field-label"><i class="bi bi-clock"></i> Start Time <b>*</b></span>
+                  <div class="input-group input-group-lg">
+                    <input
+                      #scheduleTimeInput
+                      class="form-control"
+                      type="time"
+                      name="scheduleTime"
+                      [(ngModel)]="scheduleTime"
+                      step="60"
+                      aria-label="Start time"
+                      (ngModelChange)="onScheduleTimeChanged()"
+                    />
+                    <button class="btn btn-outline-secondary" type="button" aria-label="Open time selector" (click)="openTimePicker(scheduleTimeInput)">
+                      <i class="bi bi-clock"></i>
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <div class="col-12 col-md-5">
                 <label class="schedule-field">
+                  <span class="field-label"><i class="bi bi-hourglass-split"></i> Duration <b>*</b></span>
+                  <select class="form-select" name="durationMinutes" [(ngModel)]="scheduleForm.durationMinutes" (ngModelChange)="clearConflicts()">
+                    <option [ngValue]="30">30 min</option>
+                    <option [ngValue]="45">45 min</option>
+                    <option [ngValue]="60">60 min</option>
+                    <option [ngValue]="90">90 min</option>
+                  </select>
+                </label>
+              </div>
+
+              <div class="col-12 col-lg-8">
+                <fieldset class="schedule-field mb-0">
+                  <legend class="field-label mb-2">
+                    <i class="bi bi-calendar-week"></i>
+                    Repeat on <b>*</b>
+                  </legend>
+
+                  <mat-button-toggle-group
+                    class="w-100 overflow-auto"
+                    multiple
+                    [value]="scheduleForm.weekdays"
+                    aria-label="Class weekdays"
+                    (change)="setWeekdays($event.value)"
+                  >
+                    @for (day of weekdayOptions; track day.key) {
+                      <mat-button-toggle [value]="day.key">{{ day.label }}</mat-button-toggle>
+                    }
+                  </mat-button-toggle-group>
+                  <small class="text-muted fw-semibold">The first selected weekday on or after the start date becomes class 1.</small>
+                </fieldset>
+              </div>
+
+              <div class="col-12 col-lg-4">
+                <label class="schedule-field">
                   <span class="field-label">
-                    <i class="bi bi-hourglass-split"></i>
-                    Duration <b>*</b>
+                    <i class="bi bi-123"></i>
+                    Total Classes <b>*</b>
                   </span>
-
-                  <div class="schedule-control-wrap">
-                    <span class="schedule-control-icon">
-                      <i class="bi bi-stopwatch"></i>
-                    </span>
-
-                    <select
-                      class="form-select"
-                      name="durationMinutes"
-                      [(ngModel)]="scheduleForm.durationMinutes"
-                      (ngModelChange)="clearConflicts()"
-                    >
-                      <option [ngValue]="30">30 min</option>
-                      <option [ngValue]="45">45 min</option>
-                      <option [ngValue]="60">60 min</option>
-                      <option [ngValue]="90">90 min</option>
-                    </select>
-                  </div>
+                  <input
+                    class="form-control"
+                    name="classCount"
+                    type="number"
+                    min="1"
+                    max="100"
+                    [(ngModel)]="scheduleForm.classCount"
+                    required
+                    (ngModelChange)="clearConflicts()"
+                  />
+                  <small class="text-muted fw-semibold">{{ recurrenceSummary() }}</small>
                 </label>
               </div>
             </div>
@@ -775,10 +813,10 @@
               </span>
 
               <div class="min-w-0">
-                <strong>{{ scheduleMessageType() === 'success' ? 'Class scheduled' : 'Action needed' }}</strong>
+                <strong>{{ scheduleMessageType() === 'success' ? 'Classes scheduled' : 'Action needed' }}</strong>
                 <p>{{ scheduleMessage() }}</p>
 
-                @if (scheduledClass()?.videoMeeting?.roomUrl) {
+                @if (scheduledClassCount() === 1 && scheduledClass()?.videoMeeting?.roomUrl) {
                   <div class="video-link-box upgraded-video-link mt-3">
                     <span>Student / Teacher Join Link</span>
                     <a [href]="scheduledClass()!.videoMeeting!.roomUrl!" target="_blank" rel="noopener noreferrer">
@@ -892,6 +930,16 @@
       }
 
       <button
+        class="btn btn-outline-primary"
+        type="button"
+        [disabled]="selectedClass()!.status === 'cancelled'"
+        (click)="openReschedule(selectedClass()!)"
+      >
+        <i class="bi bi-calendar-event me-2"></i>
+        Reschedule Class
+      </button>
+
+      <button
         class="btn btn-outline-danger"
         type="button"
         [disabled]="selectedClass()!.status === 'cancelled'"
@@ -902,6 +950,70 @@
       </button>
     </div>
   </aside>
+}
+
+<!-- Reschedule One Occurrence -->
+@if (rescheduleOpen() && classToReschedule()) {
+  <section class="schedule-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="rescheduleClassTitle">
+    <div class="confirm-card">
+      <header>
+        <div class="d-flex align-items-start gap-3">
+          <span class="confirm-icon">
+            <i class="bi bi-calendar-event"></i>
+          </span>
+          <div>
+            <p class="section-kicker mb-1">Individual occurrence</p>
+            <h2 id="rescheduleClassTitle">Reschedule class</h2>
+          </div>
+        </div>
+        <button class="btn-close" type="button" aria-label="Close" (click)="closeReschedule()"></button>
+      </header>
+
+      <p class="mb-3">This changes only <strong>{{ classToReschedule()!.title }}</strong>, not the other classes in its recurring series.</p>
+
+      <div class="row g-3">
+        <div class="col-12">
+          <label class="schedule-field">
+            <span class="field-label"><i class="bi bi-calendar3"></i> New Date & Time <b>*</b></span>
+            <input class="form-control" type="datetime-local" name="rescheduleStartTime" [(ngModel)]="rescheduleForm.startTime" required />
+          </label>
+        </div>
+        <div class="col-12 col-sm-6">
+          <label class="schedule-field">
+            <span class="field-label"><i class="bi bi-stopwatch"></i> Duration <b>*</b></span>
+            <select class="form-select" name="rescheduleDuration" [(ngModel)]="rescheduleForm.durationMinutes">
+              <option [ngValue]="30">30 min</option>
+              <option [ngValue]="45">45 min</option>
+              <option [ngValue]="60">60 min</option>
+              <option [ngValue]="90">90 min</option>
+            </select>
+          </label>
+        </div>
+        <div class="col-12 col-sm-6">
+          <label class="schedule-field">
+            <span class="field-label"><i class="bi bi-globe2"></i> Timezone</span>
+            <select class="form-select" name="rescheduleTimezone" [(ngModel)]="rescheduleForm.timezone">
+              @for (option of scheduleTimezoneOptions(); track option.label + option.value) {
+                <option [value]="option.value">{{ option.label }}</option>
+              }
+            </select>
+          </label>
+        </div>
+      </div>
+
+      @if (rescheduleMessage()) {
+        <div class="alert alert-danger mt-3 mb-0"><i class="bi bi-exclamation-triangle me-2"></i>{{ rescheduleMessage() }}</div>
+      }
+
+      <footer>
+        <button class="btn btn-outline-secondary" type="button" (click)="closeReschedule()">Cancel</button>
+        <button class="btn btn-primary fw-bold" type="button" [disabled]="rescheduleSubmitting()" (click)="confirmReschedule()">
+          @if (rescheduleSubmitting()) { <span class="spinner-border spinner-border-sm me-2"></span> }
+          {{ rescheduleSubmitting() ? 'Saving...' : 'Save New Time' }}
+        </button>
+      </footer>
+    </div>
+  </section>
 }
 
 <!-- Cancel Confirm -->

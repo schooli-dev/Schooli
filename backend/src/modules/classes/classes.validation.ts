@@ -15,6 +15,7 @@ const ianaTimezone = z.string().trim().min(1).refine(
   },
   { message: "Expected a valid IANA timezone such as Asia/Kolkata or Europe/Paris" }
 );
+const weekday = z.enum(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]);
 
 export const listClassesSchema = z.object({
   query: z.object({
@@ -58,6 +59,21 @@ export const createClassSchema = z.object({
   })
 });
 
+export const createClassSeriesSchema = z.object({
+  body: z.object({
+    teacherId: uuid,
+    studentId: uuid,
+    title: z.string().trim().min(1),
+    startTime: isoDateTime,
+    durationMinutes: z.number().int().positive().max(480),
+    timezone: ianaTimezone.default("Asia/Kolkata"),
+    weekdays: z.array(weekday).min(1).max(7),
+    classCount: z.number().int().positive().max(100),
+    notes: z.string().trim().optional(),
+    overrideConflicts: z.boolean().optional()
+  })
+});
+
 export const updateClassSchema = z.object({
   params: z.object({
     id: uuid
@@ -96,6 +112,7 @@ export const rescheduleClassSchema = z.object({
 export type ListClassesInput = z.infer<typeof listClassesSchema>["query"];
 export type CheckConflictsInput = z.infer<typeof checkConflictsSchema>["body"];
 export type CreateClassInput = z.infer<typeof createClassSchema>["body"];
+export type CreateClassSeriesInput = z.infer<typeof createClassSeriesSchema>["body"];
 export type UpdateClassInput = z.infer<typeof updateClassSchema>["body"];
 export type CancelClassInput = z.infer<typeof cancelClassSchema>["body"];
 export type RescheduleClassInput = z.infer<typeof rescheduleClassSchema>["body"];
