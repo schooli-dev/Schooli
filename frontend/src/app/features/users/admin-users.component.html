@@ -448,12 +448,23 @@
             </div>
 
             <div class="info-grid mt-3">
-              <article class="info-tile">
+              <article class="info-tile" [class.wide]="canEditProfile(selectedUser()!)" [class.is-editable]="canEditProfile(selectedUser()!)">
                 <span>Full Name</span>
-                <strong>{{ fullName(selectedUser()!) }}</strong>
+                @if (canEditProfile(selectedUser()!)) {
+                  <div class="row g-2">
+                    <div class="col-12 col-sm-6">
+                      <input id="editFirstName" class="form-control form-control-sm edit-tile-control" name="editFirstName" [(ngModel)]="editProfile.firstName" placeholder="First name" aria-label="First name" required />
+                    </div>
+                    <div class="col-12 col-sm-6">
+                      <input id="editLastName" class="form-control form-control-sm edit-tile-control" name="editLastName" [(ngModel)]="editProfile.lastName" placeholder="Last name" aria-label="Last name" required />
+                    </div>
+                  </div>
+                } @else {
+                  <strong>{{ fullName(selectedUser()!) }}</strong>
+                }
               </article>
 
-              <article class="info-tile">
+              <article class="info-tile" [class.is-editable]="canEditProfile(selectedUser()!)">
                 <span>Username</span>
                 <strong>{{ selectedUser()!.username ?? 'Not set' }}</strong>
               </article>
@@ -468,23 +479,35 @@
 
               <article class="info-tile">
                 <span>Phone Number</span>
-                <strong>
-                  <i class="bi bi-telephone me-1"></i>
-                  {{ selectedUser()!.phone ?? 'Not set' }}
-                </strong>
+                @if (canEditProfile(selectedUser()!)) {
+                  <input id="editPhone" class="form-control form-control-sm edit-tile-control" name="editPhone" [(ngModel)]="editProfile.phone" placeholder="+919876543210" aria-label="Phone number with ISD code" />
+                } @else {
+                  <strong>
+                    <i class="bi bi-telephone me-1"></i>
+                    {{ selectedUser()!.phone ?? 'Not set' }}
+                  </strong>
+                }
               </article>
 
-              <article class="info-tile">
+              <article class="info-tile" [class.is-editable]="canEditProfile(selectedUser()!)">
                 <span>Assigned Roles</span>
                 <strong>{{ selectedUser()!.roles.length || 0 }}</strong>
               </article>
 
               <article class="info-tile">
                 <span>Profile Timezone</span>
-                <strong>
-                  <i class="bi bi-globe2 me-1"></i>
-                  {{ selectedUser()!.timezone || 'Not set' }}
-                </strong>
+                @if (canEditProfile(selectedUser()!)) {
+                  <select id="editTimezone" class="form-select form-select-sm edit-tile-control" name="editTimezone" [(ngModel)]="editProfile.timezone" aria-label="Profile timezone">
+                    @for (timezone of timezoneOptions; track timezone.value) {
+                      <option [value]="timezone.value">{{ timezone.label }}</option>
+                    }
+                  </select>
+                } @else {
+                  <strong>
+                    <i class="bi bi-globe2 me-1"></i>
+                    {{ selectedUser()!.timezone || 'Not set' }}
+                  </strong>
+                }
               </article>
             </div>
           </section>
@@ -627,8 +650,8 @@
           <button
             class="btn btn-primary"
             type="button"
-            [disabled]="!selectedRole() || selectedRole() === 'admin' || saving()"
-            (click)="saveRole()"
+            [disabled]="!selectedRole() || selectedRole() === 'admin' || saving() || (canEditProfile(selectedUser()!) && !isEditProfileValid())"
+            (click)="saveChanges()"
           >
             @if (saving()) {
               <span class="spinner-border spinner-border-sm me-2"></span>
@@ -779,7 +802,7 @@
               <input
                 class="form-control"
                 name="password"
-                [type]="createForm.autoGeneratePassword || !createPasswordVisible() ? 'password' : 'text'"
+                [type]="createPasswordVisible() ? 'text' : 'password'"
                 [(ngModel)]="createForm.password"
                 required
                 minlength="12"

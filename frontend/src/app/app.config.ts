@@ -20,7 +20,10 @@ export const appConfig: ApplicationConfig = {
     provideBrowserGlobalErrorListeners(),
     provideAnimationsAsync(),
     provideZoneChangeDetection({ eventCoalescing: true }),
-    provideAppInitializer(() => inject(RuntimeConfigService).load()),
+    provideAppInitializer(() => {
+      // The generated fallback API URL is immediately usable; refresh details without blocking first paint.
+      void inject(RuntimeConfigService).load();
+    }),
     provideHttpClient(withInterceptors([loadingInterceptor, toastInterceptor, authInterceptor])),
     provideRouter(routes)
   ]

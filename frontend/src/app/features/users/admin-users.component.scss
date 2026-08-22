@@ -791,6 +791,25 @@
   font-size: 14px;
 }
 
+.info-tile.is-editable {
+  border-color: rgba(37, 99, 235, 0.28);
+  background: #f8fbff;
+}
+
+.edit-tile-control {
+  min-height: 36px;
+  border-color: var(--color-border);
+  background: #ffffff;
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.edit-tile-control:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 0.2rem rgba(37, 99, 235, 0.12);
+}
+
 .availability-summary {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

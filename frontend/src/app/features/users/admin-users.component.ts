@@ -28,6 +28,13 @@ type CreateUserForm = {
   timezone: string;
 };
 
+type EditProfileForm = {
+  firstName: string;
+  lastName: string;
+  phone: string;
+  timezone: string;
+};
+
 const WORKING_DAYS = [
   { key: 'monday', label: 'Mon' },
   { key: 'tuesday', label: 'Tue' },
@@ -94,6 +101,7 @@ export class AdminUsersComponent implements OnInit, OnDestroy {
   protected readonly timezoneOptions = TIMEZONE_OPTIONS;
   protected readonly timezoneShortLabel = timezoneShortLabel;
   protected createForm: CreateUserForm = this.getEmptyCreateForm();
+  protected editProfile: EditProfileForm = this.getEmptyEditProfile();
   private readonly searchChanges = new Subject<string>();
   private readonly destroy$ = new Subject<void>();
 
@@ -172,12 +180,19 @@ export class AdminUsersComponent implements OnInit, OnDestroy {
     this.usersApi.getUser(user.id).subscribe((response) => {
       this.selectedUser.set(response.data);
       this.selectedRole.set(response.data.roles[0] ?? '');
+      this.editProfile = {
+        firstName: response.data.firstName,
+        lastName: response.data.lastName,
+        phone: response.data.phone ?? '',
+        timezone: response.data.timezone
+      };
     });
   }
 
   protected closeDialog(): void {
     this.dialogOpen.set(false);
     this.selectedUser.set(null);
+    this.editProfile = this.getEmptyEditProfile();
   }
 
   protected selectRole(role: string): void {
@@ -186,16 +201,56 @@ export class AdminUsersComponent implements OnInit, OnDestroy {
     }
   }
 
-  protected saveRole(): void {
+  protected canEditProfile(user: UserListItem): boolean {
+    return this.dialogMode() === 'edit' && user.roles.some((role) => role === 'teacher' || role === 'student');
+  }
+
+  protected isEditProfileValid(): boolean {
+    return (
+      /^[A-Za-z][A-Za-z\s'-]*$/.test(this.editProfile.firstName.trim()) &&
+      /^[A-Za-z][A-Za-z\s'-]*$/.test(this.editProfile.lastName.trim()) &&
+      (!this.editProfile.phone || /^\+\d{8,20}$/.test(this.editProfile.phone)) &&
+      Boolean(this.editProfile.timezone)
+    );
+  }
+
+  protected saveChanges(): void {
     const user = this.selectedUser();
     const role = this.selectedRole();
 
-    if (!user || !role) {
+    if (!user || !role || (this.canEditProfile(user) && !this.isEditProfileValid())) {
+      return;
+    }
+
+    const profileChanged =
+      this.canEditProfile(user) &&
+      (this.editProfile.firstName.trim() !== user.firstName ||
+        this.editProfile.lastName.trim() !== user.lastName ||
+        this.editProfile.phone !== (user.phone ?? '') ||
+        this.editProfile.timezone !== user.timezone);
+    const roleChanged = role !== (user.roles[0] ?? '');
+
+    if (!profileChanged && !roleChanged) {
+      this.closeDialog();
       return;
     }
 
     this.saving.set(true);
-    this.usersApi.updateRoles(user.id, [role]).subscribe({
+    const updates = {
+      ...(profileChanged
+        ? {
+            profile: this.usersApi.updateUser(user.id, {
+              firstName: this.editProfile.firstName.trim(),
+              lastName: this.editProfile.lastName.trim(),
+              phone: this.editProfile.phone || null,
+              timezone: this.editProfile.timezone
+            })
+          }
+        : {}),
+      ...(roleChanged ? { role: this.usersApi.updateRoles(user.id, [role]) } : {})
+    };
+
+    forkJoin(updates).subscribe({
       next: () => {
         this.saving.set(false);
         this.closeDialog();
@@ -435,6 +490,10 @@ export class AdminUsersComponent implements OnInit, OnDestroy {
       availabilityEndTime: '18:00',
       timezone: 'Asia/Kolkata'
     };
+  }
+
+  private getEmptyEditProfile(): EditProfileForm {
+    return { firstName: '', lastName: '', phone: '', timezone: 'Asia/Kolkata' };
   }
 
   private finishCreateUser(): void {

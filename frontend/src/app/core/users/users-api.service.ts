@@ -50,6 +50,13 @@ export type CreateUserRequest = {
   roles: string[];
 };
 
+export type UpdateUserRequest = {
+  firstName?: string;
+  lastName?: string;
+  phone?: string | null;
+  timezone?: string;
+};
+
 export type ListUsersParams = {
   page?: number;
   limit?: number;
@@ -74,6 +81,10 @@ export class UsersApiService {
 
   createUser(payload: CreateUserRequest) {
     return this.api.post<UserListItem>('/users', payload);
+  }
+
+  updateUser(id: string, payload: UpdateUserRequest) {
+    return this.api.patch<UserListItem>(`/users/${id}`, payload);
   }
 
   updateRoles(id: string, roles: string[]) {

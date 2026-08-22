@@ -38,9 +38,13 @@ export class RuntimeConfigService {
   }
 
   async load(): Promise<void> {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 2500);
+
     try {
       const response = await fetch(environment.apiDetailsUrl, {
-        headers: { Accept: 'application/json' }
+        headers: { Accept: 'application/json' },
+        signal: controller.signal
       });
 
       if (!response.ok) {
@@ -55,6 +59,7 @@ export class RuntimeConfigService {
         apiBaseUrl: environment.fallbackApiBaseUrl
       }));
     } finally {
+      window.clearTimeout(timeoutId);
       this.isLoaded.set(true);
     }
   }
