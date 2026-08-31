@@ -22,6 +22,10 @@ export class ApiClientService {
     return this.http.patch<ApiResponse<T>>(this.url(path), body);
   }
 
+  put<T>(path: string, body: unknown) {
+    return this.http.put<ApiResponse<T>>(this.url(path), body);
+  }
+
   delete<T>(path: string) {
     return this.http.delete<ApiResponse<T>>(this.url(path));
   }

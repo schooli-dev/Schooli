@@ -12,6 +12,10 @@ import { AppShellComponent } from './shared/app-shell.component';
 import { authGuard, loginRedirectGuard } from './core/auth/auth.guard';
 import { RoleRedirectComponent } from './core/auth/role-redirect.component';
 import { ErrorPageComponent } from './features/errors/error-page/error-page.component';
+import { AdminCoursesComponent } from './features/learning-materials/admin-courses/admin-courses.component';
+import { AdminModulesComponent } from './features/learning-materials/admin-modules/admin-modules.component';
+import { AdminLessonsComponent } from './features/learning-materials/admin-lessons/admin-lessons.component';
+import { TeacherAccessComponent } from './features/learning-materials/teacher-access/teacher-access.component';
 
 export const routes: Routes = [
   {
@@ -120,6 +124,34 @@ export const routes: Routes = [
         canActivate: [authGuard],
         data: { permission: 'role.view' },
         title: 'Roles & Permissions | SchooliEdu'
+      },
+      {
+        path: 'admin/learning-materials/courses',
+        component: AdminCoursesComponent,
+        canActivate: [authGuard],
+        data: { permission: 'learning_materials.view' },
+        title: 'Courses | SchooliEdu'
+      },
+      {
+        path: 'admin/learning-materials/modules',
+        component: AdminModulesComponent,
+        canActivate: [authGuard],
+        data: { permission: 'learning_materials.view' },
+        title: 'Modules | SchooliEdu'
+      },
+      {
+        path: 'admin/learning-materials/classes',
+        component: AdminLessonsComponent,
+        canActivate: [authGuard],
+        data: { permission: 'learning_materials.view' },
+        title: 'Curriculum Classes | SchooliEdu'
+      },
+      {
+        path: 'admin/learning-materials/teacher-access',
+        component: TeacherAccessComponent,
+        canActivate: [authGuard],
+        data: { permission: 'learning_materials.manage_access' },
+        title: 'Teacher Access | SchooliEdu'
       },
       {
         path: 'teacher/dashboard',

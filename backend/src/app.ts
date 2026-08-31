@@ -18,6 +18,7 @@ import {
 import { calendarRoutes, classesRoutes } from "./modules/classes/classes.routes.js";
 import { dailyClassRoutes, dailyRoutes } from "./modules/daily/daily.routes.js";
 import { emailTemplatesRoutes } from "./modules/emailTemplates/emailTemplates.routes.js";
+import { learningMaterialsRoutes } from "./modules/learningMaterials/learningMaterials.routes.js";
 import {
   notificationDeliveryLogsRoutes,
   notificationsRoutes,
@@ -92,6 +93,7 @@ app.use("/api/calendar", calendarRoutes);
 app.use("/api/attendance", attendanceRoutes);
 app.use("/api/daily", dailyRoutes);
 app.use("/api/email-templates", emailTemplatesRoutes);
+app.use("/api/learning-materials", learningMaterialsRoutes);
 app.use("/api/notifications", notificationsRoutes);
 app.use("/api/notification-rules", notificationRulesRoutes);
 app.use("/api/notification-delivery-logs", notificationDeliveryLogsRoutes);

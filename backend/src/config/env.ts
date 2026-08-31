@@ -19,7 +19,21 @@ const envSchema = z.object({
   DAILY_ROOM_PRIVACY: z.enum(["public", "private"]).default("private"),
   DAILY_ENABLE_PREJOIN_UI: z.coerce.boolean().default(true),
   DAILY_ENABLE_CHAT: z.coerce.boolean().default(true),
-  DAILY_ENABLE_RECORDING: z.enum(["off", "cloud", "cloud-audio-only", "local", "raw-tracks"]).default("off")
+  DAILY_ENABLE_RECORDING: z.enum(["off", "cloud", "cloud-audio-only", "local", "raw-tracks"]).default("off"),
+  R2_ENDPOINT: z.string().url().optional(),
+  R2_BUCKET_NAME: z.string().trim().min(3).max(63).optional(),
+  R2_ACCESS_KEY_ID: z.string().trim().min(1).optional(),
+  R2_SECRET_ACCESS_KEY: z.string().trim().min(1).optional(),
+  R2_MAX_UPLOAD_MB: z.coerce.number().int().min(1).max(100).default(25)
+}).superRefine((value, ctx) => {
+  const configured = [value.R2_ENDPOINT, value.R2_BUCKET_NAME, value.R2_ACCESS_KEY_ID, value.R2_SECRET_ACCESS_KEY].filter(Boolean);
+  if (configured.length > 0 && configured.length < 4) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["R2_ENDPOINT"],
+      message: "R2_ENDPOINT, R2_BUCKET_NAME, R2_ACCESS_KEY_ID, and R2_SECRET_ACCESS_KEY must be configured together"
+    });
+  }
 });
 
 const parsed = envSchema.safeParse(process.env);

@@ -44,7 +44,8 @@ export const openApiSpec = swaggerJSDoc({
       { name: "Daily" },
       { name: "Email Templates" },
       { name: "Notifications" },
-      { name: "Notification Manager" }
+      { name: "Notification Manager" },
+      { name: "Learning Materials" }
     ],
     components: {
       securitySchemes: {
@@ -1355,6 +1356,53 @@ export const openApiSpec = swaggerJSDoc({
             "200": { description: "Notification delivery logs fetched" }
           }
         }
+      },
+      "/api/learning-materials/courses": {
+        get: {
+          tags: ["Learning Materials"], summary: "List curriculum courses", security: [{ bearerAuth: [] }],
+          parameters: [{ name: "search", in: "query", schema: { type: "string" } }, { name: "status", in: "query", schema: { type: "string", enum: ["all", "active", "inactive"] } }],
+          responses: { "200": { description: "Courses fetched" } }
+        },
+        post: {
+          tags: ["Learning Materials"], summary: "Create curriculum course", security: [{ bearerAuth: [] }],
+          responses: { "201": { description: "Course created" } }
+        }
+      },
+      "/api/learning-materials/courses/{id}": {
+        get: { tags: ["Learning Materials"], summary: "Get course with modules", security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }], responses: { "200": { description: "Course fetched" } } },
+        patch: { tags: ["Learning Materials"], summary: "Update course or its active status", security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }], responses: { "200": { description: "Course updated" } } }
+      },
+      "/api/learning-materials/modules": {
+        get: { tags: ["Learning Materials"], summary: "List curriculum modules", security: [{ bearerAuth: [] }], responses: { "200": { description: "Modules fetched" } } },
+        post: { tags: ["Learning Materials"], summary: "Create curriculum module", security: [{ bearerAuth: [] }], responses: { "201": { description: "Module created" } } }
+      },
+      "/api/learning-materials/modules/{id}": {
+        get: { tags: ["Learning Materials"], summary: "Get module with teachers and classes", security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }], responses: { "200": { description: "Module fetched" } } },
+        patch: { tags: ["Learning Materials"], summary: "Update module or its active status", security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }], responses: { "200": { description: "Module updated" } } }
+      },
+      "/api/learning-materials/modules/{id}/teachers": {
+        put: { tags: ["Learning Materials"], summary: "Replace active teachers assigned to a module", security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }], responses: { "200": { description: "Teacher access updated" } } }
+      },
+      "/api/learning-materials/lessons": {
+        get: { tags: ["Learning Materials"], summary: "List curriculum classes", security: [{ bearerAuth: [] }], responses: { "200": { description: "Curriculum classes fetched" } } },
+        post: { tags: ["Learning Materials"], summary: "Create curriculum class", security: [{ bearerAuth: [] }], responses: { "201": { description: "Curriculum class created" } } }
+      },
+      "/api/learning-materials/lessons/{id}": {
+        get: { tags: ["Learning Materials"], summary: "Get curriculum class and material versions", security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }], responses: { "200": { description: "Curriculum class fetched" } } },
+        patch: { tags: ["Learning Materials"], summary: "Update curriculum class", security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }], responses: { "200": { description: "Curriculum class updated" } } }
+      },
+      "/api/learning-materials/uploads": {
+        post: {
+          tags: ["Learning Materials"], summary: "Upload a private curriculum file to Cloudflare R2", security: [{ bearerAuth: [] }],
+          requestBody: { required: true, content: { "multipart/form-data": { schema: { type: "object", required: ["file"], properties: { file: { type: "string", format: "binary" } } } } } },
+          responses: { "201": { description: "File uploaded" }, "413": { description: "File exceeds upload limit" } }
+        }
+      },
+      "/api/learning-materials/materials": {
+        post: { tags: ["Learning Materials"], summary: "Add a link or an uploaded-file record to a curriculum class", security: [{ bearerAuth: [] }], responses: { "201": { description: "Learning material created" } } }
+      },
+      "/api/learning-materials/materials/{id}/revisions": {
+        post: { tags: ["Learning Materials"], summary: "Create an immutable new revision for a learning material", security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }], responses: { "201": { description: "Learning material revision created" } } }
       },
       "/api/calendar/classes": {
         get: {

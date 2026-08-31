@@ -138,6 +138,66 @@
   min-width: 0;
 }
 
+.sidebar-tree {
+  display: grid;
+  gap: 4px;
+}
+
+.learning-materials-parent {
+  width: 100%;
+  cursor: pointer;
+}
+
+.tree-chevron {
+  margin-left: auto;
+  font-size: 12px;
+}
+
+.sidebar-tree-children {
+  display: grid;
+  gap: 3px;
+  margin-left: 27px;
+  border-left: 1px solid var(--color-border);
+  padding: 2px 0 2px 10px;
+}
+
+.sidebar-tree-link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 38px;
+  border-radius: 10px;
+  color: var(--color-text-soft);
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.sidebar-tree-link:hover {
+  background: rgba(37, 99, 235, 0.08);
+  color: var(--color-primary);
+}
+
+.sidebar-tree-link.is-active {
+  background: #eaf1ff;
+  color: var(--color-primary);
+}
+
+.sidebar-tree-link > .bi {
+  flex: 0 0 auto;
+  font-size: 15px;
+}
+
+.tree-line {
+  position: absolute;
+  left: -11px;
+  top: 50%;
+  width: 10px;
+  border-top: 1px solid var(--color-border);
+}
+
 .sidebar-footer {
   display: grid;
   gap: 6px;

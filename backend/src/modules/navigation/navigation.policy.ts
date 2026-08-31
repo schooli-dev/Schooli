@@ -106,6 +106,61 @@ const pages: NavigationPage[] = [
     ]
   },
   {
+    key: "admin.learning-materials.courses",
+    label: "Courses",
+    path: "/admin/learning-materials/courses",
+    icon: "book",
+    section: "operations",
+    roles: ["admin"],
+    anyPermissions: ["learning_materials.view"],
+    actions: [
+      { key: "read", permission: "learning_materials.view" },
+      { key: "create", permission: "learning_materials.create" },
+      { key: "update", permission: "learning_materials.update" }
+    ]
+  },
+  {
+    key: "admin.learning-materials.modules",
+    label: "Modules",
+    path: "/admin/learning-materials/modules",
+    icon: "layers",
+    section: "operations",
+    roles: ["admin"],
+    anyPermissions: ["learning_materials.view"],
+    actions: [
+      { key: "read", permission: "learning_materials.view" },
+      { key: "create", permission: "learning_materials.create" },
+      { key: "update", permission: "learning_materials.update" }
+    ]
+  },
+  {
+    key: "admin.learning-materials.lessons",
+    label: "Curriculum Classes",
+    path: "/admin/learning-materials/classes",
+    icon: "journal",
+    section: "operations",
+    roles: ["admin"],
+    anyPermissions: ["learning_materials.view"],
+    actions: [
+      { key: "read", permission: "learning_materials.view" },
+      { key: "create", permission: "learning_materials.create" },
+      { key: "update", permission: "learning_materials.update" }
+    ]
+  },
+  {
+    key: "admin.learning-materials.teacher-access",
+    label: "Teacher Access",
+    path: "/admin/learning-materials/teacher-access",
+    icon: "person-gear",
+    section: "operations",
+    roles: ["admin"],
+    anyPermissions: ["learning_materials.manage_access"],
+    actions: [
+      { key: "read", permission: "learning_materials.view" },
+      { key: "update", permission: "learning_materials.manage_access" }
+    ]
+  },
+  {
     key: "attendance",
     label: "Attendance",
     path: "/admin/attendance",

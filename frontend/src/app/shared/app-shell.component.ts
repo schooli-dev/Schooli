@@ -44,6 +44,10 @@ const sidebarIconClasses: Record<string, string> = {
   doc: 'bi-file-earmark-text',
   award: 'bi-award',
   chart: 'bi-bar-chart',
+  book: 'bi-book',
+  layers: 'bi-layers',
+  journal: 'bi-journal-text',
+  'person-gear': 'bi-person-gear',
   gear: 'bi-gear',
   exit: 'bi-box-arrow-right'
 };
@@ -53,11 +57,21 @@ const implementedSidebarPaths = new Set([
   '/admin/classes',
   '/admin/users',
   '/admin/roles',
+  '/admin/learning-materials/courses',
+  '/admin/learning-materials/modules',
+  '/admin/learning-materials/classes',
+  '/admin/learning-materials/teacher-access',
   '/teacher/dashboard',
   '/teacher/classes',
   '/teacher/attendance',
   '/student/dashboard',
   '/student/classes'
+]);
+
+const learningMaterialsPaths = new Set([
+  '/admin/learning-materials/courses',
+  '/admin/learning-materials/modules',
+  '/admin/learning-materials/classes'
 ]);
 
 function page(
@@ -80,6 +94,7 @@ function page(
 })
 export class AppShellComponent implements OnDestroy {
   protected readonly menuOpen = signal(false);
+  protected readonly learningMaterialsExpanded = signal(false);
   protected readonly profileOpen = signal(false);
   protected readonly notificationOpen = signal(false);
   protected readonly notifications = signal<UserNotification[]>([]);
@@ -108,6 +123,26 @@ export class AppShellComponent implements OnDestroy {
   protected readonly navItems = computed(() => {
     const pages = this.policyPages();
     return pages.length ? pages : fallbackNavByRole[this.role()];
+  });
+
+  protected readonly learningMaterialsItems = computed(() =>
+    this.navItems().filter((item) => learningMaterialsPaths.has(item.path))
+  );
+
+  protected readonly sidebarItems = computed(() =>
+    this.navItems().filter((item) => !learningMaterialsPaths.has(item.path))
+  );
+
+  protected readonly sidebarItemsBeforeLearningMaterials = computed(() => {
+    const items = this.sidebarItems();
+    const classesIndex = items.findIndex((item) => item.path === '/admin/classes');
+    return classesIndex === -1 ? items : items.slice(0, classesIndex + 1);
+  });
+
+  protected readonly sidebarItemsAfterLearningMaterials = computed(() => {
+    const items = this.sidebarItems();
+    const classesIndex = items.findIndex((item) => item.path === '/admin/classes');
+    return classesIndex === -1 ? [] : items.slice(classesIndex + 1);
   });
 
   protected readonly roleLabel = computed(() => `${this.role()} portal`);
@@ -166,6 +201,10 @@ export class AppShellComponent implements OnDestroy {
 
   protected closeMenu(): void {
     this.menuOpen.set(false);
+  }
+
+  protected toggleLearningMaterials(): void {
+    this.learningMaterialsExpanded.update((expanded) => !expanded);
   }
 
   protected openProfile(): void {
@@ -246,6 +285,10 @@ export class AppShellComponent implements OnDestroy {
 
   protected isActivePath(path: string): boolean {
     return this.currentUrl() === path;
+  }
+
+  protected isLearningMaterialsActive(): boolean {
+    return learningMaterialsPaths.has(this.currentUrl());
   }
 
   protected iconClass(icon: string): string {
