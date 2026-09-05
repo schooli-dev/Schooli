@@ -751,6 +751,7 @@ function baseClassSelect(): string {
         SELECT ccr.status::TEXT
         FROM class_cancellation_requests ccr
         WHERE ccr.class_id = c.id
+          AND c.status <> 'cancelled'
           AND ccr.status = 'pending'
         ORDER BY ccr.created_at DESC
         LIMIT 1
@@ -759,6 +760,7 @@ function baseClassSelect(): string {
         SELECT ccr.reason
         FROM class_cancellation_requests ccr
         WHERE ccr.class_id = c.id
+          AND c.status <> 'cancelled'
           AND ccr.status = 'pending'
         ORDER BY ccr.created_at DESC
         LIMIT 1
@@ -767,6 +769,7 @@ function baseClassSelect(): string {
         SELECT COUNT(*)::INT
         FROM class_cancellation_requests ccr
         WHERE ccr.class_id = c.id
+          AND c.status <> 'cancelled'
           AND ccr.status = 'pending'
       ) AS cancellation_requests_count,
       COALESCE(

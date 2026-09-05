@@ -567,7 +567,7 @@ export class AdminClassesComponent implements OnInit {
   }
 
   protected hasPendingCancellationRequest(item: ClassListItem): boolean {
-    return item.cancellationRequestStatus === 'pending' || Boolean(item.cancellationRequestsCount);
+    return item.status !== 'cancelled' && (item.cancellationRequestStatus === 'pending' || Boolean(item.cancellationRequestsCount));
   }
 
   protected matchesTab(item: ClassListItem, tab: ClassTabKey): boolean {
