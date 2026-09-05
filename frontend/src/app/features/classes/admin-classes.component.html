@@ -198,6 +198,10 @@
             <th>Teacher</th>
             <th>Student</th>
             <th>Schedule</th>
+            <th>Teacher joined</th>
+            <th>Teacher left / ended</th>
+            <th>Student joined</th>
+            <th>Student left</th>
             <th>Status</th>
             <th>Daily</th>
             <th>Attendance</th>
@@ -237,10 +241,15 @@
 
               <td>
                 <div class="date-cell">
-                  <strong>{{ item.startTime | date: 'MMM d' }}</strong>
-                  <span>{{ item.startTime | date: 'hh:mm a' }} · {{ item.durationMinutes }} min</span>
+                  <strong>{{ classScheduleTime(item) }}</strong>
+                  <span class="class-schedule-timezone">Scheduled in {{ item.timezone }} · {{ item.durationMinutes }} min</span>
                 </div>
               </td>
+
+              <td><span class="session-log-time">{{ sessionLogTime(item, item.sessionLog.teacherJoinedAt) }}</span></td>
+              <td><span class="session-log-time">{{ sessionLogTime(item, item.sessionLog.teacherLeftAt) }}</span></td>
+              <td><span class="session-log-time">{{ sessionLogTime(item, item.sessionLog.studentJoinedAt) }}</span></td>
+              <td><span class="session-log-time">{{ sessionLogTime(item, item.sessionLog.studentLeftAt) }}</span></td>
 
               <td>
                 <span
@@ -619,7 +628,7 @@
 
               <div>
                 <h3>Date & Time</h3>
-                <p>Pick a future slot and duration. Availability and busy slots update automatically.</p>
+                <p>Choose a start time for each repeat day. Every class is 60 minutes.</p>
               </div>
             </div>
 
@@ -655,7 +664,7 @@
                 </label>
               </div>
 
-              <div class="col-12 col-md-7">
+              <div class="col-12 col-md-6">
                 <div class="schedule-field">
                   <span class="field-label"><i class="bi bi-calendar-event"></i> Start Date <b>*</b></span>
                   <div class="input-group input-group-lg">
@@ -670,46 +679,18 @@
                     />
                   </div>
 
-                  @if (isStartTimeInPast()) {
-                    <small class="schedule-field-error">
-                      <i class="bi bi-exclamation-circle"></i>
-                      Choose a future date and time.
-                    </small>
-                  }
                 </div>
               </div>
 
-              <div class="col-12 col-md-5">
+              <div class="col-12 col-md-6">
                 <div class="schedule-field">
-                  <span class="field-label"><i class="bi bi-clock"></i> Start Time <b>*</b></span>
-                  <div class="input-group input-group-lg">
-                    <input
-                      #scheduleTimeInput
-                      class="form-control"
-                      type="time"
-                      name="scheduleTime"
-                      [(ngModel)]="scheduleTime"
-                      step="60"
-                      aria-label="Start time"
-                      (ngModelChange)="onScheduleTimeChanged()"
-                    />
-                    <button class="btn btn-outline-secondary" type="button" aria-label="Open time selector" (click)="openTimePicker(scheduleTimeInput)">
-                      <i class="bi bi-clock"></i>
-                    </button>
+                  <span class="field-label"><i class="bi bi-hourglass-split"></i> Class Duration</span>
+                  <div class="form-control d-flex align-items-center gap-2 text-muted bg-light">
+                    <i class="bi bi-clock-fill text-primary"></i>
+                    <strong class="text-dark">60 minutes</strong>
+                    <span>for every class</span>
                   </div>
                 </div>
-              </div>
-
-              <div class="col-12 col-md-5">
-                <label class="schedule-field">
-                  <span class="field-label"><i class="bi bi-hourglass-split"></i> Duration <b>*</b></span>
-                  <select class="form-select" name="durationMinutes" [(ngModel)]="scheduleForm.durationMinutes" (ngModelChange)="clearConflicts()">
-                    <option [ngValue]="30">30 min</option>
-                    <option [ngValue]="45">45 min</option>
-                    <option [ngValue]="60">60 min</option>
-                    <option [ngValue]="90">90 min</option>
-                  </select>
-                </label>
               </div>
 
               <div class="col-12 col-lg-8">
@@ -730,7 +711,7 @@
                       <mat-button-toggle [value]="day.key">{{ day.label }}</mat-button-toggle>
                     }
                   </mat-button-toggle-group>
-                  <small class="text-muted fw-semibold">The first selected weekday on or after the start date becomes class 1.</small>
+                  <small class="text-muted fw-semibold">Select the days, then choose a separate start time for each one below.</small>
                 </fieldset>
               </div>
 
@@ -753,70 +734,82 @@
                   <small class="text-muted fw-semibold">{{ recurrenceSummary() }}</small>
                 </label>
               </div>
+
+              @if (scheduleForm.weekdays.length) {
+                <div class="col-12">
+                  <section class="border border-primary-subtle rounded-4 bg-light p-3" aria-label="Start times for selected repeat days">
+                    <div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-start gap-2">
+                      <div>
+                        <h4 class="h6 fw-bold mb-1"><i class="bi bi-calendar-week me-2"></i>Class time by repeat day</h4>
+                        <p class="small text-muted fw-semibold mb-0">Choose a start time in {{ timezoneShortLabel(scheduleForm.timezone) }}. Each class lasts 60 minutes.</p>
+                      </div>
+                      <span class="badge rounded-pill text-bg-primary">60 min fixed</span>
+                    </div>
+
+                    @if (scheduleDate) {
+                      <div class="d-grid gap-2">
+                        @for (row of weeklyScheduleRows(); track row.dayOfWeek) {
+                          <div class="row g-3 align-items-end border rounded-3 bg-white p-3 m-0">
+                            <div class="col-12 col-md-2">
+                              <strong class="d-block text-primary">{{ row.dayLabel }}</strong>
+                              <small class="text-muted fw-semibold">{{ row.dateLabel }}</small>
+                            </div>
+
+                            <div class="col-12 col-md-4">
+                              <label class="small text-muted fw-bold mb-1" [for]="'weekly-start-' + row.dayOfWeek">Start time <b>*</b></label>
+                              <div class="input-group">
+                                <input
+                                  #weeklyTimeInput
+                                  class="form-control"
+                                  [id]="'weekly-start-' + row.dayOfWeek"
+                                  type="time"
+                                  [name]="'weekly-start-' + row.dayOfWeek"
+                                  [ngModel]="weeklyScheduleStartTime(row.dayOfWeek)"
+                                  step="60"
+                                  (ngModelChange)="setWeeklyScheduleStartTime(row.dayOfWeek, $event)"
+                                />
+                                <button class="btn btn-outline-secondary" type="button" aria-label="Open time selector" (click)="openTimePicker(weeklyTimeInput)">
+                                  <i class="bi bi-clock"></i>
+                                </button>
+                              </div>
+                            </div>
+
+                            <div class="col-12 col-md-6">
+                              <span class="d-block small text-muted fw-bold mb-1">Teacher availability</span>
+                              @if (row.availability.length) {
+                                <div class="d-flex flex-wrap gap-1">
+                                  @for (slot of row.availability; track slot.key) {
+                                    <small class="badge rounded-pill bg-success-subtle text-success border border-success-subtle"><i class="bi bi-check2-circle me-1"></i>{{ slot.scheduleRange }}</small>
+                                  }
+                                </div>
+                              } @else {
+                                <small class="text-danger fw-semibold"><i class="bi bi-exclamation-circle me-1"></i>No available teacher slot</small>
+                              }
+                            </div>
+                          </div>
+                        }
+                      </div>
+                    } @else {
+                      <div class="d-flex align-items-center gap-2 border border-dashed rounded-3 text-muted small fw-semibold p-3">
+                        <i class="bi bi-calendar-event text-primary"></i>
+                        Select a start date to set the time for each repeat day.
+                      </div>
+                    }
+                  </section>
+                </div>
+              }
             </div>
           </section>
 
-          @if (timePreview().length) {
-            <section class="schedule-section-card full timezone-preview-section">
-              <div class="schedule-section-heading">
-                <span class="schedule-section-icon">
-                  <i class="bi bi-globe-central-south-asia"></i>
-                </span>
-
-                <div>
-                  <h3>Global Time Preview</h3>
-                  <p>Confirm what each participant will see before the class is saved.</p>
-                </div>
-              </div>
-
-              <div class="timezone-preview-grid">
-                @for (preview of timePreview(); track preview.label) {
-                  <article class="timezone-preview-card" [class.muted]="preview.muted">
-                    <span>{{ preview.label }}</span>
-                    <strong>{{ preview.value }}</strong>
-                    <small>{{ preview.timezone }}</small>
-                  </article>
-                }
-              </div>
-            </section>
-          }
-
-          <article class="schedule-side-card upgraded-side-card">
-            <div class="schedule-card-header">
-              <span class="schedule-mini-icon success">
-                <i class="bi bi-calendar-check"></i>
-              </span>
-
-              <div class="min-w-0">
-                <strong>Teacher working hours</strong>
-                <small>{{ selectedTeacherAvailability().length }} active slot(s)</small>
-              </div>
-            </div>
-
-            <div class="slot-list upgraded-slot-list">
-              @for (slot of selectedTeacherAvailability(); track slot.id) {
-                <span [class.is-match]="availabilityMatchesSelectedSlot(slot)">
-                  <i class="bi bi-clock"></i>
-                  {{ dayLabel(slot.dayOfWeek) }} {{ slot.startTime }} - {{ slot.endTime }} {{ slot.timezone }}
-                </span>
-              } @empty {
-                <span class="empty-slot">
-                  <i class="bi bi-calendar-x"></i>
-                  No active availability found for this teacher.
-                </span>
-              }
-            </div>
-          </article>
-
-          <article class="schedule-side-card upgraded-side-card">
+          <article class="schedule-side-card upgraded-side-card full">
             <div class="schedule-card-header">
               <span class="schedule-mini-icon warning">
                 <i class="bi bi-calendar-x"></i>
               </span>
 
               <div class="min-w-0">
-                <strong>Busy on selected day</strong>
-                <small>{{ busySlots().length }} booked slot(s)</small>
+                <strong>Busy in first schedule week</strong>
+                <small>{{ busySlots().length }} active booking(s) for the selected teacher or student</small>
               </div>
             </div>
 
@@ -824,12 +817,12 @@
               @for (slot of busySlots(); track slot.id) {
                 <span>
                   <i class="bi bi-camera-video"></i>
-                  {{ slot.startTime | date: 'hh:mm a' }} - {{ slot.endTime | date: 'hh:mm a' }} · {{ slot.title }}
+                  {{ busySlotTimeRange(slot) }} · {{ slot.title }}
                 </span>
               } @empty {
                 <span class="empty-slot success-text">
                   <i class="bi bi-check-circle"></i>
-                  No teacher/student overlap found for this day.
+                  No active teacher or student booking found in this first schedule week.
                 </span>
               }
             </div>
@@ -1091,10 +1084,17 @@
         This will cancel <strong>{{ classToCancel()!.title }}</strong>. If a real Daily room exists, it will be cancelled in Daily as well.
       </p>
 
+      @if (classToCancel()!.pendingCancellationReason) {
+        <div class="alert alert-info py-2 mb-3">
+          <i class="bi bi-person-chat me-2"></i>
+          The student's cancellation reason is prefilled below. You can edit it before confirming.
+        </div>
+      }
+
       <label class="w-100">
         <span class="field-label">
           <i class="bi bi-chat-left-text"></i>
-          Cancellation Reason <b>*</b>
+          Cancellation Reason (editable) <b>*</b>
         </span>
 
         <textarea

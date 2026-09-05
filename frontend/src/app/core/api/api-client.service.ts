@@ -1,7 +1,12 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpContext } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { RuntimeConfigService } from '../config/runtime-config.service';
 import type { ApiResponse } from './api-response.model';
+import { SKIP_GLOBAL_LOADER } from '../loading/loading.interceptor';
+
+export type ApiRequestOptions = {
+  background?: boolean;
+};
 
 @Injectable({ providedIn: 'root' })
 export class ApiClientService {
@@ -10,20 +15,27 @@ export class ApiClientService {
     private readonly runtimeConfig: RuntimeConfigService
   ) {}
 
-  get<T>(path: string, params?: Record<string, string | number | boolean | undefined | null>) {
-    return this.http.get<ApiResponse<T>>(this.url(path), { params: this.cleanParams(params) });
+  get<T>(
+    path: string,
+    params?: Record<string, string | number | boolean | undefined | null>,
+    options?: ApiRequestOptions
+  ) {
+    return this.http.get<ApiResponse<T>>(this.url(path), {
+      params: this.cleanParams(params),
+      context: this.requestContext(options)
+    });
   }
 
-  post<T>(path: string, body: unknown) {
-    return this.http.post<ApiResponse<T>>(this.url(path), body);
+  post<T>(path: string, body: unknown, options?: ApiRequestOptions) {
+    return this.http.post<ApiResponse<T>>(this.url(path), body, { context: this.requestContext(options) });
   }
 
-  patch<T>(path: string, body: unknown) {
-    return this.http.patch<ApiResponse<T>>(this.url(path), body);
+  patch<T>(path: string, body: unknown, options?: ApiRequestOptions) {
+    return this.http.patch<ApiResponse<T>>(this.url(path), body, { context: this.requestContext(options) });
   }
 
-  delete<T>(path: string) {
-    return this.http.delete<ApiResponse<T>>(this.url(path));
+  delete<T>(path: string, options?: ApiRequestOptions) {
+    return this.http.delete<ApiResponse<T>>(this.url(path), { context: this.requestContext(options) });
   }
 
   private url(path: string): string {
@@ -40,5 +52,11 @@ export class ApiClientService {
         .filter(([, value]) => value !== undefined && value !== null && value !== '')
         .map(([key, value]) => [key, String(value)])
     );
+  }
+
+  private requestContext(options?: ApiRequestOptions): HttpContext {
+    return options?.background
+      ? new HttpContext().set(SKIP_GLOBAL_LOADER, true)
+      : new HttpContext();
   }
 }

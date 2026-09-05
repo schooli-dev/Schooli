@@ -26,6 +26,9 @@ backend/docs/
 backend/BACKEND_CHECKLIST.md
 frontend/FRONTEND_CHECKLIST.md
 
+# Local context for coding agents; deliberately never released
+**/AGENT_CONTEXT.md
+
 # Local design/reference material
 ui_Designs/
 project_doc

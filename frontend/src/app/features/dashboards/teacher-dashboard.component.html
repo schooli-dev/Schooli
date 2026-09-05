@@ -287,126 +287,92 @@
       </article>
     </div>
 
-    <!-- Availability -->
+    <!-- Weekly calendar -->
     <div class="col-12">
       <article class="card border rounded-4 overflow-hidden">
         <div class="card-header bg-white p-3 p-md-4">
           <div class="d-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-3">
             <div>
-              <h2 class="h5 fw-bold mb-1">Availability</h2>
-              <p class="small text-muted mb-0">View or update your weekly teaching hours</p>
+              <h2 class="h5 fw-bold mb-1">Weekly Availability</h2>
+              <p class="small text-muted mb-0">Your current week in {{ userTimezone() }}. Availability is managed by admin.</p>
             </div>
 
-            <div class="form-check form-switch m-0">
-              <input
-                class="form-check-input"
-                id="availabilityEditMode"
-                type="checkbox"
-                [ngModel]="availabilityEditMode()"
-                (ngModelChange)="toggleAvailabilityEdit($event)"
-              />
-              <label class="form-check-label fw-bold" for="availabilityEditMode">
-                {{ availabilityEditMode() ? 'Edit Mode' : 'View Mode' }}
-              </label>
+            <div class="calendar-legend" aria-label="Calendar legend">
+              <span><i class="legend-dot availability"></i>Available</span>
+              <span><i class="legend-dot today-class"></i>Today</span>
+              <span><i class="legend-dot upcoming-class"></i>Upcoming</span>
+              <span><i class="legend-dot cancelled"></i>Cancelled</span>
+              <span><i class="legend-dot unavailable"></i>Unavailable</span>
             </div>
           </div>
         </div>
 
         <div class="card-body p-3 p-md-4">
-          @if (!availabilityEditMode()) {
-            <div class="row g-3">
-              @for (slot of activeAvailability(); track slot.id) {
-                <div class="col-12 col-sm-6 col-lg-4 col-xxl-3">
-                  <div class="availability-card border rounded-4 p-3 h-100">
-                    <div class="d-flex align-items-center gap-3">
-                      <span class="icon-box bg-primary-subtle text-primary flex-shrink-0">
-                        <i class="bi bi-calendar-check"></i>
-                      </span>
+          @if (activeAvailability().length || calendarClasses().length || unavailableDates().length) {
+            <div class="teacher-week-calendar-scroll">
+              <div class="teacher-week-calendar">
+                <div class="calendar-header-row">
+                  <div class="calendar-time-heading">Time</div>
+                  <div class="calendar-day-headings">
+                    @for (day of calendarDays(); track day.key) {
+                      <div class="calendar-day-heading" [class.is-today]="day.isToday">{{ day.label }}</div>
+                    }
+                  </div>
+                </div>
 
-                      <div>
-                        <strong class="d-block">{{ dayLabel(slot.dayOfWeek) }}</strong>
-                        <span class="small text-muted">{{ trimTime(slot.startTime) }} - {{ trimTime(slot.endTime) }}</span>
+                <div class="calendar-body-row">
+                  <div class="calendar-time-axis" [style.height.px]="calendarHeight()">
+                    @for (marker of calendarTimeLabels(); track marker.minutes) {
+                      <span class="calendar-time-label" [style.top.%]="calendarMarkerPosition(marker.minutes)">{{ marker.label }}</span>
+                    }
+                  </div>
+
+                  <div class="calendar-day-columns">
+                    @for (day of calendarDays(); track day.key) {
+                      <div class="calendar-day-column" [class.is-today]="day.isToday" [style.height.px]="calendarHeight()">
+                        @if (currentTimeMarker(); as marker) {
+                          @if (marker.date === day.key) {
+                            <span class="calendar-current-time" [style.top.%]="marker.top" aria-label="Current time"></span>
+                          }
+                        }
+                        @for (block of day.blocks; track block.id + block.kind) {
+                          @if (block.classId) {
+                            <button
+                              class="week-calendar-block class-block"
+                              type="button"
+                              [class.today-class]="block.kind === 'today-class'"
+                              [class.upcoming-class]="block.kind === 'upcoming-class'"
+                              [class.cancelled]="block.kind === 'cancelled'"
+                              [class.completed]="block.kind === 'completed'"
+                              [style.top.%]="block.top"
+                              [style.height.%]="block.height"
+                              (click)="openClassDetails(block.classId)"
+                            >
+                              <strong>{{ block.label }}</strong>
+                              <span>{{ block.detail }}</span>
+                            </button>
+                          } @else {
+                            <div
+                              class="week-calendar-block"
+                              [class.availability]="block.kind === 'availability'"
+                              [class.unavailable]="block.kind === 'unavailable'"
+                              [style.top.%]="block.top"
+                              [style.height.%]="block.height"
+                              [attr.aria-label]="block.label || 'Available'"
+                            ></div>
+                          }
+                        }
                       </div>
-                    </div>
+                    }
                   </div>
                 </div>
-              } @empty {
-                <div class="col-12">
-                  <div class="empty-state">
-                    <i class="bi bi-calendar-x"></i>
-                    <strong>No active slots found</strong>
-                    <span>Your availability is not set yet.</span>
-                  </div>
-                </div>
-              }
+              </div>
             </div>
           } @else {
-            <div class="availability-editor">
-              @for (slot of availabilityDraft(); track slot.dayOfWeek) {
-                <div class="availability-edit-row border rounded-4 p-3">
-                  <label class="form-check m-0 d-flex align-items-center gap-2">
-                    <input
-                      class="form-check-input"
-                      type="checkbox"
-                      [(ngModel)]="slot.isActive"
-                      [name]="'active-' + slot.dayOfWeek"
-                    />
-                    <span class="form-check-label fw-bold">{{ dayLabel(slot.dayOfWeek) }}</span>
-                  </label>
-
-                  <div>
-                    <label class="small text-muted fw-bold mb-1">Start</label>
-                    <input
-                      class="form-control"
-                      type="time"
-                      [(ngModel)]="slot.startTime"
-                      [name]="'start-' + slot.dayOfWeek"
-                      [disabled]="!slot.isActive"
-                    />
-                  </div>
-
-                  <div>
-                    <label class="small text-muted fw-bold mb-1">End</label>
-                    <input
-                      class="form-control"
-                      type="time"
-                      [(ngModel)]="slot.endTime"
-                      [name]="'end-' + slot.dayOfWeek"
-                      [disabled]="!slot.isActive"
-                    />
-                  </div>
-                </div>
-              }
-
-              @if (availabilityMessage()) {
-                <div
-                  class="alert py-2 mb-0"
-                  [class.alert-success]="availabilityMessageType() === 'success'"
-                  [class.alert-danger]="availabilityMessageType() === 'error'"
-                >
-                  <i
-                    class="bi me-2"
-                    [class.bi-check-circle]="availabilityMessageType() === 'success'"
-                    [class.bi-exclamation-triangle]="availabilityMessageType() === 'error'"
-                  ></i>
-                  {{ availabilityMessage() }}
-                </div>
-              }
-
-              <button
-                class="btn btn-primary fw-bold d-inline-flex align-items-center justify-content-center gap-2"
-                type="button"
-                [disabled]="availabilitySaving()"
-                (click)="updateAvailability()"
-              >
-                @if (availabilitySaving()) {
-                  <span class="spinner-border spinner-border-sm"></span>
-                } @else {
-                  <i class="bi bi-save"></i>
-                }
-
-                {{ availabilitySaving() ? 'Updating...' : 'Update Availability' }}
-              </button>
+            <div class="empty-state">
+              <i class="bi bi-calendar-x"></i>
+              <strong>No weekly availability found</strong>
+              <span>Your admin can add teaching slots for you.</span>
             </div>
           }
         </div>

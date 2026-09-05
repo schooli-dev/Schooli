@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { AfterViewInit, Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { AttendanceApiService, AttendanceStatus } from '../../../core/attendance/attendance-api.service';
 import { AuthTokenService } from '../../../core/auth/auth-token.service';
@@ -21,6 +21,7 @@ export class ClassroomComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('dailyRoot') private dailyRoot?: ElementRef<HTMLElement>;
 
   private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
   private readonly classesApi = inject(ClassesApiService);
   private readonly dailyApi = inject(DailyApiService);
   private readonly attendanceApi = inject(AttendanceApiService);
@@ -36,11 +37,13 @@ export class ClassroomComponent implements OnInit, AfterViewInit, OnDestroy {
   protected readonly studentName = computed(() => this.classItem()?.participants[0]?.studentName ?? 'Student');
   protected readonly attendanceStatus = computed(() => this.classItem()?.participants[0]?.attendanceStatus ?? 'pending');
   protected readonly canMarkAttendance = computed(() => Boolean(this.user?.roles.includes('teacher') || this.user?.roles.includes('admin')));
+  protected readonly isTeacher = computed(() => Boolean(this.user?.roles.includes('teacher')));
   protected readonly attendancePosition = signal({ x: 16, y: 16 });
 
   private sdkStarted = false;
   private hasJoinedMeeting = false;
   private cleanupStarted = false;
+  protected endingClass = false;
   private dailyFrame?: any;
   private dragState: { pointerId: number; offsetX: number; offsetY: number } | null = null;
 
@@ -73,7 +76,9 @@ export class ClassroomComponent implements OnInit, AfterViewInit, OnDestroy {
 
   @HostListener('window:beforeunload')
   protected onBeforeUnload(): void {
-    this.sendLeaveBeacon();
+    if (this.hasJoinedMeeting) {
+      this.sendLeaveBeacon();
+    }
   }
 
   @HostListener('window:pointermove', ['$event'])
@@ -146,6 +151,28 @@ export class ClassroomComponent implements OnInit, AfterViewInit, OnDestroy {
       });
   }
 
+  protected endClass(): void {
+    const item = this.classItem();
+    if (!item || this.endingClass) {
+      return;
+    }
+
+    if (!window.confirm('End this class for both teacher and student? Both participants will return to their dashboards.')) {
+      return;
+    }
+
+    this.endingClass = true;
+    this.dailyApi.endClass(item.id).subscribe({
+      next: () => {
+        void this.router.navigateByUrl('/teacher/dashboard', { skipLocationChange: true });
+      },
+      error: () => {
+        this.endingClass = false;
+        this.toasts.error('Could not end the class. Please try again.');
+      }
+    });
+  }
+
   private async startDailyIfReady(): Promise<void> {
     const item = this.classItem();
     const root = this.dailyRoot?.nativeElement;
@@ -211,10 +238,14 @@ export class ClassroomComponent implements OnInit, AfterViewInit, OnDestroy {
 
     frame.on('joined-meeting', () => {
       this.hasJoinedMeeting = true;
+      const item = this.classItem();
+      if (item) {
+        this.dailyApi.recordSessionEvent(item.id, 'join').subscribe({ error: () => undefined });
+      }
     });
 
     frame.on('left-meeting', () => {
-      void this.cleanupMeetingSession();
+      void this.cleanupMeetingSession(true);
     });
 
     void Promise.resolve(frame.join({
@@ -227,7 +258,7 @@ export class ClassroomComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  private async cleanupMeetingSession(): Promise<void> {
+  private async cleanupMeetingSession(returnToDashboard = false): Promise<void> {
     if (this.cleanupStarted) {
       return;
     }
@@ -259,6 +290,14 @@ export class ClassroomComponent implements OnInit, AfterViewInit, OnDestroy {
     } catch {
       this.sendLeaveBeacon(item.id, role);
     }
+
+    if (returnToDashboard) {
+      void this.router.navigateByUrl(this.dashboardLink(), { skipLocationChange: true });
+    }
+  }
+
+  private dashboardLink(): string {
+    return this.user?.roles.includes('teacher') ? '/teacher/dashboard' : '/student/dashboard';
   }
 
   private sendLeaveBeacon(classId = this.classItem()?.id, role: 0 | 1 = this.canMarkAttendance() ? 1 : 0): void {

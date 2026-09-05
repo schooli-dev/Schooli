@@ -146,7 +146,6 @@
             <th>Class Title</th>
             <th>Student</th>
             <th>Session Info</th>
-            <th>Daily.co Evidence</th>
             <th>Suggested</th>
             <th>Final Status</th>
             <th class="text-end">Actions</th>
@@ -199,13 +198,6 @@
                   <strong class="d-block">{{ record.classStartTime | date: 'MMM d, y' }}</strong>
                   <span class="small text-muted">
                     {{ record.classStartTime | date: 'h:mm a' }} - {{ record.classEndTime | date: 'h:mm a' }}
-                  </span>
-                </td>
-
-                <td>
-                  <span class="evidence-pill" [class]="evidenceTone(record)">
-                    <i class="bi" [class.bi-camera-video]="evidenceTone(record) !== 'absent'" [class.bi-camera-video-off]="evidenceTone(record) === 'absent'"></i>
-                    {{ evidenceText(record) }}
                   </span>
                 </td>
 

@@ -1,8 +1,10 @@
 import { Component, OnInit, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { AuthTokenService } from '../../core/auth/auth-token.service';
 import { ClassListItem, ClassesApiService } from '../../core/classes/classes-api.service';
+import { ClassSessionClockService } from '../../core/classes/class-session-clock.service';
+import { isClassJoinWindowOpen } from '../../core/classes/class-session.utils';
 import { DateTimeService } from '../../core/datetime/date-time.service';
 import { ToastService } from '../../core/toast/toast.service';
 
@@ -24,6 +26,8 @@ export class TeacherClassesComponent implements OnInit {
   protected readonly apiWarning = signal('');
   protected readonly drawerOpen = signal(false);
   protected readonly selectedClass = signal<ClassListItem | null>(null);
+  protected readonly openedFromCalendar = signal(false);
+  private requestedClassId: string | null = null;
   protected readonly tabs: Array<{ key: TeacherClassTab; label: string }> = [
     { key: 'today', label: 'Today' },
     { key: 'upcoming', label: 'Upcoming' },
@@ -57,7 +61,7 @@ export class TeacherClassesComponent implements OnInit {
 
   protected readonly nextClass = computed(() =>
     this.classes()
-      .filter((item) => ['live', 'scheduled', 'rescheduled'].includes(item.status) && new Date(item.endTime).getTime() >= Date.now())
+      .filter((item) => ['live', 'scheduled', 'rescheduled'].includes(item.status) && new Date(item.endTime).getTime() >= this.sessionClock.now())
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())[0] ?? null
   );
 
@@ -86,12 +90,15 @@ export class TeacherClassesComponent implements OnInit {
   constructor(
     private readonly classesApi: ClassesApiService,
     private readonly router: Router,
+    private readonly route: ActivatedRoute,
     private readonly authToken: AuthTokenService,
+    private readonly sessionClock: ClassSessionClockService,
     private readonly dateTime: DateTimeService,
     private readonly toasts: ToastService
   ) {}
 
   ngOnInit(): void {
+    this.requestedClassId = this.route.snapshot.queryParamMap.get('openClass');
     this.loadClasses();
   }
 
@@ -123,6 +130,7 @@ export class TeacherClassesComponent implements OnInit {
   }
 
   protected openDrawer(item: ClassListItem): void {
+    this.openedFromCalendar.set(false);
     this.selectedClass.set(item);
     this.drawerOpen.set(true);
   }
@@ -157,14 +165,7 @@ export class TeacherClassesComponent implements OnInit {
   }
 
   protected classTimeOnlyRange(item: ClassListItem): string {
-    const formatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: this.userTimezone(),
-      hour: 'numeric',
-      minute: '2-digit',
-      timeZoneName: 'short'
-    });
-
-    return `${formatter.format(new Date(item.startTime))} - ${formatter.format(new Date(item.endTime))}`;
+    return this.dateTime.formatTimeOnlyRange(item.startTime, item.endTime, this.userTimezone());
   }
 
   protected initials(name: string): string {
@@ -177,11 +178,11 @@ export class TeacherClassesComponent implements OnInit {
   }
 
   protected canJoin(item: ClassListItem): boolean {
-    return !this.isClassOver(item) && ['live', 'scheduled', 'rescheduled'].includes(item.status) && Boolean(item.videoMeeting?.roomUrl);
+    return isClassJoinWindowOpen(item, this.sessionClock.now()) && ['live', 'scheduled', 'rescheduled'].includes(item.status) && Boolean(item.videoMeeting?.roomUrl);
   }
 
   protected isClassOver(item: ClassListItem): boolean {
-    return new Date(item.endTime).getTime() < Date.now();
+    return new Date(item.endTime).getTime() < this.sessionClock.now();
   }
 
   protected joinClass(item: ClassListItem): void {
@@ -194,12 +195,27 @@ export class TeacherClassesComponent implements OnInit {
   private loadClasses(): void {
     this.apiWarning.set('');
     this.classesApi.listClasses({ limit: 100 }).subscribe({
-      next: (response) => this.classes.set(response.data),
+      next: (response) => {
+        this.classes.set(response.data);
+        this.openRequestedClass();
+      },
       error: () => {
         this.apiWarning.set('Could not load teacher classes from backend.');
         this.classes.set([]);
       }
     });
+  }
+
+  private openRequestedClass(): void {
+    if (!this.requestedClassId) return;
+
+    const item = this.classes().find((candidate) => candidate.id === this.requestedClassId);
+    if (!item) return;
+
+    this.selectedClass.set(item);
+    this.openedFromCalendar.set(true);
+    this.drawerOpen.set(true);
+    this.requestedClassId = null;
   }
 
   private matchesTab(item: ClassListItem, tab: TeacherClassTab): boolean {
@@ -212,7 +228,7 @@ export class TeacherClassesComponent implements OnInit {
     }
 
     if (tab === 'upcoming') {
-      return ['live', 'scheduled', 'rescheduled'].includes(item.status) && new Date(item.endTime).getTime() >= Date.now();
+      return ['live', 'scheduled', 'rescheduled'].includes(item.status) && new Date(item.endTime).getTime() >= this.sessionClock.now();
     }
 
     return item.status === tab;

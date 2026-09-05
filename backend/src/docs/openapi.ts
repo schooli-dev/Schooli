@@ -225,6 +225,31 @@ export const openApiSpec = swaggerJSDoc({
             overrideConflicts: { type: "boolean", example: false }
           }
         },
+        CreateClassSeriesRequest: {
+          type: "object",
+          required: ["teacherId", "studentId", "title", "startDate", "timezone", "weeklySchedules", "classCount"],
+          properties: {
+            teacherId: { type: "string", format: "uuid" },
+            studentId: { type: "string", format: "uuid" },
+            title: { type: "string", example: "Math class" },
+            startDate: { type: "string", format: "date", example: "2026-09-07" },
+            timezone: { type: "string", example: "America/New_York" },
+            weeklySchedules: {
+              type: "array",
+              items: {
+                type: "object",
+                required: ["dayOfWeek", "startTime"],
+                properties: {
+                  dayOfWeek: { type: "string", enum: ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] },
+                  startTime: { type: "string", example: "09:00" }
+                }
+              }
+            },
+            classCount: { type: "integer", example: 20 },
+            notes: { type: "string" },
+            overrideConflicts: { type: "boolean", example: false }
+          }
+        },
         UpdateClassRequest: {
           type: "object",
           properties: {
@@ -800,6 +825,10 @@ export const openApiSpec = swaggerJSDoc({
           tags: ["Classes"],
           summary: "Validate all occurrences in a recurring class schedule",
           security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/CreateClassSeriesRequest" } } }
+          },
           responses: { "200": { description: "Recurring schedule conflict check completed" } }
         }
       },
@@ -808,6 +837,10 @@ export const openApiSpec = swaggerJSDoc({
           tags: ["Classes"],
           summary: "Create a recurring class series and its individual class occurrences",
           security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/CreateClassSeriesRequest" } } }
+          },
           responses: {
             "201": { description: "Class series scheduled" },
             "409": { description: "One or more occurrences conflict" }

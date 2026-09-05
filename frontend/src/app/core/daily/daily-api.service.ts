@@ -20,4 +20,12 @@ export class DailyApiService {
   leaveRoom(classId: string, role: 0 | 1) {
     return this.api.post<{ classId: string; role: 0 | 1 }>(`/classes/${classId}/daily/leave`, { role });
   }
+
+  recordSessionEvent(classId: string, eventType: 'join' | 'leave') {
+    return this.api.post<{ classId: string; eventType: 'join' | 'leave' }>(`/classes/${classId}/daily/session-event`, { eventType });
+  }
+
+  endClass(classId: string) {
+    return this.api.post<{ classId: string }>(`/classes/${classId}/daily/end`, {});
+  }
 }

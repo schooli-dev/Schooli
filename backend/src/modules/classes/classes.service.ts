@@ -32,6 +32,7 @@ export type ClassItem = {
   cancelledAt: Date | null;
   cancellationReason: string | null;
   cancellationRequestStatus: string | null;
+  pendingCancellationReason: string | null;
   cancellationRequestsCount: number;
   participants: Array<{
     studentId: string;
@@ -39,6 +40,12 @@ export type ClassItem = {
     attendanceStatus: string;
     creditsConsumed: string;
   }>;
+  sessionLog: {
+    teacherJoinedAt: Date | null;
+    teacherLeftAt: Date | null;
+    studentJoinedAt: Date | null;
+    studentLeftAt: Date | null;
+  };
   videoMeeting: {
     id: string;
     provider: string;
@@ -58,11 +65,14 @@ export type ClassSeriesResult = {
   id: string;
   timezone: string;
   weekdays: string[];
+  weeklySchedules: Array<{ dayOfWeek: Weekday; startTime: string }>;
   classCount: number;
   classes: ClassItem[];
 };
 
 type Weekday = "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
+type SeriesOccurrence = { sequence: number; start: Date; durationMinutes: number; dayOfWeek: Weekday };
+const SERIES_CLASS_DURATION_MINUTES = 60;
 
 type ClassRow = {
   id: string;
@@ -80,8 +90,13 @@ type ClassRow = {
   cancelled_at: Date | null;
   cancellation_reason: string | null;
   cancellation_request_status: string | null;
+  pending_cancellation_reason: string | null;
   cancellation_requests_count: number;
   participants: ClassItem["participants"];
+  teacher_joined_at: Date | null;
+  teacher_left_at: Date | null;
+  student_joined_at: Date | null;
+  student_left_at: Date | null;
   video_meeting: ClassItem["videoMeeting"];
   created_at: Date;
   updated_at: Date;
@@ -114,7 +129,7 @@ export async function checkSeriesConflicts(input: CreateClassSeriesInput): Promi
       teacherId: input.teacherId,
       studentId: input.studentId,
       startTime: occurrence.start.toISOString(),
-      durationMinutes: input.durationMinutes,
+      durationMinutes: occurrence.durationMinutes,
       timezone: input.timezone
     });
 
@@ -217,7 +232,7 @@ export async function createClass(input: CreateClassInput, user: AuthenticatedUs
 
   try {
     await client.query("BEGIN");
-    const classId = await createClassRecords(client, input, user, start, end);
+    const classId = await createClassRecords(client, input, user, start, end, input.durationMinutes);
 
     await client.query("COMMIT");
 
@@ -235,7 +250,7 @@ export async function createClassSeries(input: CreateClassSeriesInput, user: Aut
   assertCanProceedWithConflicts(conflictCheck.conflicts, input.overrideConflicts, user);
 
   const occurrences = buildSeriesOccurrences(input);
-  const initialLocal = getLocalDateTimeParts(new Date(input.startTime), input.timezone);
+  const initialLocal = getLocalDateTimeParts(occurrences[0].start, input.timezone);
   const client = await pool.connect();
   const createdClassIds: string[] = [];
 
@@ -258,17 +273,27 @@ export async function createClassSeries(input: CreateClassSeriesInput, user: Aut
         input.timezone,
         initialLocal.date,
         initialLocal.time,
-        input.durationMinutes,
-        [...new Set(input.weekdays)],
+        SERIES_CLASS_DURATION_MINUTES,
+        input.weeklySchedules.map((schedule) => schedule.dayOfWeek),
         input.classCount,
         user.id
       ]
     );
     const seriesId = seriesResult.rows[0].id;
 
+    for (const schedule of input.weeklySchedules) {
+      await client.query(
+        `
+          INSERT INTO class_series_weekly_schedules (class_series_id, day_of_week, start_time)
+          VALUES ($1, $2, $3::TIME)
+        `,
+        [seriesId, schedule.dayOfWeek, schedule.startTime]
+      );
+    }
+
     for (const occurrence of occurrences) {
-      const end = new Date(occurrence.start.getTime() + input.durationMinutes * 60 * 1000);
-      const classId = await createClassRecords(client, input, user, occurrence.start, end, {
+      const end = new Date(occurrence.start.getTime() + occurrence.durationMinutes * 60 * 1000);
+      const classId = await createClassRecords(client, input, user, occurrence.start, end, occurrence.durationMinutes, {
         seriesId,
         sequence: occurrence.sequence
       });
@@ -280,7 +305,8 @@ export async function createClassSeries(input: CreateClassSeriesInput, user: Aut
     return {
       id: seriesId,
       timezone: input.timezone,
-      weekdays: [...new Set(input.weekdays)],
+      weekdays: input.weeklySchedules.map((schedule) => schedule.dayOfWeek),
+      weeklySchedules: input.weeklySchedules,
       classCount: input.classCount,
       classes: await Promise.all(createdClassIds.map((classId) => getClassById(classId, user)))
     };
@@ -371,6 +397,20 @@ export async function cancelClass(id: string, input: CancelClassInput, user: Aut
     if (!result.rows[0]) {
       throw new ApiError(404, "Scheduled class not found", "CLASS_NOT_FOUND");
     }
+
+    await client.query(
+      `
+        UPDATE class_cancellation_requests
+        SET status = 'approved',
+            admin_note = $1,
+            reviewed_by_user_id = $2,
+            reviewed_at = NOW(),
+            updated_at = NOW()
+        WHERE class_id = $3
+          AND status = 'pending'
+      `,
+      [input.reason, user.id, id]
+    );
 
     await cancelDailyRoomForClass(id, client);
     await updateTeacherWorkSessionStatus(client, id, "cancelled");
@@ -543,6 +583,7 @@ async function createClassRecords(
   user: AuthenticatedUser,
   start: Date,
   end: Date,
+  durationMinutes: number,
   series?: { seriesId: string; sequence: number }
 ): Promise<string> {
   const classResult = await client.query<{ id: string }>(
@@ -559,7 +600,7 @@ async function createClassRecords(
       input.title,
       start,
       end,
-      input.durationMinutes,
+      durationMinutes,
       input.timezone,
       user.id,
       input.notes ?? null,
@@ -583,12 +624,12 @@ async function createClassRecords(
     studentId: input.studentId,
     start,
     end,
-    durationMinutes: input.durationMinutes,
+    durationMinutes,
     timezone: input.timezone,
     status: "scheduled",
     createdByUserId: user.id
   });
-  await createDailyRoomForClass({ classId, topic: input.title, startTime: start, endTime: end, durationMinutes: input.durationMinutes }, client);
+  await createDailyRoomForClass({ classId, topic: input.title, startTime: start, endTime: end, durationMinutes }, client);
 
   const notificationPayload = { classId, title: input.title, startTime: start, endTime: end };
   await createInAppNotifications(
@@ -617,17 +658,18 @@ async function createClassRecords(
   return classId;
 }
 
-function buildSeriesOccurrences(input: CreateClassSeriesInput): Array<{ sequence: number; start: Date }> {
-  const firstLocal = getLocalDateTimeParts(new Date(input.startTime), input.timezone);
-  const weekdaySet = new Set(input.weekdays);
-  const occurrences: Array<{ sequence: number; start: Date }> = [];
-  let currentDate = firstLocal.date;
+function buildSeriesOccurrences(input: CreateClassSeriesInput): SeriesOccurrence[] {
+  const scheduleByWeekday = new Map(input.weeklySchedules.map((schedule) => [schedule.dayOfWeek, schedule]));
+  const occurrences: SeriesOccurrence[] = [];
+  let currentDate = input.startDate;
 
   while (occurrences.length < input.classCount) {
-    if (weekdaySet.has(weekdayForDate(currentDate))) {
-      const start = localDateTimeToUtc(`${currentDate}T${firstLocal.time}`, input.timezone);
+    const dayOfWeek = weekdayForDate(currentDate);
+    const schedule = scheduleByWeekday.get(dayOfWeek);
+    if (schedule) {
+      const start = localDateTimeToUtc(`${currentDate}T${schedule.startTime}`, input.timezone);
       assertClassStartsInFuture(start);
-      occurrences.push({ sequence: occurrences.length + 1, start });
+      occurrences.push({ sequence: occurrences.length + 1, start, durationMinutes: SERIES_CLASS_DURATION_MINUTES, dayOfWeek });
     }
     currentDate = addCalendarDays(currentDate, 1);
   }
@@ -714,6 +756,14 @@ function baseClassSelect(): string {
         LIMIT 1
       ) AS cancellation_request_status,
       (
+        SELECT ccr.reason
+        FROM class_cancellation_requests ccr
+        WHERE ccr.class_id = c.id
+          AND ccr.status = 'pending'
+        ORDER BY ccr.created_at DESC
+        LIMIT 1
+      ) AS pending_cancellation_reason,
+      (
         SELECT COUNT(*)::INT
         FROM class_cancellation_requests ccr
         WHERE ccr.class_id = c.id
@@ -730,6 +780,68 @@ function baseClassSelect(): string {
         ) FILTER (WHERE student.id IS NOT NULL),
         '[]'::JSONB
       ) AS participants,
+      (
+        SELECT MIN(vae.event_time)
+        FROM video_attendance_events vae
+        WHERE vae.class_id = c.id
+          AND vae.event_type = 'join'
+          AND (
+            vae.provider_participant_id = c.teacher_id::TEXT
+            OR LOWER(vae.participant_email) = LOWER(teacher.email)
+          )
+      ) AS teacher_joined_at,
+      (
+        SELECT latest_event.event_time
+        FROM (
+          SELECT vae.event_type, vae.event_time
+          FROM video_attendance_events vae
+          WHERE vae.class_id = c.id
+            AND (
+              vae.provider_participant_id = c.teacher_id::TEXT
+              OR LOWER(vae.participant_email) = LOWER(teacher.email)
+            )
+          ORDER BY vae.event_time DESC, vae.created_at DESC
+          LIMIT 1
+        ) AS latest_event
+        WHERE latest_event.event_type = 'leave'
+      ) AS teacher_left_at,
+      (
+        SELECT MIN(vae.event_time)
+        FROM video_attendance_events vae
+        WHERE vae.class_id = c.id
+          AND vae.event_type = 'join'
+          AND EXISTS (
+            SELECT 1
+            FROM class_participants log_cp
+            JOIN users log_student ON log_student.id = log_cp.student_id
+            WHERE log_cp.class_id = c.id
+              AND (
+                vae.provider_participant_id = log_cp.student_id::TEXT
+                OR LOWER(vae.participant_email) = LOWER(log_student.email)
+              )
+          )
+      ) AS student_joined_at,
+      (
+        SELECT latest_event.event_time
+        FROM (
+          SELECT vae.event_type, vae.event_time
+          FROM video_attendance_events vae
+          WHERE vae.class_id = c.id
+            AND EXISTS (
+              SELECT 1
+              FROM class_participants log_cp
+              JOIN users log_student ON log_student.id = log_cp.student_id
+              WHERE log_cp.class_id = c.id
+                AND (
+                  vae.provider_participant_id = log_cp.student_id::TEXT
+                  OR LOWER(vae.participant_email) = LOWER(log_student.email)
+                )
+            )
+          ORDER BY vae.event_time DESC, vae.created_at DESC
+          LIMIT 1
+        ) AS latest_event
+        WHERE latest_event.event_type = 'leave'
+      ) AS student_left_at,
       CASE
         WHEN vm.id IS NULL THEN NULL
         ELSE jsonb_build_object(
@@ -909,8 +1021,15 @@ function mapClass(row: ClassRow): ClassItem {
     cancelledAt: row.cancelled_at,
     cancellationReason: row.cancellation_reason,
     cancellationRequestStatus: row.cancellation_request_status,
+    pendingCancellationReason: row.pending_cancellation_reason,
     cancellationRequestsCount: Number(row.cancellation_requests_count ?? 0),
     participants: row.participants ?? [],
+    sessionLog: {
+      teacherJoinedAt: row.teacher_joined_at,
+      teacherLeftAt: row.teacher_left_at,
+      studentJoinedAt: row.student_joined_at,
+      studentLeftAt: row.student_left_at
+    },
     videoMeeting: row.video_meeting,
     createdAt: row.created_at,
     updatedAt: row.updated_at,

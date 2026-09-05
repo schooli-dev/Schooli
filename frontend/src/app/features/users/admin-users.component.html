@@ -540,22 +540,80 @@
                 </article>
               </div>
 
-              <div class="teacher-slot-grid mt-3">
-                @for (slot of selectedUser()!.teacherAvailability!.availability; track slot.id) {
-                  <article class="teacher-slot-card">
-                    <span class="slot-day">{{ titleCase(slot.dayOfWeek) }}</span>
-                    <strong>
-                      <i class="bi bi-clock"></i>
-                      {{ slot.startTime }} - {{ slot.endTime }}
-                    </strong>
-                  </article>
-                } @empty {
-                  <article class="soft-empty-card">
-                    <i class="bi bi-calendar-minus"></i>
-                    <strong>No working hours configured.</strong>
-                  </article>
-                }
-              </div>
+              @if (dialogMode() === 'edit') {
+                <div class="availability-editor mt-3">
+                  <div class="availability-day-tabs" role="tablist" aria-label="Teacher availability days">
+                    @for (day of workingDays; track day.key) {
+                      <button
+                        class="availability-day-tab"
+                        [class.active]="editAvailabilityDay() === day.key"
+                        [class.working]="isWorkingDay(editAvailability, day.key)"
+                        type="button"
+                        (click)="selectEditAvailabilityDay(day.key)"
+                      >
+                        <i class="bi" [class.bi-calendar-check]="isWorkingDay(editAvailability, day.key)" [class.bi-calendar]="!isWorkingDay(editAvailability, day.key)"></i>
+                        {{ day.label }}
+                      </button>
+                    }
+                  </div>
+
+                  <div class="availability-editor-heading">
+                    <div>
+                      <strong>{{ titleCase(editAvailabilityDay()) }} time slots</strong>
+                      <small>Adding a slot marks this day as working. Slots cannot overlap.</small>
+                    </div>
+                    <span class="availability-zone"><i class="bi bi-globe2"></i> {{ timezoneShortLabel(editProfile.timezone) }}</span>
+                  </div>
+
+                  <div class="availability-slot-list">
+                    @for (slot of slotsForDay(editAvailability, editAvailabilityDay()); track slot) {
+                      <div class="availability-slot-row">
+                        <input class="form-control form-control-sm" type="time" [(ngModel)]="slot.startTime" [name]="'editStart-' + editAvailabilityDay() + '-' + $index" aria-label="Shift start time" />
+                        <span class="availability-slot-separator">to</span>
+                        @if (slotEndsAtMidnight(slot)) {
+                          <input class="form-control form-control-sm" value="24:00" disabled aria-label="Shift ends at midnight" />
+                        } @else {
+                          <input class="form-control form-control-sm" type="time" [(ngModel)]="slot.endTime" [name]="'editEnd-' + editAvailabilityDay() + '-' + $index" aria-label="Shift end time" />
+                        }
+                        <label class="midnight-toggle" title="End at midnight">
+                          <input type="checkbox" [checked]="slotEndsAtMidnight(slot)" (change)="toggleSlotMidnight(slot, $any($event.target).checked)" />
+                          <span>12 AM</span>
+                        </label>
+                        <button class="btn btn-outline-danger btn-sm availability-remove" type="button" (click)="removeEditAvailabilitySlot(slot)" aria-label="Remove time slot">
+                          <i class="bi bi-trash3"></i>
+                        </button>
+                      </div>
+                    } @empty {
+                      <div class="availability-empty">No slots yet. This teacher is unavailable on {{ titleCase(editAvailabilityDay()) }}.</div>
+                    }
+                  </div>
+
+                  <button class="btn availability-add-slot" type="button" (click)="addEditAvailabilitySlot()">
+                    <i class="bi bi-plus-lg"></i> Add time slot
+                  </button>
+
+                  @if (availabilityError(editAvailability); as error) {
+                    <p class="availability-validation-error"><i class="bi bi-exclamation-circle"></i> {{ error }}</p>
+                  }
+                </div>
+              } @else {
+                <div class="teacher-slot-grid mt-3">
+                  @for (slot of selectedUser()!.teacherAvailability!.availability; track slot.id) {
+                    <article class="teacher-slot-card">
+                      <span class="slot-day">{{ titleCase(slot.dayOfWeek) }}</span>
+                      <strong>
+                        <i class="bi bi-clock"></i>
+                        {{ slot.startTime }} - {{ slot.endTime }}
+                      </strong>
+                    </article>
+                  } @empty {
+                    <article class="soft-empty-card">
+                      <i class="bi bi-calendar-minus"></i>
+                      <strong>No working hours configured.</strong>
+                    </article>
+                  }
+                </div>
+              }
 
               <div class="profile-subtitle mt-4">
                 <i class="bi bi-calendar-x"></i>
@@ -650,7 +708,7 @@
           <button
             class="btn btn-primary"
             type="button"
-            [disabled]="!selectedRole() || selectedRole() === 'admin' || saving() || (canEditProfile(selectedUser()!) && !isEditProfileValid())"
+            [disabled]="!selectedRole() || selectedRole() === 'admin' || saving() || (canEditProfile(selectedUser()!) && !isEditProfileValid()) || (selectedUser()!.roles.includes('teacher') && !isAvailabilityValid(editAvailability))"
             (click)="saveChanges()"
           >
             @if (saving()) {
@@ -863,29 +921,62 @@
 
           @if (createForm.role === 'teacher') {
             <div class="col-12">
-              <label class="form-label">Working Days <span class="required">*</span></label>
-              <div class="day-picker">
+              <label class="form-label">Weekly Availability <span class="required">*</span></label>
+              <div class="availability-editor create-availability-editor">
+                <div class="availability-day-tabs" role="tablist" aria-label="New teacher availability days">
                 @for (day of workingDays; track day.key) {
-                  <label>
-                    <input
-                      type="checkbox"
-                      [checked]="createForm.availabilityDays.includes(day.key)"
-                      (change)="toggleAvailabilityDay(day.key)"
-                    />
-                    <span>{{ day.label }}</span>
-                  </label>
+                    <button
+                      class="availability-day-tab"
+                      [class.active]="createAvailabilityDay() === day.key"
+                      [class.working]="isWorkingDay(createForm.availability, day.key)"
+                      type="button"
+                      (click)="selectCreateAvailabilityDay(day.key)"
+                    >
+                      <i class="bi" [class.bi-calendar-check]="isWorkingDay(createForm.availability, day.key)" [class.bi-calendar]="!isWorkingDay(createForm.availability, day.key)"></i>
+                      {{ day.label }}
+                    </button>
+                }
+                </div>
+
+                <div class="availability-editor-heading">
+                  <div>
+                    <strong>{{ titleCase(createAvailabilityDay()) }} time slots</strong>
+                    <small>A day becomes working only after you add a time slot.</small>
+                  </div>
+                  <span class="availability-zone"><i class="bi bi-globe2"></i> {{ timezoneShortLabel(createForm.timezone) }}</span>
+                </div>
+
+                <div class="availability-slot-list">
+                  @for (slot of slotsForDay(createForm.availability, createAvailabilityDay()); track slot) {
+                    <div class="availability-slot-row">
+                      <input class="form-control form-control-sm" type="time" [(ngModel)]="slot.startTime" [name]="'createStart-' + createAvailabilityDay() + '-' + $index" aria-label="Shift start time" />
+                      <span class="availability-slot-separator">to</span>
+                      @if (slotEndsAtMidnight(slot)) {
+                        <input class="form-control form-control-sm" value="24:00" disabled aria-label="Shift ends at midnight" />
+                      } @else {
+                        <input class="form-control form-control-sm" type="time" [(ngModel)]="slot.endTime" [name]="'createEnd-' + createAvailabilityDay() + '-' + $index" aria-label="Shift end time" />
+                      }
+                      <label class="midnight-toggle" title="End at midnight">
+                        <input type="checkbox" [checked]="slotEndsAtMidnight(slot)" (change)="toggleSlotMidnight(slot, $any($event.target).checked)" />
+                        <span>12 AM</span>
+                      </label>
+                      <button class="btn btn-outline-danger btn-sm availability-remove" type="button" (click)="removeCreateAvailabilitySlot(slot)" aria-label="Remove time slot">
+                        <i class="bi bi-trash3"></i>
+                      </button>
+                    </div>
+                  } @empty {
+                    <div class="availability-empty">No slots yet. This teacher is unavailable on {{ titleCase(createAvailabilityDay()) }}.</div>
+                  }
+                </div>
+
+                <button class="btn availability-add-slot" type="button" (click)="addCreateAvailabilitySlot()">
+                  <i class="bi bi-plus-lg"></i> Add time slot
+                </button>
+
+                @if (availabilityError(createForm.availability); as error) {
+                  <p class="availability-validation-error"><i class="bi bi-exclamation-circle"></i> {{ error }}</p>
                 }
               </div>
-            </div>
-
-            <div class="col-12 col-md-6">
-              <label class="form-label">Start Time <span class="required">*</span></label>
-              <input class="form-control" type="time" name="availabilityStart" [(ngModel)]="createForm.availabilityStartTime" required />
-            </div>
-
-            <div class="col-12 col-md-6">
-              <label class="form-label">End Time <span class="required">*</span></label>
-              <input class="form-control" type="time" name="availabilityEnd" [(ngModel)]="createForm.availabilityEndTime" required />
             </div>
 
             <div class="col-12">

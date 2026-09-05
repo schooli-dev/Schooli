@@ -8,6 +8,13 @@ export type ClassParticipant = {
   creditsConsumed: string;
 };
 
+export type ClassSessionLog = {
+  teacherJoinedAt: string | null;
+  teacherLeftAt: string | null;
+  studentJoinedAt: string | null;
+  studentLeftAt: string | null;
+};
+
 export type ClassListItem = {
   id: string;
   teacherId: string;
@@ -23,8 +30,10 @@ export type ClassListItem = {
   notes?: string | null;
   cancellationReason?: string | null;
   cancellationRequestStatus?: string | null;
+  pendingCancellationReason?: string | null;
   cancellationRequestsCount?: number;
   participants: ClassParticipant[];
+  sessionLog: ClassSessionLog;
   videoMeeting: {
     provider: 'daily';
     providerMeetingId: string | null;
@@ -60,15 +69,28 @@ export type CreateClassRequest = {
   overrideConflicts?: boolean;
 };
 
-export type CreateClassSeriesRequest = CreateClassRequest & {
-  weekdays: Array<'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday'>;
+export type SeriesWeekdaySchedule = {
+  dayOfWeek: 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
+  startTime: string;
+};
+
+export type CreateClassSeriesRequest = {
+  teacherId: string;
+  studentId: string;
+  title: string;
+  startDate: string;
+  timezone: string;
+  weeklySchedules: SeriesWeekdaySchedule[];
   classCount: number;
+  notes?: string;
+  overrideConflicts?: boolean;
 };
 
 export type ClassSeriesResult = {
   id: string;
   timezone: string;
   weekdays: string[];
+  weeklySchedules: SeriesWeekdaySchedule[];
   classCount: number;
   classes: ClassListItem[];
 };

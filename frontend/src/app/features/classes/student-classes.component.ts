@@ -4,6 +4,8 @@ import { Router } from '@angular/router';
 import { finalize } from 'rxjs';
 import { AuthTokenService } from '../../core/auth/auth-token.service';
 import { ClassListItem, ClassesApiService } from '../../core/classes/classes-api.service';
+import { ClassSessionClockService } from '../../core/classes/class-session-clock.service';
+import { effectiveClassStatus, isClassJoinWindowOpen } from '../../core/classes/class-session.utils';
 import { DateTimeService } from '../../core/datetime/date-time.service';
 import { ToastService } from '../../core/toast/toast.service';
 
@@ -18,7 +20,7 @@ type StudentClassTab = 'upcoming' | 'completed' | 'cancelled' | 'all';
 })
 export class StudentClassesComponent implements OnInit {
   protected readonly classes = signal<ClassListItem[]>([]);
-  protected readonly activeTab = signal<StudentClassTab>('all');
+  protected readonly activeTab = signal<StudentClassTab>('upcoming');
   protected readonly currentPage = signal(1);
   protected readonly pageSize = 5;
   protected readonly searchText = signal('');
@@ -63,7 +65,7 @@ export class StudentClassesComponent implements OnInit {
 
   protected readonly nextClass = computed(() =>
     this.classes()
-      .filter((item) => ['live', 'scheduled', 'rescheduled'].includes(item.status) && new Date(item.endTime).getTime() >= Date.now())
+      .filter((item) => ['live', 'scheduled', 'rescheduled'].includes(item.status) && new Date(item.endTime).getTime() >= this.sessionClock.now())
       .sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime())[0] ?? null
   );
 
@@ -85,17 +87,20 @@ export class StudentClassesComponent implements OnInit {
       return '--';
     }
 
-    if (next.status === 'live') {
+    if (this.isClassLive(next)) {
       return 'Live';
     }
 
-    const minutes = Math.max(0, Math.round((new Date(next.startTime).getTime() - Date.now()) / 60000));
+    const minutes = Math.max(0, Math.round((new Date(next.startTime).getTime() - this.sessionClock.now()) / 60000));
     return minutes < 60 ? `${minutes} min` : `${Math.round(minutes / 60)} hr`;
   });
 
   protected readonly nextClassTitle = computed(() => this.nextClass()?.title ?? 'No upcoming class');
 
-  protected readonly nextClassStatus = computed(() => this.nextClass()?.status ?? 'None');
+  protected readonly nextClassStatus = computed(() => {
+    const next = this.nextClass();
+    return next ? this.displayClassStatus(next) : 'None';
+  });
 
   protected readonly nextClassTeacher = computed(() => this.nextClass()?.teacherName ?? 'Your upcoming class details will appear here.');
 
@@ -104,6 +109,7 @@ export class StudentClassesComponent implements OnInit {
     private readonly router: Router,
     private readonly authToken: AuthTokenService,
     private readonly dateTime: DateTimeService,
+    private readonly sessionClock: ClassSessionClockService,
     private readonly toasts: ToastService
   ) {}
 
@@ -113,7 +119,7 @@ export class StudentClassesComponent implements OnInit {
 
   protected clearFilters(): void {
     this.searchText.set('');
-    this.activeTab.set('all');
+    this.activeTab.set('upcoming');
     this.currentPage.set(1);
   }
 
@@ -152,12 +158,21 @@ export class StudentClassesComponent implements OnInit {
   }
 
   protected canJoin(item: ClassListItem): boolean {
-    return !this.isClassOver(item) && ['live', 'scheduled', 'rescheduled'].includes(item.status) && Boolean(item.videoMeeting?.roomUrl);
+    return isClassJoinWindowOpen(item, this.sessionClock.now()) && ['live', 'scheduled', 'rescheduled'].includes(item.status) && Boolean(item.videoMeeting?.roomUrl);
+  }
+
+  protected isClassLive(item: ClassListItem): boolean {
+    return item.status === 'live' && isClassJoinWindowOpen(item, this.sessionClock.now());
+  }
+
+  protected displayClassStatus(item: ClassListItem): string {
+    return effectiveClassStatus(item, this.sessionClock.now());
   }
 
   protected isClassOver(item: ClassListItem): boolean {
-    return new Date(item.endTime).getTime() < Date.now();
+    return new Date(item.endTime).getTime() < this.sessionClock.now();
   }
+
 
   protected joinClass(item: ClassListItem): void {
     void this.router.navigate(['/student/classes', item.id, 'room'], { skipLocationChange: true });
@@ -250,7 +265,9 @@ export class StudentClassesComponent implements OnInit {
       .listClasses({ limit: 100 })
       .pipe(finalize(() => undefined))
       .subscribe({
-        next: (response) => this.classes.set(response.data),
+        next: (response) => this.classes.set(
+          [...response.data].sort((left, right) => new Date(left.startTime).getTime() - new Date(right.startTime).getTime())
+        ),
         error: () => {
           this.apiWarning.set('Could not load student classes from backend.');
           this.classes.set([]);
@@ -264,7 +281,7 @@ export class StudentClassesComponent implements OnInit {
     }
 
     if (tab === 'upcoming') {
-      return ['live', 'scheduled', 'rescheduled'].includes(item.status) && new Date(item.endTime).getTime() >= Date.now();
+      return ['live', 'scheduled', 'rescheduled'].includes(item.status) && new Date(item.endTime).getTime() >= this.sessionClock.now();
     }
 
     return item.status === tab;

@@ -32,4 +32,19 @@ export const dailyLeaveSchema = z.object({
   })
 });
 
+export const dailySessionEventSchema = z.object({
+  params: z.object({
+    id: uuid
+  }),
+  body: z.object({
+    eventType: z.enum(["join", "leave"])
+  })
+});
+
+export const dailyEndClassSchema = z.object({
+  params: z.object({
+    id: uuid
+  })
+});
+
 export type CreateDailyRoomInput = z.infer<typeof createDailyRoomSchema>["body"];

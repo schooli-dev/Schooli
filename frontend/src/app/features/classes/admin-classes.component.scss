@@ -277,6 +277,20 @@
   font-size: 13px;
 }
 
+.date-cell .class-schedule-timezone {
+  display: block;
+}
+
+.session-log-time {
+  display: inline-block;
+  min-width: 142px;
+  color: var(--color-text-soft);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
 .status-chip,
 .video-chip {
   display: inline-flex;
@@ -1006,6 +1020,7 @@
   font-weight: 800;
 }
 
+
 .upgraded-side-card {
   display: grid;
   gap: 14px;
@@ -1067,53 +1082,6 @@
   white-space: normal;
 }
 
-.timezone-preview-section {
-  background:
-    radial-gradient(circle at top right, rgba(14, 165, 233, 0.1), transparent 34%),
-    linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
-}
-
-.timezone-preview-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.timezone-preview-card {
-  min-width: 0;
-  display: grid;
-  gap: 6px;
-  border: 1px solid var(--color-border-soft);
-  border-radius: 16px;
-  background: #ffffff;
-  padding: 14px;
-}
-
-.timezone-preview-card span {
-  color: var(--color-muted);
-  font-size: 12px;
-  font-weight: 900;
-  text-transform: uppercase;
-}
-
-.timezone-preview-card strong {
-  color: var(--color-text);
-  font-size: 14px;
-  line-height: 1.35;
-}
-
-.timezone-preview-card small {
-  color: var(--color-primary);
-  font-weight: 800;
-}
-
-.timezone-preview-card.muted {
-  background: #f8fafc;
-}
-
-.timezone-preview-card.muted small {
-  color: var(--color-muted);
-}
 
 .schedule-alert-card {
   display: flex;
@@ -1198,14 +1166,11 @@
     padding: 15px;
   }
 
-  .timezone-preview-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .upgraded-schedule-footer {
     display: grid;
     grid-template-columns: 1fr;
   }
+
 }
 
 @media (max-width: 560px) {
@@ -1250,9 +1215,6 @@
     padding: 14px;
   }
 
-  .timezone-preview-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 

@@ -243,6 +243,8 @@ export async function createDailyJoinPayload(
     throw new ApiError(503, "Daily is not configured", "DAILY_NOT_CONFIGURED");
   }
 
+  await assertUserCanJoinDailyClass(classId, user);
+
   let meeting = await getVideoMeetingByClassId(classId).catch(async (error) => {
     if (error instanceof ApiError && error.code === "DAILY_ROOM_NOT_FOUND") {
       return await createDailyRoomByClassId(classId);
@@ -263,10 +265,6 @@ export async function createDailyJoinPayload(
 
   const role = requestedRole === 1 && (user.roles.includes("admin") || user.roles.includes("teacher")) ? 1 : 0;
 
-  if (role === 1) {
-    await markClassLiveForDaily(classId);
-  }
-
   const token = await createDailyMeetingToken(classId, meeting.roomName, user, role);
 
   return {
@@ -278,7 +276,9 @@ export async function createDailyJoinPayload(
   };
 }
 
-export async function releaseClassroomForDaily(classId: string, userId: string, role: 0 | 1): Promise<void> {
+export async function releaseClassroomForDaily(classId: string, user: AuthenticatedUser, role: 0 | 1): Promise<void> {
+  await recordDailySessionEvent(classId, user, "leave");
+
   if (role === 1) {
     await pool.query(
       `
@@ -319,16 +319,156 @@ export async function releaseClassroomForDaily(classId: string, userId: string, 
     return;
   }
 
+}
+
+export async function endClassroomForDaily(classId: string, user: AuthenticatedUser): Promise<void> {
+  const classResult = await pool.query<{ teacher_id: string }>("SELECT teacher_id FROM classes WHERE id = $1", [classId]);
+  const classRow = classResult.rows[0];
+
+  if (!classRow) {
+    throw new ApiError(404, "Class not found", "CLASS_NOT_FOUND");
+  }
+
+  const canEndClass = classRow.teacher_id === user.id || user.roles.includes("admin");
+  if (!canEndClass) {
+    throw new ApiError(403, "Only the assigned teacher can end this class", "CLASS_END_NOT_ALLOWED");
+  }
+
+  if (classRow.teacher_id === user.id) {
+    await recordDailySessionEvent(classId, user, "leave");
+  }
+
   await pool.query(
     `
-      UPDATE class_participants
-      SET left_at = NOW(),
+      UPDATE classes
+      SET status = 'completed'::class_status,
+          updated_at = NOW()
+      WHERE id = $1
+        AND status IN ('scheduled', 'rescheduled', 'live')
+    `,
+    [classId]
+  );
+  await pool.query(
+    `
+      UPDATE teacher_work_sessions
+      SET status = 'completed',
           updated_at = NOW()
       WHERE class_id = $1
-        AND student_id = $2
+        AND status <> 'cancelled'
     `,
-    [classId, userId]
+    [classId]
   );
+  await pool.query(
+    `
+      UPDATE video_meetings
+      SET status = 'ended'::video_meeting_status,
+          updated_at = NOW()
+      WHERE class_id = $1
+        AND status <> 'cancelled'
+    `,
+    [classId]
+  );
+
+  await expireDailyRoomForEndedClass(classId);
+}
+
+export async function recordDailySessionEvent(
+  classId: string,
+  user: AuthenticatedUser,
+  eventType: "join" | "leave"
+): Promise<void> {
+  const classResult = await pool.query<{ teacher_id: string; is_student: boolean }>(
+    `
+      SELECT c.teacher_id,
+             EXISTS (
+               SELECT 1
+               FROM class_participants cp
+               WHERE cp.class_id = c.id
+                 AND cp.student_id = $2
+             ) AS is_student
+      FROM classes c
+      WHERE c.id = $1
+    `,
+    [classId, user.id]
+  );
+  const classRow = classResult.rows[0];
+
+  if (!classRow) {
+    throw new ApiError(404, "Class not found", "CLASS_NOT_FOUND");
+  }
+
+  const isTeacher = classRow.teacher_id === user.id;
+  const isAdmin = user.roles.includes("admin") || user.roles.includes("support");
+  if (!isTeacher && !classRow.is_student && !isAdmin) {
+    throw new ApiError(403, "You are not a participant in this class", "CLASS_ACCESS_DENIED");
+  }
+
+  await persistDailySessionEvent({
+    classId,
+    participantId: user.id,
+    participantName: formatUserName(user),
+    participantEmail: user.email,
+    eventType,
+    eventTime: new Date(),
+    rawPayload: { source: "schooliedu_classroom", eventType, userId: user.id }
+  });
+
+  if (eventType === "join" && isTeacher) {
+    await markClassLiveForDaily(classId);
+  }
+}
+
+async function assertUserCanJoinDailyClass(classId: string, user: AuthenticatedUser): Promise<void> {
+  const result = await pool.query<{
+    teacher_id: string;
+    start_time: Date;
+    end_time: Date;
+    status: string;
+    is_student: boolean;
+  }>(
+    `
+      SELECT c.teacher_id,
+             c.start_time,
+             c.end_time,
+             c.status,
+             EXISTS (
+               SELECT 1
+               FROM class_participants cp
+               WHERE cp.class_id = c.id
+                 AND cp.student_id = $2
+             ) AS is_student
+      FROM classes c
+      WHERE c.id = $1
+    `,
+    [classId, user.id]
+  );
+  const classRow = result.rows[0];
+
+  if (!classRow) {
+    throw new ApiError(404, "Class not found", "CLASS_NOT_FOUND");
+  }
+
+  const isTeacher = classRow.teacher_id === user.id;
+  const isAdmin = user.roles.includes("admin") || user.roles.includes("support");
+  if (!isTeacher && !classRow.is_student && !isAdmin) {
+    throw new ApiError(403, "You are not a participant in this class", "CLASS_ACCESS_DENIED");
+  }
+
+  if (!["scheduled", "rescheduled", "live"].includes(classRow.status)) {
+    throw new ApiError(409, "This class is no longer available to join", "CLASS_NOT_JOINABLE");
+  }
+
+  const now = Date.now();
+  const joinOpensAt = classRow.start_time.getTime() - 5 * 60 * 1000;
+  if (now < joinOpensAt) {
+    throw new ApiError(403, "This class can be joined only five minutes before its scheduled start time", "CLASS_JOIN_TOO_EARLY", {
+      joinOpensAt: new Date(joinOpensAt).toISOString()
+    });
+  }
+
+  if (now >= classRow.end_time.getTime()) {
+    throw new ApiError(409, "This class has already ended", "CLASS_ALREADY_ENDED");
+  }
 }
 
 export async function handleDailyWebhook(payload: any): Promise<unknown> {
@@ -438,6 +578,36 @@ async function openDailyRoomForImmediateJoin(roomName: string, classId: string):
   });
 }
 
+async function expireDailyRoomForEndedClass(classId: string): Promise<void> {
+  if (!isDailyConfigured()) {
+    return;
+  }
+
+  const result = await pool.query<{ provider_room_name: string | null; creation_status: string }>(
+    `
+      SELECT provider_room_name, creation_status
+      FROM video_meetings
+      WHERE class_id = $1
+    `,
+    [classId]
+  );
+  const meeting = result.rows[0];
+
+  if (!meeting?.provider_room_name || meeting.creation_status !== "created") {
+    return;
+  }
+
+  await dailyRequest<DailyRoomResponse>(`/rooms/${encodeURIComponent(meeting.provider_room_name)}`, {
+    method: "POST",
+    body: {
+      properties: {
+        exp: Math.floor(Date.now() / 1000) + 1,
+        eject_at_room_exp: true
+      }
+    }
+  });
+}
+
 async function dailyRequest<T>(path: string, input: { method: string; body?: unknown }): Promise<T> {
   if (!isDailyConfigured()) {
     throw new ApiError(503, "Daily is not configured", "DAILY_NOT_CONFIGURED");
@@ -520,11 +690,34 @@ async function storeDailyAttendanceEvent(payload: any): Promise<void> {
   const eventName = String(payload?.type ?? payload?.event ?? "");
   const participant = payload?.payload?.participant ?? payload?.participant ?? {};
   const eventType = eventName.includes("left") ? "leave" : "join";
+  const participantId = participant.user_id ?? participant.session_id ?? null;
+  const eventTime = payload?.payload?.timestamp ? new Date(payload.payload.timestamp) : new Date();
 
+  await persistDailySessionEvent({
+    classId,
+    participantId,
+    participantName: participant.user_name ?? participant.name ?? null,
+    participantEmail: participant.email ?? null,
+    eventType,
+    eventTime,
+    rawPayload: payload
+  });
+}
+
+async function persistDailySessionEvent(input: {
+  classId: string;
+  participantId: string | null;
+  participantName: string | null;
+  participantEmail: string | null;
+  eventType: "join" | "leave";
+  eventTime: Date;
+  rawPayload: unknown;
+}): Promise<void> {
   await pool.query(
     `
       INSERT INTO video_attendance_events (
         class_id,
+        student_id,
         provider,
         provider_participant_id,
         participant_name,
@@ -533,17 +726,61 @@ async function storeDailyAttendanceEvent(payload: any): Promise<void> {
         event_time,
         raw_payload
       )
-      VALUES ($1, 'daily', $2, $3, $4, $5, $6, $7::JSONB)
+      SELECT
+        $1,
+        (
+          SELECT student_id
+          FROM class_participants
+          WHERE class_id = $1
+            AND student_id::TEXT = $2
+          LIMIT 1
+        ),
+        'daily', $2, $3, $4, $5, $6, $7::JSONB
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM (
+          SELECT event_type
+          FROM video_attendance_events
+          WHERE class_id = $1
+            AND provider = 'daily'
+            AND provider_participant_id IS NOT DISTINCT FROM $2
+          ORDER BY created_at DESC
+          LIMIT 1
+        ) AS latest_event
+        WHERE latest_event.event_type = $5::video_event_type
+      )
     `,
     [
-      classId,
-      participant.user_id ?? participant.session_id ?? null,
-      participant.user_name ?? participant.name ?? null,
-      participant.email ?? null,
-      eventType,
-      payload?.payload?.timestamp ? new Date(payload.payload.timestamp) : new Date(),
-      JSON.stringify(payload)
+      input.classId,
+      input.participantId,
+      input.participantName,
+      input.participantEmail,
+      input.eventType,
+      input.eventTime,
+      JSON.stringify(input.rawPayload)
     ]
+  );
+
+  if (!input.participantId) {
+    return;
+  }
+
+  await pool.query(
+    `
+      UPDATE class_participants
+      SET joined_at = CASE
+            WHEN $3 = 'join' THEN COALESCE(joined_at, $4)
+            ELSE joined_at
+          END,
+          left_at = CASE
+            WHEN $3 = 'leave' THEN $4
+            ELSE left_at
+          END,
+          updated_at = NOW()
+      WHERE class_id = $1
+        AND student_id::TEXT = $2
+    `,
+    [input.classId, input.participantId, input.eventType, input.eventTime]
   );
 }
 

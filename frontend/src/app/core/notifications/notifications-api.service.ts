@@ -25,7 +25,7 @@ export class NotificationsApiService {
   constructor(private readonly api: ApiClientService) {}
 
   getMine(limit = 5): Observable<ApiResponse<NotificationsSummary>> {
-    return this.api.get<NotificationsSummary>('/notifications', { limit });
+    return this.api.get<NotificationsSummary>('/notifications', { limit }, { background: true });
   }
 
   markAllRead(): Observable<ApiResponse<{ unreadCount: number }>> {

@@ -22,10 +22,14 @@ type CreateUserForm = {
   password: string;
   autoGeneratePassword: boolean;
   role: string;
-  availabilityDays: string[];
-  availabilityStartTime: string;
-  availabilityEndTime: string;
+  availability: AvailabilitySlotDraft[];
   timezone: string;
+};
+
+type AvailabilitySlotDraft = {
+  dayOfWeek: string;
+  startTime: string;
+  endTime: string;
 };
 
 type EditProfileForm = {
@@ -93,15 +97,18 @@ export class AdminUsersComponent implements OnInit, OnDestroy {
   protected readonly createPasswordVisible = signal(false);
   protected readonly saving = signal(false);
   protected readonly createError = signal('');
+  protected readonly createAvailabilityDay = signal('monday');
+  protected readonly editAvailabilityDay = signal('monday');
   protected searchText = '';
   protected roleFilter = '';
   protected statusFilter = '';
-  protected dateFilter = '30';
+  protected dateFilter = '';
   protected readonly workingDays = WORKING_DAYS;
   protected readonly timezoneOptions = TIMEZONE_OPTIONS;
   protected readonly timezoneShortLabel = timezoneShortLabel;
   protected createForm: CreateUserForm = this.getEmptyCreateForm();
   protected editProfile: EditProfileForm = this.getEmptyEditProfile();
+  protected editAvailability: AvailabilitySlotDraft[] = [];
   private readonly searchChanges = new Subject<string>();
   private readonly destroy$ = new Subject<void>();
 
@@ -186,6 +193,12 @@ export class AdminUsersComponent implements OnInit, OnDestroy {
         phone: response.data.phone ?? '',
         timezone: response.data.timezone
       };
+      this.editAvailability = (response.data.teacherAvailability?.availability ?? []).map((slot) => ({
+        dayOfWeek: slot.dayOfWeek,
+        startTime: this.normaliseAvailabilityTime(slot.startTime),
+        endTime: this.normaliseAvailabilityTime(slot.endTime)
+      }));
+      this.editAvailabilityDay.set(this.firstWorkingDay(this.editAvailability));
     });
   }
 
@@ -193,6 +206,7 @@ export class AdminUsersComponent implements OnInit, OnDestroy {
     this.dialogOpen.set(false);
     this.selectedUser.set(null);
     this.editProfile = this.getEmptyEditProfile();
+    this.editAvailability = [];
   }
 
   protected selectRole(role: string): void {
@@ -218,7 +232,12 @@ export class AdminUsersComponent implements OnInit, OnDestroy {
     const user = this.selectedUser();
     const role = this.selectedRole();
 
-    if (!user || !role || (this.canEditProfile(user) && !this.isEditProfileValid())) {
+    if (
+      !user ||
+      !role ||
+      (this.canEditProfile(user) && !this.isEditProfileValid()) ||
+      (this.isTeacher(user) && !this.isAvailabilityValid(this.editAvailability))
+    ) {
       return;
     }
 
@@ -229,11 +248,6 @@ export class AdminUsersComponent implements OnInit, OnDestroy {
         this.editProfile.phone !== (user.phone ?? '') ||
         this.editProfile.timezone !== user.timezone);
     const roleChanged = role !== (user.roles[0] ?? '');
-
-    if (!profileChanged && !roleChanged) {
-      this.closeDialog();
-      return;
-    }
 
     this.saving.set(true);
     const updates = {
@@ -249,16 +263,26 @@ export class AdminUsersComponent implements OnInit, OnDestroy {
         : {}),
       ...(roleChanged ? { role: this.usersApi.updateRoles(user.id, [role]) } : {})
     };
+    const saveAvailability = () => {
+      if (!this.isTeacher(user)) {
+        this.finishUserSave();
+        return;
+      }
 
-    forkJoin(updates).subscribe({
-      next: () => {
-        this.saving.set(false);
-        this.closeDialog();
-        this.loadUsers(this.pagination().page);
-        this.loadStats();
-      },
-      error: () => this.saving.set(false)
-    });
+      this.teacherAvailabilityApi
+        .replaceAvailability(
+          user.id,
+          this.editAvailability.map((slot) => ({ ...slot, timezone: this.editProfile.timezone, isActive: true }))
+        )
+        .subscribe({ next: () => this.finishUserSave(), error: () => this.saving.set(false) });
+    };
+
+    if (!Object.keys(updates).length) {
+      saveAvailability();
+      return;
+    }
+
+    forkJoin(updates).subscribe({ next: saveAvailability, error: () => this.saving.set(false) });
   }
 
   protected openCreateDialog(): void {
@@ -300,16 +324,9 @@ export class AdminUsersComponent implements OnInit, OnDestroy {
             return;
           }
 
-          forkJoin(
-            this.createForm.availabilityDays.map((dayOfWeek) =>
-              this.teacherAvailabilityApi.createAvailability(response.data.id, {
-                dayOfWeek,
-                startTime: this.createForm.availabilityStartTime,
-                endTime: this.createForm.availabilityEndTime,
-                timezone: this.createForm.timezone,
-                isActive: true
-              })
-            )
+          this.teacherAvailabilityApi.replaceAvailability(
+            response.data.id,
+            this.createForm.availability.map((slot) => ({ ...slot, timezone: this.createForm.timezone, isActive: true }))
           ).subscribe({
             next: () => this.finishCreateUser(),
             error: () => {
@@ -359,15 +376,67 @@ export class AdminUsersComponent implements OnInit, OnDestroy {
   }
 
   protected handleCreateRoleChange(): void {
-    if (this.createForm.role === 'teacher' && !this.createForm.availabilityDays.length) {
-      this.createForm.availabilityDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+    if (this.createForm.role === 'teacher' && !this.createForm.availability.length) {
+      this.createAvailabilityDay.set('monday');
     }
   }
 
-  protected toggleAvailabilityDay(day: string): void {
-    this.createForm.availabilityDays = this.createForm.availabilityDays.includes(day)
-      ? this.createForm.availabilityDays.filter((item) => item !== day)
-      : [...this.createForm.availabilityDays, day];
+  protected selectCreateAvailabilityDay(day: string): void {
+    this.createAvailabilityDay.set(day);
+  }
+
+  protected selectEditAvailabilityDay(day: string): void {
+    this.editAvailabilityDay.set(day);
+  }
+
+  protected slotsForDay(slots: AvailabilitySlotDraft[], day: string): AvailabilitySlotDraft[] {
+    return slots.filter((slot) => slot.dayOfWeek === day).sort((left, right) => this.timeToMinutes(left.startTime) - this.timeToMinutes(right.startTime));
+  }
+
+  protected isWorkingDay(slots: AvailabilitySlotDraft[], day: string): boolean {
+    return slots.some((slot) => slot.dayOfWeek === day);
+  }
+
+  protected addCreateAvailabilitySlot(): void {
+    this.addAvailabilitySlot(this.createForm.availability, this.createAvailabilityDay());
+  }
+
+  protected addEditAvailabilitySlot(): void {
+    this.addAvailabilitySlot(this.editAvailability, this.editAvailabilityDay());
+  }
+
+  protected removeCreateAvailabilitySlot(slot: AvailabilitySlotDraft): void {
+    this.createForm.availability = this.createForm.availability.filter((item) => item !== slot);
+  }
+
+  protected removeEditAvailabilitySlot(slot: AvailabilitySlotDraft): void {
+    this.editAvailability = this.editAvailability.filter((item) => item !== slot);
+  }
+
+  protected slotEndsAtMidnight(slot: AvailabilitySlotDraft): boolean {
+    return slot.endTime === '24:00';
+  }
+
+  protected toggleSlotMidnight(slot: AvailabilitySlotDraft, enabled: boolean): void {
+    slot.endTime = enabled ? '24:00' : (this.timeToMinutes(slot.startTime) < 18 * 60 ? '18:00' : '23:59');
+  }
+
+  protected availabilityError(slots: AvailabilitySlotDraft[]): string | null {
+    const invalid = slots.find((slot) => this.timeToMinutes(slot.startTime) >= this.timeToMinutes(slot.endTime));
+    if (invalid) {
+      return `${this.titleCase(invalid.dayOfWeek)} has a slot whose end time must be after its start time.`;
+    }
+
+    for (const day of this.workingDays) {
+      const sorted = this.slotsForDay(slots, day.key);
+      for (let index = 1; index < sorted.length; index += 1) {
+        if (this.timeToMinutes(sorted[index].startTime) < this.timeToMinutes(sorted[index - 1].endTime)) {
+          return `${day.label} has overlapping time slots.`;
+        }
+      }
+    }
+
+    return null;
   }
 
   protected isStrongPassword(): boolean {
@@ -394,13 +463,7 @@ export class AdminUsersComponent implements OnInit, OnDestroy {
     }
 
     if (this.createForm.role === 'teacher') {
-      return (
-        this.createForm.availabilityDays.length > 0 &&
-        Boolean(this.createForm.availabilityStartTime) &&
-        Boolean(this.createForm.availabilityEndTime) &&
-        this.createForm.availabilityStartTime < this.createForm.availabilityEndTime &&
-        Boolean(this.createForm.timezone)
-      );
+      return this.createForm.availability.length > 0 && this.isAvailabilityValid(this.createForm.availability) && Boolean(this.createForm.timezone);
     }
 
     return true;
@@ -485,9 +548,7 @@ export class AdminUsersComponent implements OnInit, OnDestroy {
       password: '',
       autoGeneratePassword: true,
       role: '',
-      availabilityDays: [],
-      availabilityStartTime: '09:00',
-      availabilityEndTime: '18:00',
+      availability: [],
       timezone: 'Asia/Kolkata'
     };
   }
@@ -501,6 +562,50 @@ export class AdminUsersComponent implements OnInit, OnDestroy {
     this.closeCreateDialog();
     this.loadUsers(1);
     this.loadStats();
+  }
+
+  private finishUserSave(): void {
+    this.saving.set(false);
+    this.closeDialog();
+    this.loadUsers(this.pagination().page);
+    this.loadStats();
+  }
+
+  private isTeacher(user: UserListItem): boolean {
+    return user.roles.includes('teacher');
+  }
+
+  private addAvailabilitySlot(slots: AvailabilitySlotDraft[], dayOfWeek: string): void {
+    const existing = this.slotsForDay(slots, dayOfWeek);
+    const previous = existing[existing.length - 1];
+    const start = previous?.endTime === '24:00' ? '09:00' : previous?.endTime ?? '09:00';
+    const end = this.timeToMinutes(start) < 17 * 60 ? this.addMinutes(start, 60) : '24:00';
+    slots.push({ dayOfWeek, startTime: start, endTime: end });
+  }
+
+  protected isAvailabilityValid(slots: AvailabilitySlotDraft[]): boolean {
+    return !this.availabilityError(slots);
+  }
+
+  private timeToMinutes(value: string): number {
+    const [hour = '0', minute = '0'] = value.split(':');
+    return Number(hour) * 60 + Number(minute);
+  }
+
+  private addMinutes(time: string, minutes: number): string {
+    const next = Math.min(this.timeToMinutes(time) + minutes, 24 * 60);
+    if (next === 24 * 60) {
+      return '24:00';
+    }
+    return `${String(Math.floor(next / 60)).padStart(2, '0')}:${String(next % 60).padStart(2, '0')}`;
+  }
+
+  private firstWorkingDay(slots: AvailabilitySlotDraft[]): string {
+    return this.workingDays.find((day) => this.isWorkingDay(slots, day.key))?.key ?? 'monday';
+  }
+
+  private normaliseAvailabilityTime(time: string): string {
+    return time.startsWith('24:00') ? '24:00' : time.slice(0, 5);
   }
 }
 

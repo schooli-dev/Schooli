@@ -177,6 +177,24 @@ export async function createAvailability(
 ): Promise<ReturnType<typeof mapAvailability>> {
   await getTeacherById(teacherId);
 
+  const overlap = await pool.query<{ id: string }>(
+    `
+      SELECT id
+      FROM teacher_availability
+      WHERE teacher_id = $1
+        AND day_of_week = $2
+        AND is_active = TRUE
+        AND start_time < $4::TIME
+        AND end_time > $3::TIME
+      LIMIT 1
+    `,
+    [teacherId, input.dayOfWeek, input.startTime, input.endTime]
+  );
+
+  if (overlap.rows[0]) {
+    throw new ApiError(422, "Time slots on the same day cannot overlap", "TEACHER_AVAILABILITY_OVERLAP");
+  }
+
   const result = await pool.query<AvailabilityRow>(
     `
       INSERT INTO teacher_availability (

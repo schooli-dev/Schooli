@@ -88,11 +88,23 @@ export class DateTimeService {
     const timeFormatter = new Intl.DateTimeFormat('en-US', {
       timeZone: targetTimezone,
       hour: 'numeric',
-      minute: '2-digit',
-      timeZoneName: 'short'
+      minute: '2-digit'
     });
 
     return `${dateFormatter.format(startDate)}, ${timeFormatter.format(startDate)} - ${timeFormatter.format(endDate)}`;
+  }
+
+  formatTimeOnlyRange(start: Date | string, end: Date | string, timezone: string): string {
+    const startDate = start instanceof Date ? start : new Date(start);
+    const endDate = end instanceof Date ? end : new Date(end);
+    const targetTimezone = this.isValidTimezone(timezone) ? timezone : this.fallbackTimezone;
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: targetTimezone,
+      hour: 'numeric',
+      minute: '2-digit'
+    });
+
+    return `${formatter.format(startDate)} - ${formatter.format(endDate)}`;
   }
 
   private parseLocalValue(value: string): { year: number; month: number; day: number; hour: number; minute: number } {

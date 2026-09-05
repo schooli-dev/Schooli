@@ -50,7 +50,7 @@ export const leave: RequestHandler = asyncHandler(async (req, res) => {
   const requestedRole = req.body.role ?? 0;
   const role = requestedRole === 1 && (req.user.roles.includes("admin") || req.user.roles.includes("teacher")) ? 1 : 0;
 
-  await dailyService.releaseClassroomForDaily(getIdParam(req), req.user.id, role);
+  await dailyService.releaseClassroomForDaily(getIdParam(req), req.user, role);
 
   sendSuccess(res, {
     message: "Classroom session released",
@@ -58,6 +58,32 @@ export const leave: RequestHandler = asyncHandler(async (req, res) => {
       classId: getIdParam(req),
       role
     }
+  });
+});
+
+export const sessionEvent: RequestHandler = asyncHandler(async (req, res) => {
+  if (!req.user) {
+    throw new ApiError(401, "Authentication required", "UNAUTHORIZED");
+  }
+
+  await dailyService.recordDailySessionEvent(getIdParam(req), req.user, req.body.eventType);
+
+  sendSuccess(res, {
+    message: "Classroom session event recorded",
+    data: { classId: getIdParam(req), eventType: req.body.eventType }
+  });
+});
+
+export const endClass: RequestHandler = asyncHandler(async (req, res) => {
+  if (!req.user) {
+    throw new ApiError(401, "Authentication required", "UNAUTHORIZED");
+  }
+
+  await dailyService.endClassroomForDaily(getIdParam(req), req.user);
+
+  sendSuccess(res, {
+    message: "Classroom ended",
+    data: { classId: getIdParam(req) }
   });
 });
 

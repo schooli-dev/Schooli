@@ -14,7 +14,11 @@ const dayOfWeek = z.enum([
   "sunday"
 ]);
 
-const timeString = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/, "Expected HH:mm or HH:mm:ss");
+// 24:00 is allowed only as an end-of-day value. It lets adjacent daily slots
+// cover midnight without creating an artificial 23:59 gap.
+const timeString = z
+  .string()
+  .regex(/^(?:([01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?|24:00(?::00)?)$/, "Expected HH:mm, HH:mm:ss, or 24:00");
 const ianaTimezone = z.string().trim().min(1).refine(
   (value) => {
     try {
@@ -40,17 +44,6 @@ export const teacherIdSchema = z.object({
   params: uuidParam
 });
 
-export const createAvailabilitySchema = z.object({
-  params: uuidParam,
-  body: z.object({
-    dayOfWeek,
-    startTime: timeString,
-    endTime: timeString,
-    timezone: ianaTimezone.default("Asia/Kolkata"),
-    isActive: z.boolean().optional()
-  })
-});
-
 const availabilityInput = z
   .object({
     dayOfWeek,
@@ -59,15 +52,59 @@ const availabilityInput = z
     timezone: ianaTimezone.default("Asia/Kolkata"),
     isActive: z.boolean().optional()
   })
-  .refine((value) => value.startTime < value.endTime, {
-    message: "Start time must be before end time",
+  .refine((value) => toMinutes(value.startTime) < toMinutes(value.endTime), {
+    message: "Start time must be before end time and availability cannot cross into the next day",
     path: ["endTime"]
   });
+
+function toMinutes(value: string): number {
+  const [hour = "0", minute = "0"] = value.split(":");
+  return Number(hour) * 60 + Number(minute);
+}
+
+export const createAvailabilitySchema = z.object({
+  params: uuidParam,
+  body: availabilityInput
+});
 
 export const replaceAvailabilitySchema = z.object({
   params: uuidParam,
   body: z.object({
-    availability: z.array(availabilityInput).max(14)
+    availability: z.array(availabilityInput).max(56)
+  }).superRefine(({ availability }, context) => {
+    const slotsByDay = new Map<string, Array<{ index: number; start: number; end: number }>>();
+    const timezones = new Set(availability.map((slot) => slot.timezone));
+
+    if (timezones.size > 1) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "All weekly availability slots for a teacher must use the same timezone",
+        path: ["availability"]
+      });
+    }
+
+    availability.forEach((slot, index) => {
+      const slots = slotsByDay.get(slot.dayOfWeek) ?? [];
+      slots.push({ index, start: toMinutes(slot.startTime), end: toMinutes(slot.endTime) });
+      slotsByDay.set(slot.dayOfWeek, slots);
+    });
+
+    for (const slots of slotsByDay.values()) {
+      slots.sort((left, right) => left.start - right.start || left.end - right.end);
+
+      for (let index = 1; index < slots.length; index += 1) {
+        const previous = slots[index - 1];
+        const current = slots[index];
+
+        if (current.start < previous.end) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Time slots on the same day cannot overlap",
+            path: ["availability", current.index, "startTime"]
+          });
+        }
+      }
+    }
   })
 });
 

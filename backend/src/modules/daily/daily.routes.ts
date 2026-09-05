@@ -3,7 +3,14 @@ import { authMiddleware } from "../../middlewares/auth.middleware.js";
 import { requirePermission } from "../../middlewares/permission.middleware.js";
 import { validate } from "../../middlewares/validate.middleware.js";
 import * as dailyController from "./daily.controller.js";
-import { createDailyRoomSchema, dailyJoinSchema, dailyLeaveSchema, getDailyRoomSchema } from "./daily.validation.js";
+import {
+  createDailyRoomSchema,
+  dailyJoinSchema,
+  dailyEndClassSchema,
+  dailyLeaveSchema,
+  dailySessionEventSchema,
+  getDailyRoomSchema
+} from "./daily.validation.js";
 
 export const dailyRoutes = Router();
 export const dailyClassRoutes = Router({ mergeParams: true });
@@ -36,4 +43,16 @@ dailyClassRoutes.post(
   requirePermission("class.join"),
   validate(dailyLeaveSchema),
   dailyController.leave
+);
+dailyClassRoutes.post(
+  "/session-event",
+  requirePermission("class.join"),
+  validate(dailySessionEventSchema),
+  dailyController.sessionEvent
+);
+dailyClassRoutes.post(
+  "/end",
+  requirePermission("class.join"),
+  validate(dailyEndClassSchema),
+  dailyController.endClass
 );

@@ -16,6 +16,7 @@ const ianaTimezone = z.string().trim().min(1).refine(
   { message: "Expected a valid IANA timezone such as Asia/Kolkata or Europe/Paris" }
 );
 const weekday = z.enum(["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]);
+const timeOfDay = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Expected a time between 00:00 and 23:59");
 
 export const listClassesSchema = z.object({
   query: z.object({
@@ -64,10 +65,24 @@ export const createClassSeriesSchema = z.object({
     teacherId: uuid,
     studentId: uuid,
     title: z.string().trim().min(1),
-    startTime: isoDateTime,
-    durationMinutes: z.number().int().positive().max(480),
+    startDate: z.string().date(),
     timezone: ianaTimezone.default("Asia/Kolkata"),
-    weekdays: z.array(weekday).min(1).max(7),
+    weeklySchedules: z.array(z.object({
+      dayOfWeek: weekday,
+      startTime: timeOfDay
+    })).min(1).max(7).superRefine((schedules, context) => {
+      const seen = new Set<string>();
+      schedules.forEach((schedule, index) => {
+        if (seen.has(schedule.dayOfWeek)) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Each weekday can have only one class start time",
+            path: [index, "dayOfWeek"]
+          });
+        }
+        seen.add(schedule.dayOfWeek);
+      });
+    }),
     classCount: z.number().int().positive().max(100),
     notes: z.string().trim().optional(),
     overrideConflicts: z.boolean().optional()
