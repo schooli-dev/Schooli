@@ -1,8 +1,18 @@
 import type { ErrorRequestHandler } from "express";
+import multer from "multer";
 import { ZodError } from "zod";
 import { ApiError } from "../utils/ApiError.js";
 
 export const errorMiddleware: ErrorRequestHandler = (error, _req, res, _next) => {
+  if (error instanceof multer.MulterError) {
+    const isTooLarge = error.code === "LIMIT_FILE_SIZE";
+    res.status(isTooLarge ? 413 : 422).json({
+      success: false,
+      message: isTooLarge ? "The selected file is larger than the configured upload limit" : "The file upload could not be processed",
+      error: { code: isTooLarge ? "FILE_TOO_LARGE" : "FILE_UPLOAD_ERROR" }
+    });
+    return;
+  }
   if (error instanceof ZodError) {
     res.status(422).json({
       success: false,

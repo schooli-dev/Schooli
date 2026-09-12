@@ -1,0 +1,65 @@
+<main class="learning-page">
+  <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3 mb-4">
+    <div>
+      <span class="section-kicker">LEARNING MATERIALS</span>
+      <h1 class="mb-1">Courses</h1>
+      <p class="text-muted mb-0">Organize your curriculum into reusable learning programs.</p>
+    </div>
+    <button class="btn btn-primary" type="button" (click)="openCreate()"><i class="bi bi-plus-lg me-2"></i>Create Course</button>
+  </div>
+
+  <section class="toolbar mb-4">
+    <div class="input-group flex-grow-1">
+      <span class="input-group-text"><i class="bi bi-search"></i></span>
+      <input class="form-control" [(ngModel)]="searchText" placeholder="Search courses..." />
+    </div>
+    <select class="form-select status-select" [(ngModel)]="statusFilter" (ngModelChange)="updateStatusFilter()" aria-label="Filter courses by status">
+      <option value="all">All statuses</option><option value="active">Active</option><option value="inactive">Inactive</option>
+    </select>
+    <button class="btn btn-outline-secondary" type="button" (click)="loadCourses()" [disabled]="loading()"><i class="bi bi-arrow-clockwise"></i></button>
+  </section>
+
+  @if (loading()) { <div class="py-5 text-center"><span class="spinner-border text-primary"></span></div> }
+  @else if (!filteredCourses().length) {
+    <section class="empty-state"><i class="bi bi-journal-plus"></i><h2>No courses found</h2><p>Create a course to start organizing learning materials.</p></section>
+  } @else {
+    <section class="row g-3">
+      @for (course of filteredCourses(); track course.id) {
+        <div class="col-12 col-md-6 col-xl-4">
+          <article class="course-card h-100">
+            <div class="d-flex align-items-start justify-content-between gap-3">
+              <span class="course-icon"><i class="bi" [ngClass]="course.iconKey"></i></span>
+              <span class="status-badge" [class.inactive]="course.status === 'inactive'">{{ statusLabel(course.status) }}</span>
+            </div>
+            <h2>{{ course.name }}</h2>
+            <p>{{ course.description || 'No description added yet.' }}</p>
+            <div class="course-stats"><span><i class="bi bi-layers me-1"></i>{{ course.moduleCount }} modules</span><span><i class="bi bi-journal-text me-1"></i>{{ course.lessonCount }} lessons</span></div>
+            <footer class="d-flex align-items-center justify-content-between gap-2 mt-auto pt-3">
+              <small class="text-muted">Updated {{ course.updatedAt | date:'MMM d, y' }}</small>
+              <div class="btn-group btn-group-sm"><button class="btn btn-outline-secondary" type="button" (click)="openDetails(course)" title="View details"><i class="bi bi-eye"></i></button><button class="btn btn-outline-primary" type="button" (click)="openEdit(course)" title="Edit course"><i class="bi bi-pencil"></i></button></div>
+            </footer>
+          </article>
+        </div>
+      }
+    </section>
+  }
+</main>
+
+@if (modalOpen()) {
+  <div class="modal-backdrop fade show"></div>
+  <section class="modal d-block" role="dialog" aria-modal="true"><div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+    <header class="modal-header"><div><h2 class="modal-title h5 mb-1">{{ mode() === 'create' ? 'Create Course' : 'Edit Course' }}</h2><p class="text-muted small mb-0">Set the course identity and availability.</p></div><button class="btn-close" type="button" (click)="closeModal()"></button></header>
+    <div class="modal-body">
+      <div class="mb-3"><label class="form-label">Course name <span class="text-danger">*</span></label><input class="form-control" [(ngModel)]="form.name" maxlength="160" placeholder="e.g. Mathematics Foundation" /></div>
+      <div class="mb-3"><label class="form-label">Description</label><textarea class="form-control" rows="4" [(ngModel)]="form.description" maxlength="4000" placeholder="What will learners study in this course?"></textarea></div>
+      <div class="mb-3"><label class="form-label d-block">Course icon</label><div class="icon-picker">@for (icon of iconChoices; track icon) { <button class="btn" type="button" [class.active]="form.iconKey === icon" (click)="form.iconKey = icon"><i class="bi" [ngClass]="icon"></i></button> }</div></div>
+      <div><label class="form-label d-block mb-2">Status</label><div class="course-status-options"><label class="status-option" [class.selected]="form.status === 'active'"><input type="radio" [(ngModel)]="form.status" value="active" name="courseStatus" /><span class="status-option-icon"><i class="bi bi-check2-circle"></i></span><span><strong>Active</strong><small>Available for new modules</small></span></label><label class="status-option" [class.selected]="form.status === 'inactive'"><input type="radio" [(ngModel)]="form.status" value="inactive" name="courseStatus" /><span class="status-option-icon"><i class="bi bi-pause-circle"></i></span><span><strong>Inactive</strong><small>Preserve history, block new modules</small></span></label></div></div>
+    </div>
+    <footer class="modal-footer"><button class="btn btn-outline-secondary" type="button" (click)="closeModal()">Cancel</button><button class="btn btn-primary" type="button" [disabled]="saving()" (click)="saveCourse()">@if (saving()) { <span class="spinner-border spinner-border-sm me-2"></span> }{{ mode() === 'create' ? 'Create Course' : 'Save Changes' }}</button></footer>
+  </div></div></section>
+}
+
+@if (drawerOpen() && selectedCourse(); as course) {
+  <div class="drawer-backdrop" (click)="closeDrawer()"></div>
+  <aside class="details-drawer" role="dialog" aria-modal="true"><header><div class="d-flex gap-3 align-items-start"><span class="course-icon"><i class="bi" [ngClass]="course.iconKey"></i></span><div><span class="status-badge" [class.inactive]="course.status === 'inactive'">{{ statusLabel(course.status) }}</span><h2>{{ course.name }}</h2></div></div><button class="btn-close" type="button" (click)="closeDrawer()"></button></header><div class="drawer-body"><h3>Description</h3><p>{{ course.description || 'No description added yet.' }}</p><div class="drawer-summary"><div><span>Modules</span><strong>{{ course.moduleCount }}</strong></div><div><span>Lessons</span><strong>{{ course.lessonCount }}</strong></div><div><span>Last updated</span><strong>{{ course.updatedAt | date:'MMM d, y' }}</strong></div></div><div class="associated-modules"><div class="d-flex align-items-center justify-content-between"><h3 class="mb-0">Associated Modules</h3><span>{{ course.modules.length }}</span></div>@if (course.modules.length) { <div class="module-list">@for (module of course.modules; track module.id) { <article><span class="module-order">{{ module.sortOrder }}</span><div class="min-w-0"><strong class="d-block text-truncate">{{ module.name }}</strong><small class="d-block text-muted text-truncate">{{ module.lessonCount }} classes · {{ module.teacherCount }} teachers</small></div><span class="status-badge" [class.inactive]="module.status === 'inactive'">{{ statusLabel(module.status) }}</span></article> }</div> } @else { <p class="text-muted small mb-0">No modules are associated with this course yet.</p> }</div></div><footer><button class="btn btn-primary w-100" type="button" (click)="closeDrawer(); openEdit(course)"><i class="bi bi-pencil me-2"></i>Edit Course</button></footer></aside>
+}

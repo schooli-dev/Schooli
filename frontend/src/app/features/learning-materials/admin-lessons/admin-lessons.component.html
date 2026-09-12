@@ -1,0 +1,120 @@
+<main class="learning-page">
+  <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4">
+    <div>
+      <span class="section-kicker">LEARNING MATERIALS</span>
+      <h1 class="mb-1">Curriculum Classes</h1>
+      <p class="text-muted mb-0">Create reusable lesson content. These are separate from scheduled live classes.</p>
+    </div>
+    <button class="btn btn-primary" type="button" (click)="openCreate()"><i class="bi bi-plus-lg me-2"></i>Create Class</button>
+  </div>
+
+  <section class="toolbar mb-4">
+    <div class="input-group"><span class="input-group-text"><i class="bi bi-search"></i></span><input class="form-control" [(ngModel)]="search" placeholder="Search classes, modules, or courses..." /></div>
+    <select class="form-select" [(ngModel)]="status"><option value="all">All statuses</option><option value="active">Active</option><option value="inactive">Inactive</option></select>
+  </section>
+
+  @if (!filtered().length) {
+    <section class="empty-state"><i class="bi bi-journal-plus"></i><h2>No curriculum classes found</h2><p>Create a class after adding an active module.</p></section>
+  } @else {
+    <section class="table-responsive">
+      <table class="table align-middle lesson-table">
+        <thead><tr><th>Class</th><th>Course / Module</th><th>Order</th><th>Materials</th><th>Status</th><th class="text-end">Action</th></tr></thead>
+        <tbody>
+          @for (lesson of filtered(); track lesson.id) {
+            <tr>
+              <td><strong>{{ lesson.lessonNumber }}. {{ lesson.title }}</strong><small class="d-block text-muted text-truncate">{{ lesson.description || 'No description added.' }}</small></td>
+              <td><span class="d-block fw-semibold">{{ lesson.courseName }}</span><small class="text-muted">{{ lesson.moduleName }}</small></td>
+              <td>{{ lesson.sortOrder }}</td>
+              <td><span class="material-count"><i class="bi bi-paperclip me-1"></i>{{ lesson.materialCount }}</span></td>
+              <td><span class="status-badge" [class.inactive]="lesson.status === 'inactive'">{{ lesson.status }}</span></td>
+              <td class="text-end">
+                <div class="btn-group btn-group-sm" role="group" aria-label="Curriculum class actions">
+                  <button class="btn btn-outline-primary" type="button" title="View class" (click)="openDetails(lesson)"><i class="bi bi-eye"></i></button>
+                  <button class="btn btn-outline-primary" type="button" title="Edit class" (click)="openDetails(lesson, 'edit')"><i class="bi bi-pencil-square"></i></button>
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </section>
+  }
+</main>
+
+@if (createOpen()) {
+  <div class="modal-backdrop fade show"></div>
+  <section class="modal d-block" role="dialog" aria-modal="true" aria-labelledby="create-class-title">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+      <header class="modal-header"><div><h2 id="create-class-title" class="h5 mb-1">Create Curriculum Class</h2><p class="small text-muted mb-0">Add a reusable lesson inside an active module.</p></div><button class="btn-close" type="button" aria-label="Close" (click)="closeCreate()"></button></header>
+      <div class="modal-body">
+        <div class="mb-3"><label class="form-label">Module <span class="text-danger">*</span></label><select class="form-select" [(ngModel)]="form.moduleId"><option value="">Select module</option>@for (module of modules(); track module.id) { <option [value]="module.id">{{ module.courseName }} / {{ module.name }}</option> }</select></div>
+        <div class="mb-3"><label class="form-label">Class title <span class="text-danger">*</span></label><input class="form-control" [(ngModel)]="form.title" placeholder="e.g. Linear equations" /></div>
+        <div class="row g-3"><div class="col-6"><label class="form-label">Class number</label><input class="form-control" type="number" min="1" [(ngModel)]="form.lessonNumber" /></div><div class="col-6"><label class="form-label">Sort order</label><input class="form-control" type="number" min="1" [(ngModel)]="form.sortOrder" /></div></div>
+        <div class="mt-3"><label class="form-label">Description</label><textarea class="form-control" rows="3" [(ngModel)]="form.description"></textarea></div>
+      </div>
+      <footer class="modal-footer"><button class="btn btn-outline-secondary" type="button" (click)="closeCreate()">Cancel</button><button class="btn btn-primary" type="button" [disabled]="saving()" (click)="saveLesson()">Create Class</button></footer>
+    </div></div>
+  </section>
+}
+
+@if (detailsOpen() && selected(); as lesson) {
+  <div class="drawer-backdrop" (click)="closeDetails()"></div>
+  <aside class="details-drawer" role="dialog" aria-modal="true" aria-labelledby="lesson-drawer-title">
+    <header>
+      <div><span class="section-kicker">{{ lesson.courseName }} / {{ lesson.moduleName }}</span><h2 id="lesson-drawer-title">{{ detailsMode() === 'edit' ? 'Edit curriculum class' : lesson.lessonNumber + '. ' + lesson.title }}</h2></div>
+      <div class="d-flex align-items-start gap-2">
+        @if (detailsMode() === 'view') { <button class="btn btn-outline-primary btn-sm" type="button" (click)="beginEdit()"><i class="bi bi-pencil-square me-1"></i>Edit</button> }
+        <button class="btn-close mt-1" type="button" aria-label="Close" (click)="closeDetails()"></button>
+      </div>
+    </header>
+
+    <div class="drawer-body">
+      @if (detailsMode() === 'view') {
+        <div class="lesson-readonly">
+          <span class="status-badge" [class.inactive]="lesson.status === 'inactive'">{{ lesson.status }}</span>
+          <p class="text-muted mb-0">{{ lesson.description || 'No description added.' }}</p>
+          <dl class="row mb-0"><dt class="col-5">Class number</dt><dd class="col-7">{{ lesson.lessonNumber }}</dd><dt class="col-5">Sort order</dt><dd class="col-7">{{ lesson.sortOrder }}</dd></dl>
+        </div>
+      } @else {
+        <div class="drawer-form">
+          <div class="mb-3"><label class="form-label">Module <span class="text-danger">*</span></label><select class="form-select" [(ngModel)]="editForm.moduleId">@for (module of modules(); track module.id) { <option [value]="module.id">{{ module.courseName }} / {{ module.name }}</option> }</select></div>
+          <div class="mb-3"><label class="form-label">Class title <span class="text-danger">*</span></label><input class="form-control" [(ngModel)]="editForm.title" /></div>
+          <div class="row g-3"><div class="col-6"><label class="form-label">Class number</label><input class="form-control" type="number" min="1" [(ngModel)]="editForm.lessonNumber" /></div><div class="col-6"><label class="form-label">Sort order</label><input class="form-control" type="number" min="1" [(ngModel)]="editForm.sortOrder" /></div></div>
+          <div class="mt-3"><label class="form-label">Description</label><textarea class="form-control" rows="4" [(ngModel)]="editForm.description"></textarea></div>
+          <div class="mt-3"><label class="form-label">Status</label><select class="form-select" [(ngModel)]="editForm.status"><option value="active">Active</option><option value="inactive">Inactive</option></select></div>
+        </div>
+      }
+
+      <div class="d-flex align-items-center justify-content-between mt-4 mb-2"><h3 class="mb-0">Materials</h3>@if (detailsMode() === 'edit') { <button class="btn btn-primary btn-sm" type="button" (click)="openMaterial()"><i class="bi bi-plus-lg me-1"></i>Add material</button> }</div>
+      @if (!lesson.materials.length) { <p class="text-muted small">No materials have been added.</p> } @else {
+        <div class="list-group list-group-flush">
+          @for (item of lesson.materials; track item.id) {
+            <div class="list-group-item px-0"><div class="d-flex gap-2"><i class="bi" [ngClass]="materialIcon(item.section)"></i><div class="min-w-0"><strong class="d-block text-truncate">{{ item.title }} <small class="text-muted">v{{ item.version }}</small></strong><small class="text-muted">{{ materialSubtitle(item) }}</small>@if (item.fileName) { <small class="d-block text-muted text-truncate">{{ item.fileName }}</small> }</div></div></div>
+          }
+        </div>
+      }
+    </div>
+    @if (detailsMode() === 'edit') { <footer class="drawer-footer"><button class="btn btn-outline-secondary" type="button" [disabled]="saving()" (click)="cancelEdit()">Cancel</button><button class="btn btn-primary" type="button" [disabled]="saving()" (click)="saveDetails()">Save changes</button></footer> }
+  </aside>
+}
+
+@if (materialOpen()) {
+  <div class="modal-backdrop fade show"></div>
+  <section class="modal d-block" role="dialog" aria-modal="true" aria-labelledby="add-material-title">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+      <header class="modal-header"><div><h2 id="add-material-title" class="h5 mb-1">Add Material</h2><p class="small text-muted mb-0">Attach a private file or a learning link.</p></div><button class="btn-close" type="button" aria-label="Close" (click)="materialOpen.set(false)"></button></header>
+      <div class="modal-body">
+        <div class="row g-3"><div class="col-6"><label class="form-label">Type</label><select class="form-select" [(ngModel)]="material.section"><option value="presentation">Presentation</option><option value="lesson_plan">Lesson plan</option><option value="homework">Homework</option><option value="file">File</option></select></div><div class="col-6"><label class="form-label">Source</label><select class="form-select" [(ngModel)]="material.source"><option value="link">External link</option><option value="upload">Upload file</option></select></div></div>
+        <div class="mt-3"><label class="form-label">Title <span class="text-danger">*</span></label><input class="form-control" [(ngModel)]="material.title" /></div>
+        @if (material.source === 'upload') {
+          <div class="mt-3"><label class="form-label">File <span class="text-danger">*</span></label><input class="form-control" type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.csv,.jpg,.jpeg,.png,.webp" (change)="onFileSelected($event)" /><div class="form-text">PDF, Office files, text, CSV, JPG, PNG, or WebP. Maximum size is set by the administrator.</div></div>
+        } @else {
+          <div class="mt-3"><label class="form-label">External URL <span class="text-danger">*</span></label><input class="form-control" type="url" [(ngModel)]="material.url" placeholder="https://..." /></div>
+        }
+        <div class="mt-3"><label class="form-label">Audience</label><select class="form-select" [(ngModel)]="material.audience"><option value="teachers_only">Teachers only</option><option value="students_and_teachers">Students and teachers</option></select></div>
+        @if (material.section === 'homework') { <label class="form-check mt-3"><input class="form-check-input" type="checkbox" [(ngModel)]="material.allowLateSubmission" /><span class="form-check-label">Allow late submission</span></label> }
+      </div>
+      <footer class="modal-footer"><button class="btn btn-outline-secondary" type="button" (click)="materialOpen.set(false)">Cancel</button><button class="btn btn-primary" type="button" [disabled]="saving()" (click)="saveMaterial()"><i class="bi bi-cloud-arrow-up me-1"></i>{{ material.source === 'upload' ? 'Upload and add' : 'Add link' }}</button></footer>
+    </div></div>
+  </section>
+}

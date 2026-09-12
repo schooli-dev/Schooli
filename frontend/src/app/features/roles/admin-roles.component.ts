@@ -33,6 +33,10 @@ const pagePermissionIconClasses: Record<string, string> = {
   doc: 'bi-file-earmark-text',
   award: 'bi-award',
   chart: 'bi-bar-chart',
+  book: 'bi-book',
+  layers: 'bi-layers',
+  journal: 'bi-journal-text',
+  'person-gear': 'bi-person-gear',
   gear: 'bi-gear'
 };
 

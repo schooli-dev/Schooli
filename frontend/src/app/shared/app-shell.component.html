@@ -11,7 +11,92 @@
     </div>
 
     <nav class="sidebar-nav" aria-label="Primary navigation">
-      @for (item of navItems(); track item.path) {
+      @for (item of sidebarItemsBeforeLearningMaterials(); track item.path) {
+        <a
+          class="sidebar-link"
+          [href]="item.path"
+          [class.is-active]="isActivePath(item.path)"
+          (click)="handleSidebarNavigation($event, item)"
+        >
+          <span class="nav-icon" aria-hidden="true">
+            <i class="bi" [ngClass]="iconClass(item.icon)"></i>
+          </span>
+
+          <span class="link-label text-truncate">{{ item.label }}</span>
+        </a>
+      }
+
+      @if (learningMaterialsItems().length) {
+        <section class="sidebar-tree" [class.is-expanded]="learningMaterialsExpanded()">
+          <button
+            class="sidebar-link learning-materials-parent"
+            [class.is-active]="isLearningMaterialsActive()"
+            type="button"
+            [attr.aria-expanded]="learningMaterialsExpanded()"
+            (click)="toggleLearningMaterials()"
+          >
+            <span class="nav-icon" aria-hidden="true">
+              <i class="bi bi-collection"></i>
+            </span>
+            <span class="link-label text-truncate">Learning Materials</span>
+            <i class="bi tree-chevron" [ngClass]="learningMaterialsExpanded() ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
+          </button>
+
+          @if (learningMaterialsExpanded()) {
+            <div class="sidebar-tree-children">
+              @for (item of learningMaterialsItems(); track item.path) {
+                <a
+                  class="sidebar-tree-link"
+                  [href]="item.path"
+                  [class.is-active]="isActivePath(item.path)"
+                  (click)="handleSidebarNavigation($event, item)"
+                >
+                  <span class="tree-line" aria-hidden="true"></span>
+                  <i class="bi" [ngClass]="iconClass(item.icon)"></i>
+                  <span class="text-truncate">{{ item.label }}</span>
+                </a>
+              }
+            </div>
+          }
+        </section>
+      }
+
+      @if (reportsAnalyticsItems().length) {
+        <section class="sidebar-tree" [class.is-expanded]="reportsAnalyticsExpanded()">
+          <button
+            class="sidebar-link learning-materials-parent"
+            [class.is-active]="isReportsAnalyticsActive()"
+            type="button"
+            [attr.aria-expanded]="reportsAnalyticsExpanded()"
+            (click)="toggleReportsAnalytics()"
+          >
+            <span class="nav-icon" aria-hidden="true">
+              <i class="bi bi-graph-up-arrow"></i>
+            </span>
+            <span class="link-label text-truncate">Reports &amp; Analytics</span>
+            <i class="bi tree-chevron" [ngClass]="reportsAnalyticsExpanded() ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
+          </button>
+
+          @if (reportsAnalyticsExpanded()) {
+            <div class="sidebar-tree-children">
+              @for (item of reportsAnalyticsItems(); track item.path) {
+                <a
+                  class="sidebar-tree-link"
+                  [href]="item.path"
+                  [class.is-active]="isActivePath(item.path)"
+                  (click)="handleSidebarNavigation($event, item)"
+                >
+                  <span class="tree-line" aria-hidden="true"></span>
+                  <i class="bi" [ngClass]="iconClass(item.icon)"></i>
+                  <span class="text-truncate">{{ item.label }}</span>
+                </a>
+              }
+            </div>
+          }
+        </section>
+      }
+
+      @for (item of sidebarItemsAfterLearningMaterials(); track item.path) {
         <a
           class="sidebar-link"
           [href]="item.path"

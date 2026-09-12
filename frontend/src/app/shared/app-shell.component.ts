@@ -13,7 +13,11 @@ type ShellRole = 'admin' | 'teacher' | 'student';
 const fallbackNavByRole: Record<ShellRole, NavigationPage[]> = {
   admin: [
     page('admin.dashboard', 'Dashboard', '/admin/dashboard', 'grid', 'main', ['report.view']),
-    page('classes', 'Classes', '/admin/classes', 'calendar', 'main', ['class.view'])
+    page('classes', 'Classes', '/admin/classes', 'calendar', 'main', ['class.view']),
+    page('admin.reports-analytics.curriculum', 'Curriculum', '/admin/reports-analytics/curriculum', 'book', 'operations', ['reports_analytics.view']),
+    page('admin.reports-analytics.homework', 'Homework', '/admin/reports-analytics/homework', 'doc', 'operations', ['reports_analytics.view']),
+    page('admin.reports-analytics.student', 'Student', '/admin/reports-analytics/student', 'users', 'operations', ['reports_analytics.view']),
+    page('admin.reports-analytics.teacher', 'Teacher', '/admin/reports-analytics/teacher', 'person-gear', 'operations', ['reports_analytics.view'])
   ],
   teacher: [
     page('teacher.dashboard', 'Dashboard', '/teacher/dashboard', 'grid', 'main', ['class.view']),
@@ -44,6 +48,10 @@ const sidebarIconClasses: Record<string, string> = {
   doc: 'bi-file-earmark-text',
   award: 'bi-award',
   chart: 'bi-bar-chart',
+  book: 'bi-book',
+  layers: 'bi-layers',
+  journal: 'bi-journal-text',
+  'person-gear': 'bi-person-gear',
   gear: 'bi-gear',
   exit: 'bi-box-arrow-right'
 };
@@ -53,11 +61,28 @@ const implementedSidebarPaths = new Set([
   '/admin/classes',
   '/admin/users',
   '/admin/roles',
+  '/admin/learning-materials/courses',
+  '/admin/learning-materials/modules',
+  '/admin/learning-materials/classes',
+  '/admin/learning-materials/teacher-access',
   '/teacher/dashboard',
   '/teacher/classes',
   '/teacher/attendance',
   '/student/dashboard',
   '/student/classes'
+]);
+
+const learningMaterialsPaths = new Set([
+  '/admin/learning-materials/courses',
+  '/admin/learning-materials/modules',
+  '/admin/learning-materials/classes'
+]);
+
+const reportsAnalyticsPaths = new Set([
+  '/admin/reports-analytics/curriculum',
+  '/admin/reports-analytics/homework',
+  '/admin/reports-analytics/student',
+  '/admin/reports-analytics/teacher'
 ]);
 
 function page(
@@ -80,6 +105,8 @@ function page(
 })
 export class AppShellComponent implements OnDestroy {
   protected readonly menuOpen = signal(false);
+  protected readonly learningMaterialsExpanded = signal(false);
+  protected readonly reportsAnalyticsExpanded = signal(false);
   protected readonly profileOpen = signal(false);
   protected readonly notificationOpen = signal(false);
   protected readonly notifications = signal<UserNotification[]>([]);
@@ -108,6 +135,30 @@ export class AppShellComponent implements OnDestroy {
   protected readonly navItems = computed(() => {
     const pages = this.policyPages();
     return pages.length ? pages : fallbackNavByRole[this.role()];
+  });
+
+  protected readonly learningMaterialsItems = computed(() =>
+    this.navItems().filter((item) => learningMaterialsPaths.has(item.path))
+  );
+
+  protected readonly reportsAnalyticsItems = computed(() =>
+    this.navItems().filter((item) => reportsAnalyticsPaths.has(item.path))
+  );
+
+  protected readonly sidebarItems = computed(() =>
+    this.navItems().filter((item) => !learningMaterialsPaths.has(item.path) && !reportsAnalyticsPaths.has(item.path))
+  );
+
+  protected readonly sidebarItemsBeforeLearningMaterials = computed(() => {
+    const items = this.sidebarItems();
+    const classesIndex = items.findIndex((item) => item.path === '/admin/classes');
+    return classesIndex === -1 ? items : items.slice(0, classesIndex + 1);
+  });
+
+  protected readonly sidebarItemsAfterLearningMaterials = computed(() => {
+    const items = this.sidebarItems();
+    const classesIndex = items.findIndex((item) => item.path === '/admin/classes');
+    return classesIndex === -1 ? [] : items.slice(classesIndex + 1);
   });
 
   protected readonly roleLabel = computed(() => `${this.role()} portal`);
@@ -166,6 +217,14 @@ export class AppShellComponent implements OnDestroy {
 
   protected closeMenu(): void {
     this.menuOpen.set(false);
+  }
+
+  protected toggleLearningMaterials(): void {
+    this.learningMaterialsExpanded.update((expanded) => !expanded);
+  }
+
+  protected toggleReportsAnalytics(): void {
+    this.reportsAnalyticsExpanded.update((expanded) => !expanded);
   }
 
   protected openProfile(): void {
@@ -246,6 +305,14 @@ export class AppShellComponent implements OnDestroy {
 
   protected isActivePath(path: string): boolean {
     return this.currentUrl() === path;
+  }
+
+  protected isLearningMaterialsActive(): boolean {
+    return learningMaterialsPaths.has(this.currentUrl());
+  }
+
+  protected isReportsAnalyticsActive(): boolean {
+    return reportsAnalyticsPaths.has(this.currentUrl());
   }
 
   protected iconClass(icon: string): string {

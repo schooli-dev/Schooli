@@ -1,0 +1,66 @@
+<main class="learning-page">
+  <header class="page-header">
+    <div>
+      <span class="section-kicker">LEARNING MATERIALS</span>
+      <h1>Teacher Access</h1>
+      <p>Choose which active curriculum modules each teacher can use. Access is immediate and applies to all classes and materials within the assigned module.</p>
+    </div>
+  </header>
+
+  <section class="toolbar" aria-label="Teacher access filters">
+    <div class="input-group search-control"><span class="input-group-text"><i class="bi bi-search"></i></span><input class="form-control" [(ngModel)]="search" placeholder="Search teachers..." /></div>
+    <select class="form-select" [(ngModel)]="courseFilter"><option value="">All assigned courses</option>@for (course of activeCourses(); track course.id) { <option [value]="course.id">{{ course.name }}</option> }</select>
+    <select class="form-select" [(ngModel)]="moduleFilter"><option value="">All assigned modules</option>@for (module of modules(); track module.id) { <option [value]="module.id">{{ module.courseName }} / {{ module.name }}</option> }</select>
+    <select class="form-select" [(ngModel)]="accessFilter"><option value="all">All access statuses</option><option value="assigned">Has module access</option><option value="unassigned">No module access</option></select>
+  </section>
+
+  @if (loading()) {
+    <div class="py-5 text-center"><span class="spinner-border text-primary"></span></div>
+  } @else if (!filteredTeachers().length) {
+    <section class="empty-state"><i class="bi bi-person-x"></i><h2>No teachers found</h2><p>Try changing the search or access filters.</p></section>
+  } @else {
+    <section class="teacher-grid">
+      @for (teacher of filteredTeachers(); track teacher.id) {
+        <article class="teacher-card">
+          <div class="teacher-card-head">
+            <span class="teacher-avatar">{{ initials(teacher) }}</span>
+            <div class="min-w-0 flex-grow-1"><h2 class="text-truncate">{{ teacher.fullName }}</h2><p class="text-truncate">{{ teacher.email }}</p></div>
+            <span class="access-badge" [class.is-empty]="teacher.moduleCount === 0">{{ teacher.moduleCount ? 'Access assigned' : 'No access' }}</span>
+          </div>
+          <div class="access-metrics"><div><strong>{{ teacher.moduleCount }}</strong><span>Modules</span></div><div><strong>{{ teacher.courseCount }}</strong><span>Courses</span></div></div>
+          <p class="course-summary"><i class="bi bi-collection me-2"></i>{{ assignedCourseNames(teacher) }}</p>
+          <footer><button class="btn btn-outline-secondary btn-sm" type="button" (click)="openAccess(teacher, true)"><i class="bi bi-eye me-1"></i>View Access</button><button class="btn btn-primary btn-sm" type="button" (click)="openAccess(teacher, false)"><i class="bi bi-person-gear me-1"></i>Manage Access</button></footer>
+        </article>
+      }
+    </section>
+  }
+</main>
+
+@if (accessDialogOpen() && selectedTeacher(); as teacher) {
+  <div class="modal-backdrop fade show"></div>
+  <section class="modal d-block" role="dialog" aria-modal="true" aria-labelledby="teacher-access-title">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content">
+      <header class="modal-header"><div><span class="section-kicker">{{ accessReadOnly() ? 'CURRENT ACCESS' : 'MANAGE ACCESS' }}</span><h2 id="teacher-access-title" class="modal-title h4 mb-1">{{ teacher.fullName }}</h2><p class="text-muted small mb-0">{{ teacher.email }} · {{ teacher.timezone }}</p></div><button class="btn-close" type="button" (click)="closeAccess()"></button></header>
+      <div class="modal-body">
+        <p class="access-intro">{{ accessReadOnly() ? 'Modules currently available to this teacher.' : 'Select one or more modules. Saving applies access immediately and notifies the teacher about every change.' }}</p>
+        <div class="input-group module-search mb-3">
+          <span class="input-group-text"><i class="bi bi-search"></i></span>
+          <input class="form-control" [(ngModel)]="moduleSearch" placeholder="Search modules, courses, or descriptions..." />
+        </div>
+        @if (!matchingModuleCount()) {
+          <div class="module-search-empty"><i class="bi bi-search me-2"></i>No modules match your search.</div>
+        }
+        @for (course of activeCourses(); track course.id) {
+          @if (filteredModulesForCourse(course.id).length) {
+            <section class="course-access-group"><h3>{{ course.name }}</h3><div class="module-checkbox-list">
+              @for (module of filteredModulesForCourse(course.id); track module.id) {
+                <label class="module-checkbox" [class.selected]="isModuleSelected(module.id)" [class.read-only]="accessReadOnly()"><input class="form-check-input" type="checkbox" [checked]="isModuleSelected(module.id)" [disabled]="accessReadOnly()" (change)="toggleModule(module.id)" /><span class="flex-grow-1"><strong>{{ module.name }}</strong><small>{{ module.lessonCount }} curriculum classes</small></span>@if (isModuleSelected(module.id)) { <i class="bi bi-check-circle-fill text-success"></i> }</label>
+              }
+            </div></section>
+          }
+        }
+      </div>
+      <footer class="modal-footer"><button class="btn btn-outline-secondary" type="button" (click)="closeAccess()">{{ accessReadOnly() ? 'Close' : 'Cancel' }}</button>@if (!accessReadOnly()) { <button class="btn btn-primary" type="button" [disabled]="saving()" (click)="saveAccess()">@if (saving()) { <span class="spinner-border spinner-border-sm me-2"></span> }<i class="bi bi-check2-circle me-2"></i>Save Access</button> }</footer>
+    </div></div>
+  </section>
+}

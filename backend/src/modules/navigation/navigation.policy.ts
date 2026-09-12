@@ -75,20 +75,6 @@ const pages: NavigationPage[] = [
     ]
   },
   {
-    key: "admin.assignments",
-    label: "Assignments",
-    path: "/admin/assignments",
-    icon: "link",
-    section: "operations",
-    roles: ["admin"],
-    anyPermissions: ["teacher.update", "student.update"],
-    actions: [
-      { key: "read", permission: "teacher.view" },
-      { key: "create", permission: "teacher.update" },
-      { key: "update", permission: "teacher.update" }
-    ]
-  },
-  {
     key: "classes",
     label: "Classes",
     path: "/admin/classes",
@@ -106,6 +92,102 @@ const pages: NavigationPage[] = [
     ]
   },
   {
+    key: "admin.learning-materials.courses",
+    label: "Courses",
+    path: "/admin/learning-materials/courses",
+    icon: "book",
+    section: "operations",
+    roles: ["admin"],
+    anyPermissions: ["learning_materials.view"],
+    actions: [
+      { key: "read", permission: "learning_materials.view" },
+      { key: "create", permission: "learning_materials.create" },
+      { key: "update", permission: "learning_materials.update" }
+    ]
+  },
+  {
+    key: "admin.learning-materials.modules",
+    label: "Modules",
+    path: "/admin/learning-materials/modules",
+    icon: "layers",
+    section: "operations",
+    roles: ["admin"],
+    anyPermissions: ["learning_materials.view"],
+    actions: [
+      { key: "read", permission: "learning_materials.view" },
+      { key: "create", permission: "learning_materials.create" },
+      { key: "update", permission: "learning_materials.update" }
+    ]
+  },
+  // TEMPORARILY HIDDEN FOR DEPLOYMENT: restore these sidebar items when ready.
+  // {
+  //   key: "admin.learning-materials.lessons",
+  //   label: "Curriculum Classes",
+  //   path: "/admin/learning-materials/classes",
+  //   icon: "journal",
+  //   section: "operations",
+  //   roles: ["admin"],
+  //   anyPermissions: ["learning_materials.view"],
+  //   actions: [
+  //     { key: "read", permission: "learning_materials.view" },
+  //     { key: "create", permission: "learning_materials.create" },
+  //     { key: "update", permission: "learning_materials.update" }
+  //   ]
+  // },
+  // {
+  //   key: "admin.learning-materials.teacher-access",
+  //   label: "Teacher Access",
+  //   path: "/admin/learning-materials/teacher-access",
+  //   icon: "person-gear",
+  //   section: "operations",
+  //   roles: ["admin"],
+  //   anyPermissions: ["learning_materials.manage_access"],
+  //   actions: [
+  //     { key: "read", permission: "learning_materials.view" },
+  //     { key: "update", permission: "learning_materials.manage_access" }
+  //   ]
+  // },
+  {
+    key: "admin.reports-analytics.curriculum",
+    label: "Curriculum",
+    path: "/admin/reports-analytics/curriculum",
+    icon: "book",
+    section: "operations",
+    roles: ["admin", "teacher", "student", "support"],
+    anyPermissions: ["reports_analytics.view"],
+    actions: [{ key: "read", permission: "reports_analytics.view" }]
+  },
+  {
+    key: "admin.reports-analytics.homework",
+    label: "Homework",
+    path: "/admin/reports-analytics/homework",
+    icon: "doc",
+    section: "operations",
+    roles: ["admin", "teacher", "student", "support"],
+    anyPermissions: ["reports_analytics.view"],
+    actions: [{ key: "read", permission: "reports_analytics.view" }]
+  },
+  {
+    key: "admin.reports-analytics.student",
+    label: "Student",
+    path: "/admin/reports-analytics/student",
+    icon: "users",
+    section: "operations",
+    roles: ["admin", "teacher", "student", "support"],
+    anyPermissions: ["reports_analytics.view"],
+    actions: [{ key: "read", permission: "reports_analytics.view" }]
+  },
+  {
+    key: "admin.reports-analytics.teacher",
+    label: "Teacher",
+    path: "/admin/reports-analytics/teacher",
+    icon: "person-gear",
+    section: "operations",
+    roles: ["admin", "teacher", "student", "support"],
+    anyPermissions: ["reports_analytics.view"],
+    actions: [{ key: "read", permission: "reports_analytics.view" }]
+  },
+  {
     key: "attendance",
     label: "Attendance",
     path: "/admin/attendance",
@@ -117,21 +199,6 @@ const pages: NavigationPage[] = [
       { key: "read", permission: "attendance.view" },
       { key: "mark", permission: "attendance.mark" },
       { key: "override", permission: "attendance.override" }
-    ]
-  },
-  {
-    key: "credits",
-    label: "Credits",
-    path: "/admin/credits",
-    icon: "credit",
-    section: "operations",
-    roles: ["admin"],
-    anyPermissions: ["credits.view"],
-    actions: [
-      { key: "read", permission: "credits.view" },
-      { key: "create", permission: "credits.adjust" },
-      { key: "update", permission: "credits.adjust" },
-      { key: "override", permission: "credits.refund" }
     ]
   },
   {
