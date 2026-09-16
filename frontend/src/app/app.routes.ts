@@ -14,9 +14,8 @@ import { RoleRedirectComponent } from './core/auth/role-redirect.component';
 import { ErrorPageComponent } from './features/errors/error-page/error-page.component';
 import { AdminCoursesComponent } from './features/learning-materials/admin-courses/admin-courses.component';
 import { AdminModulesComponent } from './features/learning-materials/admin-modules/admin-modules.component';
-// TEMPORARILY HIDDEN FOR DEPLOYMENT: uncomment with the routes below when ready.
 // import { AdminLessonsComponent } from './features/learning-materials/admin-lessons/admin-lessons.component';
-// import { TeacherAccessComponent } from './features/learning-materials/teacher-access/teacher-access.component';
+import { TeacherAccessComponent } from './features/learning-materials/teacher-access/teacher-access.component';
 
 export const routes: Routes = [
   {
@@ -140,7 +139,6 @@ export const routes: Routes = [
         data: { permission: 'learning_materials.view' },
         title: 'Modules | SchooliEdu'
       },
-      // TEMPORARILY HIDDEN FOR DEPLOYMENT: uncomment these routes when the features are ready.
       // {
       //   path: 'admin/learning-materials/classes',
       //   component: AdminLessonsComponent,
@@ -148,13 +146,13 @@ export const routes: Routes = [
       //   data: { permission: 'learning_materials.view' },
       //   title: 'Curriculum Classes | SchooliEdu'
       // },
-      // {
-      //   path: 'admin/learning-materials/teacher-access',
-      //   component: TeacherAccessComponent,
-      //   canActivate: [authGuard],
-      //   data: { permission: 'learning_materials.manage_access' },
-      //   title: 'Teacher Access | SchooliEdu'
-      // },
+      {
+        path: 'admin/learning-materials/teacher-access',
+        component: TeacherAccessComponent,
+        canActivate: [authGuard],
+        data: { permission: 'learning_materials.manage_access' },
+        title: 'Teacher Access | SchooliEdu'
+      },
       {
         path: 'teacher/dashboard',
         component: TeacherDashboardComponent,
