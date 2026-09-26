@@ -8,7 +8,7 @@ const emptyStats: AdminDashboardStats = {
   classes: { today: 0, live: 0, upcoming: 0, completedThisMonth: 0 },
   tickets: { open: 0, urgent: 0 },
   homework: { pending: 0, overdue: 0 },
-  credits: { approvedTotal: 0 },
+  r2Storage: { status: 'not_configured', objectCount: 0, sizeBytes: 0, uploadsLast24Hours: 0 },
   todaysClasses: [],
   openTickets: []
 };
@@ -31,5 +31,16 @@ export class AdminDashboardComponent implements OnInit {
       next: (response) => this.stats.set(response.data),
       error: () => this.apiWarning.set('Could not load dashboard stats from backend.')
     });
+  }
+
+  protected storageSize(bytes: number): string {
+    if (!bytes) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const unitIndex = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+    return `${(bytes / 1024 ** unitIndex).toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+  }
+
+  protected storageStatusLabel(status: AdminDashboardStats['r2Storage']['status']): string {
+    return ({ connected: 'R2 connected', not_configured: 'R2 not configured', unavailable: 'R2 unavailable' })[status];
   }
 }

@@ -21,6 +21,7 @@ frontend/.env.*
 !frontend/.env.example
 
 # Generated/local documentation and checklists
+*.md
 docs/
 backend/docs/
 backend/BACKEND_CHECKLIST.md

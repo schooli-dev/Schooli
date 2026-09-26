@@ -26,6 +26,10 @@ export class ApiClientService {
     });
   }
 
+  getBlob(path: string, options?: ApiRequestOptions) {
+    return this.http.get(this.url(path), { responseType: 'blob', context: this.requestContext(options) });
+  }
+
   post<T>(path: string, body: unknown, options?: ApiRequestOptions) {
     return this.http.post<ApiResponse<T>>(this.url(path), body, { context: this.requestContext(options) });
   }

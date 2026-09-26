@@ -161,4 +161,6 @@ export class LearningMaterialsApiService {
   }
   createMaterial(payload: MaterialPayload): Observable<ApiResponse<LearningMaterial>> { return this.api.post('/learning-materials/materials', payload); }
   createMaterialRevision(id: string, payload: Omit<MaterialPayload, 'lessonId'>): Observable<ApiResponse<LearningMaterial>> { return this.api.post(`/learning-materials/materials/${id}/revisions`, payload); }
+  downloadMaterial(id: string): Observable<Blob> { return this.api.getBlob(`/learning-materials/materials/${id}/download`); }
+  deleteMaterial(id: string): Observable<ApiResponse<null>> { return this.api.delete(`/learning-materials/materials/${id}`); }
 }

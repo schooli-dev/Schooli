@@ -3,6 +3,7 @@ import { pool } from "../../db/pool.js";
 import type { AuthenticatedUser } from "../../types/express.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { createInAppNotifications } from "../notifications/notifications.service.js";
+import { deleteLearningMaterial } from "./learningMaterials.storage.js";
 
 type CurriculumStatus = "active" | "inactive";
 
@@ -496,7 +497,7 @@ export async function createLesson(input: LessonInput, actor: AuthenticatedUser)
 export async function getLesson(id: string) {
   const lesson = await getLessonRow(id);
   const materials = await pool.query<MaterialRow>(
-    `SELECT id, logical_id, lesson_id, section, source_type, title, file_url, storage_key, file_name, mime_type, size_bytes, external_url, audience, allow_late_submission, version, status, replaces_material_id, created_at, updated_at FROM curriculum_materials WHERE lesson_id = $1 ORDER BY section, logical_id, version DESC`,
+    `SELECT id, logical_id, lesson_id, section, source_type, title, file_url, storage_key, file_name, mime_type, size_bytes, external_url, audience, allow_late_submission, version, status, replaces_material_id, created_at, updated_at FROM curriculum_materials WHERE lesson_id = $1 AND status = 'active' ORDER BY section, logical_id, version DESC`,
     [id]
   );
   return { ...mapLesson(lesson), materials: materials.rows.map(mapMaterial) };
@@ -640,6 +641,31 @@ async function assertActiveTeachers(teacherIds: string[]): Promise<void> {
   if (result.rows.length !== teacherIds.length) {
     throw new ApiError(422, "Teacher access can only be assigned to active teacher users", "INVALID_TEACHERS");
   }
+}
+
+export async function getMaterialFile(materialId: string) {
+  const result = await pool.query<MaterialRow>(
+    "SELECT id, logical_id, lesson_id, section, source_type, title, file_url, storage_key, file_name, mime_type, size_bytes, external_url, audience, allow_late_submission, version, status, replaces_material_id, created_at, updated_at FROM curriculum_materials WHERE id = $1 AND status = 'active'",
+    [materialId]
+  );
+  const material = result.rows[0];
+  if (!material) throw new ApiError(404, "Learning material not found", "MATERIAL_NOT_FOUND");
+  if (material.source_type !== "file" || !material.storage_key || !material.file_name || !material.mime_type) {
+    throw new ApiError(422, "This material is not a private uploaded file", "MATERIAL_NOT_DOWNLOADABLE");
+  }
+  return { storageKey: material.storage_key, fileName: material.file_name, mimeType: material.mime_type };
+}
+
+export async function deleteMaterial(materialId: string, _actor: AuthenticatedUser) {
+  const result = await pool.query<MaterialRow>(
+    "SELECT id, logical_id, lesson_id, section, source_type, title, file_url, storage_key, file_name, mime_type, size_bytes, external_url, audience, allow_late_submission, version, status, replaces_material_id, created_at, updated_at FROM curriculum_materials WHERE id = $1 AND status = 'active'",
+    [materialId]
+  );
+  const material = result.rows[0];
+  if (!material) throw new ApiError(404, "Learning material not found", "MATERIAL_NOT_FOUND");
+
+  if (material.storage_key) await deleteLearningMaterial(material.storage_key);
+  await pool.query("UPDATE curriculum_materials SET status = 'inactive', updated_at = NOW() WHERE id = $1", [materialId]);
 }
 
 async function assertActiveModules(moduleIds: string[]): Promise<void> {

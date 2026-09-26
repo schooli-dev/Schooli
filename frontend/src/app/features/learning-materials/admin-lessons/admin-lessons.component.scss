@@ -27,6 +27,12 @@ h1 { font-size: clamp(1.65rem, 3vw, 2.15rem); font-weight: 800; }
 .lesson-readonly dt { color: var(--color-muted); font-size: .78rem; font-weight: 700; }
 .lesson-readonly dd { margin-bottom: .6rem; font-weight: 600; }
 .min-w-0 { min-width: 0; }
+.material-item { border-color: var(--color-border); }
+.material-open { flex: 1; padding: 0; color: inherit; background: transparent; border: 0; }
+.material-open:hover strong { color: var(--color-primary); text-decoration: underline; }
+.material-open:disabled { cursor: wait; opacity: .65; }
+.material-actions { display: flex; gap: .35rem; }
+.replace-notice { display: flex; gap: .6rem; align-items: flex-start; margin-bottom: 1rem; padding: .75rem; color: #075f9d; background: #edf7ff; border: 1px solid #b9e0ff; border-radius: var(--radius-sm); font-size: .875rem; }
 .btn-group .btn { min-width: 2.25rem; }
 
 @media (max-width: 575.98px) {

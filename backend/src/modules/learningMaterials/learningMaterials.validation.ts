@@ -108,3 +108,4 @@ const materialBody = z.object({ lessonId: z.string().uuid() }).merge(materialDet
 
 export const createMaterialSchema = z.object({ body: materialBody });
 export const createMaterialRevisionSchema = z.object({ params: idParam, body: materialDetails });
+export const getMaterialSchema = z.object({ params: idParam });

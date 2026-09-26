@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { finalize, switchMap } from 'rxjs';
-import { LearningLesson, LearningMaterialsApiService, LearningModule, LessonDetail } from '../../../core/learning-materials/learning-materials-api.service';
+import { LearningLesson, LearningMaterial, LearningMaterialsApiService, LearningModule, LessonDetail } from '../../../core/learning-materials/learning-materials-api.service';
 import { ToastService } from '../../../core/toast/toast.service';
 
 type LessonForm = { moduleId: string; lessonNumber: number; title: string; description: string; sortOrder: number; status: 'active' | 'inactive' };
@@ -17,6 +17,8 @@ export class AdminLessonsComponent implements OnInit {
   protected readonly detailsOpen = signal(false);
   protected readonly materialOpen = signal(false);
   protected readonly saving = signal(false);
+  protected readonly openingMaterialId = signal<string | null>(null);
+  protected readonly replacingMaterial = signal<LearningMaterial | null>(null);
   protected readonly detailsMode = signal<'view' | 'edit'>('view');
   protected search = '';
   protected status = 'all';
@@ -103,7 +105,30 @@ export class AdminLessonsComponent implements OnInit {
     if (this.detailsMode() !== 'edit') return;
     this.material = this.emptyMaterial();
     this.selectedFile = null;
+    this.replacingMaterial.set(null);
     this.materialOpen.set(true);
+  }
+
+  protected openReplaceMaterial(item: LearningMaterial): void {
+    if (this.detailsMode() !== 'edit' || item.sourceType !== 'file') return;
+    this.replacingMaterial.set(item);
+    this.material = {
+      section: item.section,
+      source: 'upload',
+      title: item.title,
+      url: '',
+      audience: item.audience,
+      allowLateSubmission: item.allowLateSubmission
+    };
+    this.selectedFile = null;
+    this.materialOpen.set(true);
+  }
+
+  protected closeMaterial(): void {
+    if (this.saving()) return;
+    this.materialOpen.set(false);
+    this.replacingMaterial.set(null);
+    this.selectedFile = null;
   }
 
   protected onFileSelected(event: Event): void {
@@ -113,6 +138,7 @@ export class AdminLessonsComponent implements OnInit {
 
   protected saveMaterial(): void {
     const lesson = this.selected();
+    const replacing = this.replacingMaterial();
     if (!lesson || this.material.title.trim().length < 2) {
       this.toasts.error('Enter a material title.');
       return;
@@ -127,13 +153,24 @@ export class AdminLessonsComponent implements OnInit {
     }
 
     this.saving.set(true);
-    const payload = { lessonId: lesson.id, section: this.material.section, title: this.material.title.trim(), audience: this.material.audience, allowLateSubmission: this.material.allowLateSubmission } as const;
+    const payload = { section: this.material.section, title: this.material.title.trim(), audience: this.material.audience, allowLateSubmission: this.material.allowLateSubmission } as const;
     const request = this.material.source === 'upload'
-      ? this.api.uploadMaterialFile(this.selectedFile!).pipe(switchMap((upload) => this.api.createMaterial({ ...payload, sourceType: 'file', storageKey: upload.data.storageKey, fileName: upload.data.fileName, mimeType: upload.data.mimeType, sizeBytes: upload.data.sizeBytes })))
-      : this.api.createMaterial({ ...payload, sourceType: 'link', externalUrl: this.material.url.trim() });
+      ? this.api.uploadMaterialFile(this.selectedFile!).pipe(switchMap((upload) => {
+          const filePayload = { ...payload, sourceType: 'file' as const, storageKey: upload.data.storageKey, fileName: upload.data.fileName, mimeType: upload.data.mimeType, sizeBytes: upload.data.sizeBytes };
+          return replacing
+            ? this.api.createMaterialRevision(replacing.id, filePayload)
+            : this.api.createMaterial({ lessonId: lesson.id, ...filePayload });
+        }))
+      : this.api.createMaterial({ lessonId: lesson.id, ...payload, sourceType: 'link', externalUrl: this.material.url.trim() });
 
     request.pipe(finalize(() => this.saving.set(false))).subscribe({
-      next: () => { this.materialOpen.set(false); this.toasts.success(this.material.source === 'upload' ? 'File uploaded and added to the class.' : 'Link added to the class.'); this.refreshSelected(); this.load(); },
+      next: () => {
+        this.materialOpen.set(false);
+        this.replacingMaterial.set(null);
+        this.toasts.success(replacing ? `File replaced. Version ${replacing.version + 1} is now active.` : this.material.source === 'upload' ? 'File uploaded and added to the class.' : 'Link added to the class.');
+        this.refreshSelected();
+        this.load();
+      },
       error: (error) => this.toasts.error(error?.error?.message ?? 'Material could not be added.')
     });
   }
@@ -145,6 +182,47 @@ export class AdminLessonsComponent implements OnInit {
   protected materialSubtitle(item: LessonDetail['materials'][number]): string {
     const audience = item.audience === 'teachers_only' ? 'Teachers only' : 'Students and teachers';
     return `${item.section.replace('_', ' ')} · ${audience}`;
+  }
+
+  protected openMaterialFile(item: LearningMaterial): void {
+    if (item.sourceType === 'link') {
+      if (!item.externalUrl) return;
+      window.open(item.externalUrl, '_blank', 'noopener');
+      return;
+    }
+    if (!item.storageKey) {
+      if (item.fileUrl) window.open(item.fileUrl, '_blank', 'noopener');
+      else this.toasts.error('This file is no longer available.');
+      return;
+    }
+
+    const preview = window.open('', '_blank');
+    this.openingMaterialId.set(item.id);
+    this.api.downloadMaterial(item.id).pipe(finalize(() => this.openingMaterialId.set(null))).subscribe({
+      next: (file) => {
+        const objectUrl = URL.createObjectURL(file);
+        if (preview) preview.location.href = objectUrl;
+        else window.open(objectUrl, '_blank', 'noopener');
+        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+      },
+      error: (error) => {
+        preview?.close();
+        this.toasts.error(error?.error?.message ?? 'The file could not be opened.');
+      }
+    });
+  }
+
+  protected deleteMaterial(item: LearningMaterial): void {
+    if (this.saving() || !window.confirm(`Delete “${item.title}”? This cannot be undone.`)) return;
+    this.saving.set(true);
+    this.api.deleteMaterial(item.id).pipe(finalize(() => this.saving.set(false))).subscribe({
+      next: () => {
+        this.toasts.success('Learning material deleted.');
+        this.refreshSelected();
+        this.load();
+      },
+      error: (error) => this.toasts.error(error?.error?.message ?? 'Material could not be deleted.')
+    });
   }
 
   private refreshSelected(): void {

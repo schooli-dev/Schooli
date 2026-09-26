@@ -18,7 +18,7 @@ import {
   updateCourseSchema,
   updateModuleSchema
 } from "./learningMaterials.validation.js";
-import { createLessonSchema, createMaterialRevisionSchema, createMaterialSchema, getLessonSchema, listLessonsSchema, updateLessonSchema } from "./learningMaterials.validation.js";
+import { createLessonSchema, createMaterialRevisionSchema, createMaterialSchema, getLessonSchema, getMaterialSchema, listLessonsSchema, updateLessonSchema } from "./learningMaterials.validation.js";
 import { uploadLimitBytes } from "./learningMaterials.storage.js";
 
 export const learningMaterialsRoutes = Router();
@@ -67,3 +67,5 @@ learningMaterialsRoutes.patch("/lessons/:id", requirePermission("learning_materi
 learningMaterialsRoutes.post("/uploads", requirePermission("learning_materials.create"), upload.single("file"), controller.uploadMaterialFile);
 learningMaterialsRoutes.post("/materials", requirePermission("learning_materials.create"), validate(createMaterialSchema), controller.createMaterial);
 learningMaterialsRoutes.post("/materials/:id/revisions", requirePermission("learning_materials.update"), validate(createMaterialRevisionSchema), controller.createMaterialRevision);
+learningMaterialsRoutes.get("/materials/:id/download", requirePermission("learning_materials.view"), validate(getMaterialSchema), controller.downloadMaterial);
+learningMaterialsRoutes.delete("/materials/:id", requirePermission("learning_materials.update"), validate(getMaterialSchema), controller.deleteMaterial);

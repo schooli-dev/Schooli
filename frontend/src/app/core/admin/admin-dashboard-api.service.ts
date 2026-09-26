@@ -24,8 +24,11 @@ export type AdminDashboardStats = {
     pending: number;
     overdue: number;
   };
-  credits: {
-    approvedTotal: number;
+  r2Storage: {
+    status: 'connected' | 'not_configured' | 'unavailable';
+    objectCount: number;
+    sizeBytes: number;
+    uploadsLast24Hours: number;
   };
   todaysClasses: Array<{
     id: string;

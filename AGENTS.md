@@ -1,6 +1,6 @@
 ﻿# SchooliEdu - AGENTS.md
 
-Read this file before making any changes to the project.
+Read this file before making any changes to the project. Then read `backend/AGENTS.md` and/or `frontend/AGENTS.md` for the layer you touch (see "Documentation Map" at the end).
 
 ## Project Overview
 
@@ -16,6 +16,7 @@ Core features include class scheduling, live video sessions (Daily.co), attendan
 | Backend | Node.js, Express 4, TypeScript (ESM), Zod |
 | Database | PostgreSQL (raw SQL, manual migrations via pg) |
 | Video | Daily.co (@daily-co/daily-js) |
+| File storage | Cloudflare R2 (S3 API via @aws-sdk/client-s3) for private learning-material uploads |
 | Auth | JWT (access + refresh tokens), bcrypt |
 | API Docs | Swagger (swagger-jsdoc + swagger-ui-express) |
 | Package Manager | npm (both frontend and backend) |
@@ -34,7 +35,7 @@ Core features include class scheduling, live video sessions (Daily.co), attendan
         modules/              Feature modules (auth, users, classes, attendance, etc.)
         types/                Shared TypeScript types
         utils/                API response helpers, async handler, etc.
-      migrations/             Numbered SQL migration files (001-018)
+      migrations/             Numbered SQL migration files (001-023; next is 024)
       docs/                   API guide (PDF + Markdown)
       package.json
 
@@ -162,7 +163,7 @@ Key deployment facts:
 | frontend/src/app/core/auth/auth.interceptor.ts | Attaches JWT Bearer token to all API requests |
 | frontend/src/app/core/config/runtime-config.service.ts | Loads /api/app/details before app startup |
 | frontend/scripts/write-render-env.cjs | Writes environment.ts from BACKEND_PUBLIC_URL at build |
-| frontend/proxy.conf.json | Dev proxy: /api to localhost:5000 |
+| frontend/proxy.conf.json | Dev proxy: /api to localhost:5000 (dev environment.ts already uses the absolute http://localhost:5000/api, so the browser calls the backend directly) |
 | backend/src/app.ts | Express setup, middleware registration, route mounting |
 | backend/src/server.ts | Entry: DB verification + server listen |
 | backend/src/middlewares/auth.middleware.ts | JWT verification middleware |
@@ -201,3 +202,34 @@ Before editing, follow this checklist:
    - Frontend: npm run build (inside frontend/)
    - Backend: npm run typecheck (inside backend/)
 8. Report: which files were changed and why.
+
+## Domain Summary (read this instead of re-exploring)
+
+- **Roles**: `admin`, `teacher`, `student`, `support` (seeded) plus custom roles. Access is decided by **permission keys** (backend `requirePermission`, frontend `data.permission` + guard), not role names. Role names only scope data (teacher sees own classes, student sees own).
+- **Live classes** (`classes` table): admin schedules single or recurring (series) classes for one teacher + one student, with conflict checks; a Daily.co room is created per class; join opens 5 min before start; teacher marks attendance (Daily join/leave evidence assists); students can request cancellation; notifications are in-app (email not connected).
+- **Learning Materials** (`curriculum_*` tables): Course > Module > "Curriculum Class" (lesson) > Materials (files in private R2, or links; versioned). Admin-only UI today; teacher module access is stored but not yet consumed. Do not confuse "Curriculum Classes" with live "Classes".
+- **Not yet built (schema/nav placeholders only)**: homework, credits, tickets, certificates, reports, settings/audit APIs, email delivery, admin attendance page, teacher/student learning-material views.
+- **Current API surface**: see `backend/AGENTS.md` (endpoint + permission table). **Routes/pages**: see `frontend/AGENTS.md`. **Schema**: `backend/migrations/AGENT_CONTEXT.md`.
+
+## Documentation Map
+
+Tracked in git (visible to everyone): `AGENTS.md` (this), `CLAUDE.md`, `backend/AGENTS.md`, `frontend/AGENTS.md`.
+
+Local-only, git-ignored by design (`**/AGENT_CONTEXT.md`, `docs/`, `backend/docs/`, `ui_Designs/`, checklists, `project_doc`):
+
+| File | Covers |
+|---|---|
+| `backend/migrations/AGENT_CONTEXT.md` | Every table/enum/migration, migration rules and numbering quirks |
+| `backend/src/modules/learningMaterials/AGENT_CONTEXT.md` | Curriculum feature end to end (API, R2, frontend) |
+| `backend/src/modules/notifications/AGENT_CONTEXT.md` | In-app notifications, email templates/rules, cancellation requests |
+| `backend/src/modules/daily/AGENT_CONTEXT.md` | Daily.co lifecycle, join rules, webhook |
+| `frontend/src/app/features/classes/AGENT_CONTEXT.md` | Live class scheduling rules, timezones, APIs |
+| `frontend/src/app/features/users/AGENT_CONTEXT.md` | Admin user management |
+| `frontend/src/app/features/roles/AGENT_CONTEXT.md` | Roles & permissions matrix |
+| `frontend/src/app/features/attendance/AGENT_CONTEXT.md` | Teacher attendance verification |
+| `frontend/src/app/features/learning-materials/AGENT_CONTEXT.md` | Frontend pointer for curriculum pages |
+| `docs/RENDER_DEPLOYMENT_GUIDE.md`, `docs/CLOUDFLARE_R2_SETUP_GUIDE.md` | Deployment and R2 setup |
+| `backend/docs/SchooliEdu_API_Guide.md`, `backend/docs/DAILY_CO_SETUP_AND_MIGRATION.md` | Older API guide / Daily notes (partly stale) |
+| `backend/BACKEND_CHECKLIST.md`, `frontend/FRONTEND_CHECKLIST.md` | Historical progress checklists (outdated) |
+
+Keep docs current: when you change behaviour described in one of these files, update it in the same change. Trust code over docs if they disagree, then fix the doc. Because `AGENT_CONTEXT.md` files are not committed, a fresh clone will not have them.

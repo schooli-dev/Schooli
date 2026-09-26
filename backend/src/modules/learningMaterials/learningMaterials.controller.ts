@@ -2,7 +2,7 @@ import type { RequestHandler } from "express";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { sendSuccess } from "../../utils/apiResponse.js";
 import * as service from "./learningMaterials.service.js";
-import { uploadLearningMaterial } from "./learningMaterials.storage.js";
+import { downloadLearningMaterial, uploadLearningMaterial } from "./learningMaterials.storage.js";
 import { ApiError } from "../../utils/ApiError.js";
 
 export const listCourses: RequestHandler = asyncHandler(async (req, res) => {
@@ -74,4 +74,15 @@ export const createMaterial: RequestHandler = asyncHandler(async (req, res) => {
 });
 export const createMaterialRevision: RequestHandler = asyncHandler(async (req, res) => {
   sendSuccess(res, { statusCode: 201, message: "Learning material revision created", data: await service.createMaterialRevision(req.params.id as string, req.body, req.user!) });
+});
+export const downloadMaterial: RequestHandler = asyncHandler(async (req, res) => {
+  const material = await service.getMaterialFile(req.params.id as string);
+  const file = await downloadLearningMaterial(material.storageKey, material.fileName, material.mimeType);
+  res.setHeader("Content-Type", file.mimeType);
+  res.setHeader("Content-Disposition", `inline; filename="${file.fileName.replace(/[\"\\\\]/g, "")}"`);
+  file.body.pipe(res);
+});
+export const deleteMaterial: RequestHandler = asyncHandler(async (req, res) => {
+  await service.deleteMaterial(req.params.id as string, req.user!);
+  sendSuccess(res, { message: "Learning material deleted", data: null });
 });

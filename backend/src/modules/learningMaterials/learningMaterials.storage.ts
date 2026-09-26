@@ -1,6 +1,7 @@
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, GetObjectCommand, ListObjectsV2Command, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { randomUUID } from "crypto";
 import type { Express } from "express";
+import type { Readable } from "stream";
 import { env } from "../../config/env.js";
 import { ApiError } from "../../utils/ApiError.js";
 
@@ -25,6 +26,18 @@ export type UploadedLearningMaterialFile = {
   storageKey: string;
   fileName: string;
   mimeType: string;
+  sizeBytes: number;
+};
+
+export type DownloadedLearningMaterialFile = {
+  body: Readable;
+  fileName: string;
+  mimeType: string;
+};
+
+export type LearningMaterialStorageStats = {
+  status: "connected" | "not_configured" | "unavailable";
+  objectCount: number;
   sizeBytes: number;
 };
 
@@ -53,8 +66,53 @@ export async function uploadLearningMaterial(file: Express.Multer.File): Promise
   return { storageKey, fileName, mimeType: file.mimetype, sizeBytes: file.size };
 }
 
+export async function downloadLearningMaterial(storageKey: string, fileName: string, mimeType: string): Promise<DownloadedLearningMaterialFile> {
+  ensureConfigured();
+  const result = await getClient().send(new GetObjectCommand({ Bucket: env.R2_BUCKET_NAME!, Key: storageKey }));
+  if (!result.Body) throw new ApiError(404, "The uploaded file could not be found", "MATERIAL_FILE_NOT_FOUND");
+  return { body: result.Body as Readable, fileName, mimeType };
+}
+
+export async function deleteLearningMaterial(storageKey: string): Promise<void> {
+  ensureConfigured();
+  await getClient().send(new DeleteObjectCommand({ Bucket: env.R2_BUCKET_NAME!, Key: storageKey }));
+}
+
+export async function getLearningMaterialStorageStats(): Promise<LearningMaterialStorageStats> {
+  if (!isConfigured()) return { status: "not_configured", objectCount: 0, sizeBytes: 0 };
+
+  try {
+    let continuationToken: string | undefined;
+    let objectCount = 0;
+    let sizeBytes = 0;
+
+    do {
+      const result = await getClient().send(new ListObjectsV2Command({
+        Bucket: env.R2_BUCKET_NAME!,
+        Prefix: "learning-materials/",
+        ContinuationToken: continuationToken
+      }));
+      for (const object of result.Contents ?? []) {
+        objectCount += 1;
+        sizeBytes += object.Size ?? 0;
+      }
+      continuationToken = result.IsTruncated ? result.NextContinuationToken : undefined;
+    } while (continuationToken);
+
+    return { status: "connected", objectCount, sizeBytes };
+  } catch {
+    return { status: "unavailable", objectCount: 0, sizeBytes: 0 };
+  }
+}
+
 function isConfigured(): boolean {
   return Boolean(env.R2_ENDPOINT && env.R2_BUCKET_NAME && env.R2_ACCESS_KEY_ID && env.R2_SECRET_ACCESS_KEY);
+}
+
+function ensureConfigured(): void {
+  if (!isConfigured()) {
+    throw new ApiError(503, "File storage is not configured. Add the Cloudflare R2 settings first.", "R2_NOT_CONFIGURED");
+  }
 }
 
 function getClient(): S3Client {

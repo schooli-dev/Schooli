@@ -1,4 +1,5 @@
 import { pool } from "../../db/pool.js";
+import { getLearningMaterialStorageStats } from "../learningMaterials/learningMaterials.storage.js";
 
 export type AdminDashboardStats = {
   users: {
@@ -23,8 +24,11 @@ export type AdminDashboardStats = {
     pending: number;
     overdue: number;
   };
-  credits: {
-    approvedTotal: number;
+  r2Storage: {
+    status: "connected" | "not_configured" | "unavailable";
+    objectCount: number;
+    sizeBytes: number;
+    uploadsLast24Hours: number;
   };
   todaysClasses: Array<{
     id: string;
@@ -70,8 +74,8 @@ type HomeworkStatsRow = {
   overdue: string;
 };
 
-type CreditStatsRow = {
-  approved_total: string | null;
+type RecentUploadRow = {
+  uploads_last_24_hours: string;
 };
 
 type TodayClassRow = {
@@ -93,12 +97,12 @@ type OpenTicketRow = {
 };
 
 export async function getStats(): Promise<AdminDashboardStats> {
-  const [users, classes, tickets, homework, credits, todaysClasses, openTickets] = await Promise.all([
+  const [users, classes, tickets, homework, r2Storage, todaysClasses, openTickets] = await Promise.all([
     getUserStats(),
     getClassStats(),
     getTicketStats(),
     getHomeworkStats(),
-    getCreditStats(),
+    getR2StorageStats(),
     getTodaysClasses(),
     getOpenTickets()
   ]);
@@ -108,7 +112,7 @@ export async function getStats(): Promise<AdminDashboardStats> {
     classes,
     tickets,
     homework,
-    credits,
+    r2Storage,
     todaysClasses,
     openTickets
   };
@@ -202,14 +206,21 @@ async function getHomeworkStats(): Promise<AdminDashboardStats["homework"]> {
   };
 }
 
-async function getCreditStats(): Promise<AdminDashboardStats["credits"]> {
-  const result = await pool.query<CreditStatsRow>(`
-    SELECT COALESCE(SUM(amount) FILTER (WHERE approval_status = 'approved'), 0)::TEXT AS approved_total
-    FROM credits_ledger
-  `);
+async function getR2StorageStats(): Promise<AdminDashboardStats["r2Storage"]> {
+  const [storage, uploads] = await Promise.all([
+    getLearningMaterialStorageStats(),
+    pool.query<RecentUploadRow>(`
+      SELECT COUNT(*)::TEXT AS uploads_last_24_hours
+      FROM curriculum_materials
+      WHERE source_type = 'file'
+        AND storage_key IS NOT NULL
+        AND created_at >= NOW() - INTERVAL '24 hours'
+    `)
+  ]);
 
   return {
-    approvedTotal: Number(result.rows[0]?.approved_total ?? 0)
+    ...storage,
+    uploadsLast24Hours: Number(uploads.rows[0]?.uploads_last_24_hours ?? 0)
   };
 }
 
