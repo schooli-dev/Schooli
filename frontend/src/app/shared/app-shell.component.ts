@@ -220,11 +220,15 @@ export class AppShellComponent implements OnDestroy {
   }
 
   protected toggleLearningMaterials(): void {
-    this.learningMaterialsExpanded.update((expanded) => !expanded);
+    const willExpand = !this.learningMaterialsExpanded();
+    this.learningMaterialsExpanded.set(willExpand);
+    if (willExpand) this.reportsAnalyticsExpanded.set(false);
   }
 
   protected toggleReportsAnalytics(): void {
-    this.reportsAnalyticsExpanded.update((expanded) => !expanded);
+    const willExpand = !this.reportsAnalyticsExpanded();
+    this.reportsAnalyticsExpanded.set(willExpand);
+    if (willExpand) this.learningMaterialsExpanded.set(false);
   }
 
   protected openProfile(): void {

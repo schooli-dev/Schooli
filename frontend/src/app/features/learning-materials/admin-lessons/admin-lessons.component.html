@@ -59,42 +59,91 @@
 
 @if (detailsOpen() && selected(); as lesson) {
   <div class="drawer-backdrop" (click)="closeDetails()"></div>
-  <aside class="details-drawer" role="dialog" aria-modal="true" aria-labelledby="lesson-drawer-title">
-    <header>
-      <div><span class="section-kicker">{{ lesson.courseName }} / {{ lesson.moduleName }}</span><h2 id="lesson-drawer-title">{{ detailsMode() === 'edit' ? 'Edit curriculum class' : lesson.lessonNumber + '. ' + lesson.title }}</h2></div>
-      <div class="d-flex align-items-start gap-2">
-        @if (detailsMode() === 'view') { <button class="btn btn-outline-primary btn-sm" type="button" (click)="beginEdit()"><i class="bi bi-pencil-square me-1"></i>Edit</button> }
-        <button class="btn-close mt-1" type="button" aria-label="Close" (click)="closeDetails()"></button>
+  <aside class="details-drawer" [class.is-editing]="detailsMode() === 'edit'" role="dialog" aria-modal="true" aria-labelledby="lesson-drawer-title">
+    <header class="drawer-header">
+      <div class="drawer-heading">
+        <nav class="drawer-crumbs" aria-label="Curriculum hierarchy">
+          <span><i class="bi bi-book"></i>{{ lesson.courseName }}</span>
+          <i class="bi bi-chevron-right"></i>
+          <span><i class="bi bi-layers"></i>{{ lesson.moduleName }}</span>
+        </nav>
+        <h2 id="lesson-drawer-title">{{ detailsMode() === 'edit' ? 'Edit curriculum class' : lesson.lessonNumber + '. ' + lesson.title }}</h2>
+        <div class="drawer-meta">
+          <span class="status-badge" [class.inactive]="lesson.status === 'inactive'">{{ lesson.status }}</span>
+          <span class="mode-pill"><i class="bi" [ngClass]="detailsMode() === 'edit' ? 'bi-pencil-square' : 'bi-eye'"></i>{{ detailsMode() === 'edit' ? 'Editing' : 'Viewing' }}</span>
+        </div>
+      </div>
+      <div class="drawer-header-actions">
+        @if (detailsMode() === 'view') { <button class="btn btn-primary btn-sm" type="button" (click)="beginEdit()"><i class="bi bi-pencil-square me-1"></i>Edit</button> }
+        <button class="btn-close" type="button" aria-label="Close" (click)="closeDetails()"></button>
       </div>
     </header>
 
     <div class="drawer-body">
       @if (detailsMode() === 'view') {
-        <div class="lesson-readonly">
-          <span class="status-badge" [class.inactive]="lesson.status === 'inactive'">{{ lesson.status }}</span>
-          <p class="text-muted mb-0">{{ lesson.description || 'No description added.' }}</p>
-          <dl class="row mb-0"><dt class="col-5">Class number</dt><dd class="col-7">{{ lesson.lessonNumber }}</dd><dt class="col-5">Sort order</dt><dd class="col-7">{{ lesson.sortOrder }}</dd></dl>
-        </div>
+        <section class="drawer-card lesson-readonly">
+          <div class="stat-tiles">
+            <div class="stat-tile"><span>Class number</span><strong>{{ lesson.lessonNumber }}</strong></div>
+            <div class="stat-tile"><span>Sort order</span><strong>{{ lesson.sortOrder }}</strong></div>
+            <div class="stat-tile"><span>Materials</span><strong>{{ lesson.materials.length }}</strong></div>
+          </div>
+          <div class="description-block">
+            <span class="field-label">Description</span>
+            <p>{{ lesson.description || 'No description added.' }}</p>
+          </div>
+        </section>
       } @else {
-        <div class="drawer-form">
-          <div class="mb-3"><label class="form-label">Module <span class="text-danger">*</span></label><select class="form-select" [(ngModel)]="editForm.moduleId">@for (module of modules(); track module.id) { <option [value]="module.id">{{ module.courseName }} / {{ module.name }}</option> }</select></div>
-          <div class="mb-3"><label class="form-label">Class title <span class="text-danger">*</span></label><input class="form-control" [(ngModel)]="editForm.title" /></div>
-          <div class="row g-3"><div class="col-6"><label class="form-label">Class number</label><input class="form-control" type="number" min="1" [(ngModel)]="editForm.lessonNumber" /></div><div class="col-6"><label class="form-label">Sort order</label><input class="form-control" type="number" min="1" [(ngModel)]="editForm.sortOrder" /></div></div>
-          <div class="mt-3"><label class="form-label">Description</label><textarea class="form-control" rows="4" [(ngModel)]="editForm.description"></textarea></div>
-          <div class="mt-3"><label class="form-label">Status</label><select class="form-select" [(ngModel)]="editForm.status"><option value="active">Active</option><option value="inactive">Inactive</option></select></div>
-        </div>
+        <section class="drawer-card drawer-form">
+          <h3 class="card-title"><i class="bi bi-sliders"></i>Class details</h3>
+          <div class="form-field"><label class="form-label">Module <span class="text-danger">*</span></label><select class="form-select" [(ngModel)]="editForm.moduleId">@for (module of modules(); track module.id) { <option [value]="module.id">{{ module.courseName }} / {{ module.name }}</option> }</select></div>
+          <div class="form-field"><label class="form-label">Class title <span class="text-danger">*</span></label><input class="form-control" [(ngModel)]="editForm.title" /></div>
+          <div class="form-grid">
+            <div class="form-field"><label class="form-label">Class number</label><input class="form-control" type="number" min="1" [(ngModel)]="editForm.lessonNumber" /></div>
+            <div class="form-field"><label class="form-label">Sort order</label><input class="form-control" type="number" min="1" [(ngModel)]="editForm.sortOrder" /></div>
+            <div class="form-field"><label class="form-label">Status</label><select class="form-select" [(ngModel)]="editForm.status"><option value="active">Active</option><option value="inactive">Inactive</option></select></div>
+          </div>
+          <div class="form-field"><label class="form-label">Description</label><textarea class="form-control" rows="4" [(ngModel)]="editForm.description"></textarea></div>
+        </section>
       }
 
-      <div class="d-flex align-items-center justify-content-between mt-4 mb-2"><h3 class="mb-0">Materials</h3>@if (detailsMode() === 'edit') { <button class="btn btn-primary btn-sm" type="button" (click)="openMaterial()"><i class="bi bi-plus-lg me-1"></i>Add material</button> }</div>
-      @if (!lesson.materials.length) { <p class="text-muted small">No materials have been added.</p> } @else {
-        <div class="list-group list-group-flush">
-          @for (item of lesson.materials; track item.id) {
-            <div class="list-group-item px-0 material-item"><div class="d-flex gap-2"><i class="bi" [ngClass]="materialIcon(item.section)"></i><button class="material-open min-w-0 text-start" type="button" [disabled]="openingMaterialId() === item.id" (click)="openMaterialFile(item)"><strong class="d-block text-truncate">{{ item.title }} <small class="text-muted">v{{ item.version }}</small></strong><small class="text-muted">{{ materialSubtitle(item) }}</small>@if (item.fileName) { <small class="d-block text-muted text-truncate">{{ item.fileName }}</small> }</button>@if (detailsMode() === 'edit') { <div class="material-actions ms-auto align-self-center">@if (item.sourceType === 'file') { <button class="btn btn-outline-primary btn-sm" type="button" [disabled]="saving()" title="Replace file" aria-label="Replace file" (click)="openReplaceMaterial(item)"><i class="bi bi-arrow-repeat"></i></button> }<button class="btn btn-outline-danger btn-sm" type="button" [disabled]="saving()" title="Delete material" aria-label="Delete material" (click)="deleteMaterial(item)"><i class="bi bi-trash"></i></button></div> }</div></div>
-          }
+      <section class="drawer-card materials-card">
+        <div class="materials-head">
+          <h3 class="card-title"><i class="bi bi-collection"></i>Materials <span class="count-chip">{{ lesson.materials.length }}</span></h3>
+          @if (detailsMode() === 'edit') { <button class="btn btn-primary btn-sm" type="button" (click)="openMaterial()"><i class="bi bi-plus-lg me-1"></i>Add material</button> }
         </div>
-      }
+        @if (!lesson.materials.length) {
+          <div class="materials-empty"><i class="bi bi-folder2-open"></i><p>No materials have been added.</p></div>
+        } @else {
+          <ul class="material-list">
+            @for (item of lesson.materials; track item.id) {
+              <li class="material-item">
+                <span class="material-tile" [attr.data-section]="item.section"><i class="bi" [ngClass]="materialIcon(item.section)"></i></span>
+                <button class="material-open min-w-0 text-start" type="button" [disabled]="openingMaterialId() === item.id" (click)="openMaterialFile(item)">
+                  <strong class="d-block text-truncate">{{ item.title }}</strong>
+                  <span class="material-tags">
+                    <span class="tag tag-section">{{ item.section.replace('_', ' ') }}</span>
+                    <span class="tag"><i class="bi" [ngClass]="item.sourceType === 'link' ? 'bi-link-45deg' : 'bi-file-earmark'"></i>{{ item.sourceType === 'link' ? 'Link' : 'File' }}</span>
+                    <span class="tag">v{{ item.version }}</span>
+                    <span class="tag"><i class="bi" [ngClass]="item.audience === 'teachers_only' ? 'bi-person-lock' : 'bi-people'"></i>{{ item.audience === 'teachers_only' ? 'Teachers only' : 'Students and teachers' }}</span>
+                    @if (item.sizeBytes) { <span class="tag">{{ item.sizeBytes / 1048576 | number: '1.0-1' }} MB</span> }
+                  </span>
+                  @if (item.fileName) { <small class="d-block text-muted text-truncate">{{ item.fileName }}</small> }
+                </button>
+                <div class="material-actions">
+                  @if (detailsMode() === 'edit') {
+                    @if (item.sourceType === 'file') { <button class="btn btn-outline-primary btn-sm" type="button" [disabled]="saving()" title="Replace file" aria-label="Replace file" (click)="openReplaceMaterial(item)"><i class="bi bi-arrow-repeat"></i></button> }
+                    <button class="btn btn-outline-danger btn-sm" type="button" [disabled]="saving()" title="Delete material" aria-label="Delete material" (click)="deleteMaterial(item)"><i class="bi bi-trash"></i></button>
+                  } @else {
+                    <span class="open-hint" aria-hidden="true"><i class="bi bi-box-arrow-up-right"></i></span>
+                  }
+                </div>
+              </li>
+            }
+          </ul>
+        }
+      </section>
     </div>
-    @if (detailsMode() === 'edit') { <footer class="drawer-footer"><button class="btn btn-outline-secondary" type="button" [disabled]="saving()" (click)="cancelEdit()">Cancel</button><button class="btn btn-primary" type="button" [disabled]="saving()" (click)="saveDetails()">Save changes</button></footer> }
+    @if (detailsMode() === 'edit') { <footer class="drawer-footer"><button class="btn btn-outline-secondary" type="button" [disabled]="saving()" (click)="cancelEdit()">Cancel</button><button class="btn btn-primary" type="button" [disabled]="saving()" (click)="saveDetails()"><i class="bi bi-check2 me-1"></i>Save changes</button></footer> }
   </aside>
 }
 
