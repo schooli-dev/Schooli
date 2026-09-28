@@ -1416,6 +1416,21 @@ export const openApiSpec = swaggerJSDoc({
       "/api/learning-materials/modules/{id}/teachers": {
         put: { tags: ["Learning Materials"], summary: "Replace active teachers assigned to a module", security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }], responses: { "200": { description: "Teacher access updated" } } }
       },
+      "/api/learning-materials/my/modules": {
+        get: { tags: ["Learning Materials"], summary: "List modules assigned to the signed-in teacher", security: [{ bearerAuth: [] }], responses: { "200": { description: "Assigned modules fetched" } } }
+      },
+      "/api/learning-materials/my/classes": {
+        get: { tags: ["Learning Materials"], summary: "List curriculum classes in modules assigned to the signed-in teacher", security: [{ bearerAuth: [] }], responses: { "200": { description: "Assigned curriculum classes fetched" } } }
+      },
+      "/api/learning-materials/my/modules/{id}": {
+        get: { tags: ["Learning Materials"], summary: "View one module assigned to the signed-in teacher", security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }], responses: { "200": { description: "Assigned module fetched" } } }
+      },
+      "/api/learning-materials/my/classes/{id}": {
+        get: { tags: ["Learning Materials"], summary: "View one curriculum class assigned to the signed-in teacher", security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }], responses: { "200": { description: "Assigned curriculum class fetched" } } }
+      },
+      "/api/learning-materials/my/materials/{id}/download": {
+        get: { tags: ["Learning Materials"], summary: "Open a private file in a curriculum class assigned to the signed-in teacher", security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }], responses: { "200": { description: "Private learning material stream" } } }
+      },
       "/api/learning-materials/lessons": {
         get: { tags: ["Learning Materials"], summary: "List curriculum classes", security: [{ bearerAuth: [] }], responses: { "200": { description: "Curriculum classes fetched" } } },
         post: { tags: ["Learning Materials"], summary: "Create curriculum class", security: [{ bearerAuth: [] }], responses: { "201": { description: "Curriculum class created" } } }

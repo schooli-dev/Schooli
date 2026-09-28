@@ -26,6 +26,41 @@
         </a>
       }
 
+      @if (userManagementItems().length) {
+        <section class="sidebar-tree" [class.is-expanded]="userManagementExpanded()">
+          <button
+            class="sidebar-link learning-materials-parent"
+            [class.is-active]="isUserManagementActive()"
+            type="button"
+            [attr.aria-expanded]="userManagementExpanded()"
+            (click)="toggleUserManagement()"
+          >
+            <span class="nav-icon" aria-hidden="true">
+              <i class="bi bi-people"></i>
+            </span>
+            <span class="link-label text-truncate">User Management</span>
+            <i class="bi tree-chevron" [ngClass]="userManagementExpanded() ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
+          </button>
+
+          @if (userManagementExpanded()) {
+            <div class="sidebar-tree-children">
+              @for (item of userManagementItems(); track item.path) {
+                <a
+                  class="sidebar-tree-link"
+                  [href]="item.path"
+                  [class.is-active]="isActivePath(item.path)"
+                  (click)="handleSidebarNavigation($event, item)"
+                >
+                  <span class="tree-line" aria-hidden="true"></span>
+                  <i class="bi" [ngClass]="iconClass(item.icon)"></i>
+                  <span class="text-truncate">{{ item.label }}</span>
+                </a>
+              }
+            </div>
+          }
+        </section>
+      }
+
       @if (learningMaterialsItems().length) {
         <section class="sidebar-tree" [class.is-expanded]="learningMaterialsExpanded()">
           <button

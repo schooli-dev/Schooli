@@ -29,13 +29,14 @@ export class AdminModulesComponent implements OnInit {
   protected statusFilter: 'all' | 'active' | 'inactive' = 'all';
   protected sort = 'order';
   protected form: ModuleForm = this.emptyForm();
-  protected readonly filteredModules = computed(() => {
+  protected filteredModules(): LearningModule[] {
     const query = this.searchText.trim().toLowerCase();
-    return this.modules().filter((module) => {
+    const modules = this.modules().filter((module) => {
       const matchesSearch = !query || `${module.name} ${module.courseName} ${module.description ?? ''}`.toLowerCase().includes(query);
       return matchesSearch && (!this.courseFilter || module.courseId === this.courseFilter) && (this.statusFilter === 'all' || module.status === this.statusFilter);
     });
-  });
+    return modules.sort((a, b) => this.sort === 'name' ? a.name.localeCompare(b.name) : this.sort === 'updatedAt' ? new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime() : this.sort === 'createdAt' ? new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime() : a.sortOrder - b.sortOrder);
+  }
   protected readonly activeCourses = computed(() => this.courses().filter((course) => course.status === 'active'));
 
   constructor(private readonly api: LearningMaterialsApiService, private readonly toasts: ToastService) {}

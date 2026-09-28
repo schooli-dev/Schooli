@@ -56,6 +56,18 @@ export const replaceTeacherModules: RequestHandler = asyncHandler(async (req, re
 export const listLessons: RequestHandler = asyncHandler(async (req, res) => {
   sendSuccess(res, { message: "Curriculum classes fetched", data: await service.listLessons(req.query) });
 });
+export const listMyModules: RequestHandler = asyncHandler(async (req, res) => {
+  sendSuccess(res, { message: "Assigned modules fetched", data: await service.listTeacherAssignedModules(req.user!.id) });
+});
+export const listMyLessons: RequestHandler = asyncHandler(async (req, res) => {
+  sendSuccess(res, { message: "Assigned curriculum classes fetched", data: await service.listTeacherAssignedLessons(req.user!.id) });
+});
+export const getMyModule: RequestHandler = asyncHandler(async (req, res) => {
+  sendSuccess(res, { message: "Assigned module fetched", data: await service.getTeacherAssignedModule(req.user!.id, req.params.id as string) });
+});
+export const getMyLesson: RequestHandler = asyncHandler(async (req, res) => {
+  sendSuccess(res, { message: "Assigned curriculum class fetched", data: await service.getTeacherAssignedLesson(req.user!.id, req.params.id as string) });
+});
 export const createLesson: RequestHandler = asyncHandler(async (req, res) => {
   sendSuccess(res, { statusCode: 201, message: "Curriculum class created", data: await service.createLesson(req.body, req.user!) });
 });
@@ -77,6 +89,13 @@ export const createMaterialRevision: RequestHandler = asyncHandler(async (req, r
 });
 export const downloadMaterial: RequestHandler = asyncHandler(async (req, res) => {
   const material = await service.getMaterialFile(req.params.id as string);
+  const file = await downloadLearningMaterial(material.storageKey, material.fileName, material.mimeType);
+  res.setHeader("Content-Type", file.mimeType);
+  res.setHeader("Content-Disposition", `inline; filename="${file.fileName.replace(/[\"\\\\]/g, "")}"`);
+  file.body.pipe(res);
+});
+export const downloadMyMaterial: RequestHandler = asyncHandler(async (req, res) => {
+  const material = await service.getTeacherMaterialFile(req.user!.id, req.params.id as string);
   const file = await downloadLearningMaterial(material.storageKey, material.fileName, material.mimeType);
   res.setHeader("Content-Type", file.mimeType);
   res.setHeader("Content-Disposition", `inline; filename="${file.fileName.replace(/[\"\\\\]/g, "")}"`);

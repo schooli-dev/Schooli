@@ -65,6 +65,8 @@ const implementedSidebarPaths = new Set([
   '/admin/learning-materials/modules',
   '/admin/learning-materials/classes',
   '/admin/learning-materials/teacher-access',
+  '/teacher/learning-materials/modules',
+  '/teacher/learning-materials/classes',
   '/teacher/dashboard',
   '/teacher/classes',
   '/teacher/attendance',
@@ -75,7 +77,14 @@ const implementedSidebarPaths = new Set([
 const learningMaterialsPaths = new Set([
   '/admin/learning-materials/courses',
   '/admin/learning-materials/modules',
-  '/admin/learning-materials/classes'
+  '/admin/learning-materials/classes',
+  '/teacher/learning-materials/modules',
+  '/teacher/learning-materials/classes'
+]);
+
+const userManagementPaths = new Set([
+  '/admin/users',
+  '/admin/roles'
 ]);
 
 const reportsAnalyticsPaths = new Set([
@@ -105,6 +114,7 @@ function page(
 })
 export class AppShellComponent implements OnDestroy {
   protected readonly menuOpen = signal(false);
+  protected readonly userManagementExpanded = signal(false);
   protected readonly learningMaterialsExpanded = signal(false);
   protected readonly reportsAnalyticsExpanded = signal(false);
   protected readonly profileOpen = signal(false);
@@ -141,12 +151,22 @@ export class AppShellComponent implements OnDestroy {
     this.navItems().filter((item) => learningMaterialsPaths.has(item.path))
   );
 
+  protected readonly userManagementItems = computed(() => {
+    const isAdmin = this.user()?.roles.includes('admin') ?? false;
+    return isAdmin ? this.navItems().filter((item) => userManagementPaths.has(item.path)) : [];
+  });
+
   protected readonly reportsAnalyticsItems = computed(() =>
     this.navItems().filter((item) => reportsAnalyticsPaths.has(item.path))
   );
 
   protected readonly sidebarItems = computed(() =>
-    this.navItems().filter((item) => !learningMaterialsPaths.has(item.path) && !reportsAnalyticsPaths.has(item.path))
+    this.navItems().filter(
+      (item) =>
+        !userManagementPaths.has(item.path) &&
+        !learningMaterialsPaths.has(item.path) &&
+        !reportsAnalyticsPaths.has(item.path)
+    )
   );
 
   protected readonly sidebarItemsBeforeLearningMaterials = computed(() => {
@@ -219,16 +239,16 @@ export class AppShellComponent implements OnDestroy {
     this.menuOpen.set(false);
   }
 
+  protected toggleUserManagement(): void {
+    this.setExpandedNavigationGroup('user-management');
+  }
+
   protected toggleLearningMaterials(): void {
-    const willExpand = !this.learningMaterialsExpanded();
-    this.learningMaterialsExpanded.set(willExpand);
-    if (willExpand) this.reportsAnalyticsExpanded.set(false);
+    this.setExpandedNavigationGroup('learning-materials');
   }
 
   protected toggleReportsAnalytics(): void {
-    const willExpand = !this.reportsAnalyticsExpanded();
-    this.reportsAnalyticsExpanded.set(willExpand);
-    if (willExpand) this.learningMaterialsExpanded.set(false);
+    this.setExpandedNavigationGroup('reports-analytics');
   }
 
   protected openProfile(): void {
@@ -315,8 +335,25 @@ export class AppShellComponent implements OnDestroy {
     return learningMaterialsPaths.has(this.currentUrl());
   }
 
+  protected isUserManagementActive(): boolean {
+    return userManagementPaths.has(this.currentUrl());
+  }
+
   protected isReportsAnalyticsActive(): boolean {
     return reportsAnalyticsPaths.has(this.currentUrl());
+  }
+
+  private setExpandedNavigationGroup(group: 'user-management' | 'learning-materials' | 'reports-analytics'): void {
+    const shouldExpand =
+      group === 'user-management'
+        ? !this.userManagementExpanded()
+        : group === 'learning-materials'
+          ? !this.learningMaterialsExpanded()
+          : !this.reportsAnalyticsExpanded();
+
+    this.userManagementExpanded.set(group === 'user-management' && shouldExpand);
+    this.learningMaterialsExpanded.set(group === 'learning-materials' && shouldExpand);
+    this.reportsAnalyticsExpanded.set(group === 'reports-analytics' && shouldExpand);
   }
 
   protected iconClass(icon: string): string {

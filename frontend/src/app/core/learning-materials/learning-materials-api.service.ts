@@ -49,6 +49,7 @@ export type TeacherModuleAccess = {
 export type LessonPreview = { id: string; lessonNumber: number; title: string; status: CurriculumStatus; materialCount: number };
 export type CourseDetail = LearningCourse & { modules: LearningModule[] };
 export type ModuleDetail = LearningModule & { teachers: ModuleTeacher[]; lessons: LessonPreview[] };
+export type TeacherModuleDetail = LearningModule & { lessons: LessonPreview[] };
 export type LearningLesson = {
   id: string;
   moduleId: string;
@@ -151,6 +152,11 @@ export class LearningMaterialsApiService {
     return this.api.get('/learning-materials/lessons', filters);
   }
 
+  listMyModules(): Observable<ApiResponse<LearningModule[]>> { return this.api.get('/learning-materials/my/modules'); }
+  listMyClasses(): Observable<ApiResponse<LearningLesson[]>> { return this.api.get('/learning-materials/my/classes'); }
+  getMyModule(id: string): Observable<ApiResponse<TeacherModuleDetail>> { return this.api.get(`/learning-materials/my/modules/${id}`); }
+  getMyClass(id: string): Observable<ApiResponse<LessonDetail>> { return this.api.get(`/learning-materials/my/classes/${id}`); }
+
   getLesson(id: string): Observable<ApiResponse<LessonDetail>> { return this.api.get(`/learning-materials/lessons/${id}`); }
   createLesson(payload: LessonPayload): Observable<ApiResponse<LearningLesson>> { return this.api.post('/learning-materials/lessons', payload); }
   updateLesson(id: string, payload: Partial<LessonPayload>): Observable<ApiResponse<LessonDetail>> { return this.api.patch(`/learning-materials/lessons/${id}`, payload); }
@@ -162,5 +168,6 @@ export class LearningMaterialsApiService {
   createMaterial(payload: MaterialPayload): Observable<ApiResponse<LearningMaterial>> { return this.api.post('/learning-materials/materials', payload); }
   createMaterialRevision(id: string, payload: Omit<MaterialPayload, 'lessonId'>): Observable<ApiResponse<LearningMaterial>> { return this.api.post(`/learning-materials/materials/${id}/revisions`, payload); }
   downloadMaterial(id: string): Observable<Blob> { return this.api.getBlob(`/learning-materials/materials/${id}/download`); }
+  downloadMyMaterial(id: string): Observable<Blob> { return this.api.getBlob(`/learning-materials/my/materials/${id}/download`); }
   deleteMaterial(id: string): Observable<ApiResponse<null>> { return this.api.delete(`/learning-materials/materials/${id}`); }
 }

@@ -86,7 +86,12 @@ export class AdminRolesComponent implements OnInit {
   protected readonly totalUsersAssigned = computed(() => this.roles().reduce((total, role) => total + role.usersAssigned, 0));
   protected readonly filteredPagePermissions = computed(() => {
     const query = this.permissionSearch.trim().toLowerCase();
+    const roleName = this.selectedRole()?.name.toLowerCase();
+    const portalRoles = new Set(['admin', 'teacher', 'student', 'support']);
     return this.pagePermissions().filter((page) => {
+      if (roleName && portalRoles.has(roleName) && !page.roles.includes(roleName)) {
+        return false;
+      }
       if (!query) {
         return true;
       }

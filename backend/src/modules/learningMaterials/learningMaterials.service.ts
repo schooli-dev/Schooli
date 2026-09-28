@@ -643,6 +643,95 @@ async function assertActiveTeachers(teacherIds: string[]): Promise<void> {
   }
 }
 
+export async function listTeacherAssignedModules(teacherId: string) {
+  const result = await pool.query<ModuleRow>(`
+    SELECT m.id, m.course_id, c.name AS course_name, m.name, m.description, m.sort_order, m.status, m.created_at, m.updated_at,
+      COUNT(DISTINCT l.id)::TEXT AS lesson_count, COUNT(DISTINCT tma_all.teacher_id) FILTER (WHERE tma_all.is_active)::TEXT AS teacher_count
+    FROM teacher_module_access tma
+    JOIN curriculum_modules m ON m.id = tma.module_id
+    JOIN curriculum_courses c ON c.id = m.course_id
+    LEFT JOIN curriculum_lessons l ON l.module_id = m.id AND l.status = 'active'
+    LEFT JOIN teacher_module_access tma_all ON tma_all.module_id = m.id
+    WHERE tma.teacher_id = $1 AND tma.is_active = TRUE AND m.status = 'active'
+    GROUP BY m.id, c.name
+    ORDER BY c.name, m.sort_order, LOWER(m.name)
+  `, [teacherId]);
+  return result.rows.map(mapModule);
+}
+
+export async function listTeacherAssignedLessons(teacherId: string) {
+  const result = await pool.query<LessonRow>(`
+    SELECT l.id, l.module_id, m.name AS module_name, m.course_id, c.name AS course_name, l.lesson_number, l.title, l.description,
+      l.sort_order, l.status, l.created_at, l.updated_at, COUNT(cm.id)::TEXT AS material_count
+    FROM teacher_module_access tma
+    JOIN curriculum_modules m ON m.id = tma.module_id
+    JOIN curriculum_courses c ON c.id = m.course_id
+    JOIN curriculum_lessons l ON l.module_id = m.id
+    LEFT JOIN curriculum_materials cm ON cm.lesson_id = l.id AND cm.status = 'active'
+    WHERE tma.teacher_id = $1 AND tma.is_active = TRUE AND m.status = 'active' AND l.status = 'active'
+    GROUP BY l.id, m.name, m.course_id, m.sort_order, c.name
+    ORDER BY c.name, m.sort_order, l.sort_order, l.lesson_number
+  `, [teacherId]);
+  return result.rows.map(mapLesson);
+}
+
+export async function getTeacherAssignedModule(teacherId: string, moduleId: string) {
+  const result = await pool.query<ModuleRow>(`
+    SELECT m.id, m.course_id, c.name AS course_name, m.name, m.description, m.sort_order, m.status, m.created_at, m.updated_at,
+      COUNT(DISTINCT l.id)::TEXT AS lesson_count, '0'::TEXT AS teacher_count
+    FROM teacher_module_access tma
+    JOIN curriculum_modules m ON m.id = tma.module_id
+    JOIN curriculum_courses c ON c.id = m.course_id
+    LEFT JOIN curriculum_lessons l ON l.module_id = m.id AND l.status = 'active'
+    WHERE tma.teacher_id = $1 AND tma.module_id = $2 AND tma.is_active = TRUE AND m.status = 'active'
+    GROUP BY m.id, c.name
+  `, [teacherId, moduleId]);
+  const module = result.rows[0];
+  if (!module) throw new ApiError(404, "Assigned module not found", "TEACHER_MODULE_NOT_FOUND");
+
+  const lessons = await pool.query<LessonPreviewRow>(`
+    SELECT l.id, l.lesson_number, l.title, l.status, COUNT(cm.id)::TEXT AS material_count
+    FROM curriculum_lessons l
+    LEFT JOIN curriculum_materials cm ON cm.lesson_id = l.id AND cm.status = 'active'
+    WHERE l.module_id = $1 AND l.status = 'active'
+    GROUP BY l.id
+    ORDER BY l.sort_order, l.lesson_number
+  `, [moduleId]);
+
+  return {
+    ...mapModule(module),
+    lessons: lessons.rows.map((lesson) => ({
+      id: lesson.id,
+      lessonNumber: lesson.lesson_number,
+      title: lesson.title,
+      status: lesson.status,
+      materialCount: Number(lesson.material_count)
+    }))
+  };
+}
+
+export async function getTeacherAssignedLesson(teacherId: string, lessonId: string) {
+  const result = await pool.query<LessonRow>(`
+    SELECT l.id, l.module_id, m.name AS module_name, m.course_id, c.name AS course_name, l.lesson_number, l.title, l.description,
+      l.sort_order, l.status, l.created_at, l.updated_at, COUNT(cm.id)::TEXT AS material_count
+    FROM teacher_module_access tma
+    JOIN curriculum_modules m ON m.id = tma.module_id
+    JOIN curriculum_courses c ON c.id = m.course_id
+    JOIN curriculum_lessons l ON l.module_id = m.id
+    LEFT JOIN curriculum_materials cm ON cm.lesson_id = l.id AND cm.status = 'active'
+    WHERE tma.teacher_id = $1 AND l.id = $2 AND tma.is_active = TRUE AND m.status = 'active' AND l.status = 'active'
+    GROUP BY l.id, m.name, m.course_id, c.name
+  `, [teacherId, lessonId]);
+  const lesson = result.rows[0];
+  if (!lesson) throw new ApiError(404, "Assigned curriculum class not found", "TEACHER_LESSON_NOT_FOUND");
+
+  const materials = await pool.query<MaterialRow>(
+    "SELECT id, logical_id, lesson_id, section, source_type, title, file_url, storage_key, file_name, mime_type, size_bytes, external_url, audience, allow_late_submission, version, status, replaces_material_id, created_at, updated_at FROM curriculum_materials WHERE lesson_id = $1 AND status = 'active' ORDER BY section, logical_id, version DESC",
+    [lessonId]
+  );
+  return { ...mapLesson(lesson), materials: materials.rows.map(mapMaterial) };
+}
+
 export async function getMaterialFile(materialId: string) {
   const result = await pool.query<MaterialRow>(
     "SELECT id, logical_id, lesson_id, section, source_type, title, file_url, storage_key, file_name, mime_type, size_bytes, external_url, audience, allow_late_submission, version, status, replaces_material_id, created_at, updated_at FROM curriculum_materials WHERE id = $1 AND status = 'active'",
@@ -650,6 +739,24 @@ export async function getMaterialFile(materialId: string) {
   );
   const material = result.rows[0];
   if (!material) throw new ApiError(404, "Learning material not found", "MATERIAL_NOT_FOUND");
+  if (material.source_type !== "file" || !material.storage_key || !material.file_name || !material.mime_type) {
+    throw new ApiError(422, "This material is not a private uploaded file", "MATERIAL_NOT_DOWNLOADABLE");
+  }
+  return { storageKey: material.storage_key, fileName: material.file_name, mimeType: material.mime_type };
+}
+
+export async function getTeacherMaterialFile(teacherId: string, materialId: string) {
+  const result = await pool.query<MaterialRow>(`
+    SELECT cm.id, cm.logical_id, cm.lesson_id, cm.section, cm.source_type, cm.title, cm.file_url, cm.storage_key, cm.file_name, cm.mime_type,
+      cm.size_bytes, cm.external_url, cm.audience, cm.allow_late_submission, cm.version, cm.status, cm.replaces_material_id, cm.created_at, cm.updated_at
+    FROM curriculum_materials cm
+    JOIN curriculum_lessons l ON l.id = cm.lesson_id
+    JOIN teacher_module_access tma ON tma.module_id = l.module_id
+    WHERE cm.id = $1 AND cm.status = 'active' AND l.status = 'active'
+      AND tma.teacher_id = $2 AND tma.is_active = TRUE
+  `, [materialId, teacherId]);
+  const material = result.rows[0];
+  if (!material) throw new ApiError(404, "Assigned learning material not found", "TEACHER_MATERIAL_NOT_FOUND");
   if (material.source_type !== "file" || !material.storage_key || !material.file_name || !material.mime_type) {
     throw new ApiError(422, "This material is not a private uploaded file", "MATERIAL_NOT_DOWNLOADABLE");
   }

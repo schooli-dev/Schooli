@@ -161,6 +161,16 @@ export const routes: Routes = [
         title: 'Teacher Dashboard | SchooliEdu'
       },
       {
+        path: 'teacher/learning-materials/modules', loadComponent: () =>
+          import('./features/learning-materials/teacher-learning-materials/teacher-learning-materials.component').then((module) => module.TeacherLearningMaterialsComponent), canActivate: [authGuard],
+        data: { roles: ['teacher'], permission: 'learning_materials.modules.view', mode: 'modules' }, title: 'My Modules | SchooliEdu'
+      },
+      {
+        path: 'teacher/learning-materials/classes', loadComponent: () =>
+          import('./features/learning-materials/teacher-learning-materials/teacher-learning-materials.component').then((module) => module.TeacherLearningMaterialsComponent), canActivate: [authGuard],
+        data: { roles: ['teacher'], permission: 'learning_materials.classes.view', mode: 'classes' }, title: 'My Curriculum Classes | SchooliEdu'
+      },
+      {
         path: 'teacher/classes',
         component: TeacherClassesComponent,
         canActivate: [authGuard],

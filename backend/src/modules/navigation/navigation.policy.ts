@@ -147,6 +147,26 @@ const pages: NavigationPage[] = [
     ]
   },
   {
+    key: "teacher.learning-materials.modules",
+    label: "Modules",
+    path: "/teacher/learning-materials/modules",
+    icon: "layers",
+    section: "teaching",
+    roles: ["teacher"],
+    anyPermissions: ["learning_materials.modules.view"],
+    actions: [{ key: "read", permission: "learning_materials.modules.view" }]
+  },
+  {
+    key: "teacher.learning-materials.classes",
+    label: "Curriculum Classes",
+    path: "/teacher/learning-materials/classes",
+    icon: "journal",
+    section: "teaching",
+    roles: ["teacher"],
+    anyPermissions: ["learning_materials.classes.view"],
+    actions: [{ key: "read", permission: "learning_materials.classes.view" }]
+  },
+  {
     key: "admin.reports-analytics.curriculum",
     label: "Curriculum",
     path: "/admin/reports-analytics/curriculum",

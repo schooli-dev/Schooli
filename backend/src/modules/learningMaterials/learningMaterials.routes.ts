@@ -1,7 +1,7 @@
 import { Router } from "express";
 import multer from "multer";
 import { authMiddleware } from "../../middlewares/auth.middleware.js";
-import { requirePermission } from "../../middlewares/permission.middleware.js";
+import { requirePermission, requireRole } from "../../middlewares/permission.middleware.js";
 import { validate } from "../../middlewares/validate.middleware.js";
 import * as controller from "./learningMaterials.controller.js";
 import {
@@ -26,10 +26,10 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: upl
 
 learningMaterialsRoutes.use(authMiddleware);
 
-learningMaterialsRoutes.get("/courses", requirePermission("learning_materials.view"), validate(listCoursesSchema), controller.listCourses);
-learningMaterialsRoutes.post("/courses", requirePermission("learning_materials.create"), validate(createCourseSchema), controller.createCourse);
-learningMaterialsRoutes.get("/courses/:id", requirePermission("learning_materials.view"), validate(getCourseSchema), controller.getCourse);
-learningMaterialsRoutes.patch("/courses/:id", requirePermission("learning_materials.update"), validate(updateCourseSchema), controller.updateCourse);
+learningMaterialsRoutes.get("/courses", requireRole("admin"), requirePermission("learning_materials.view"), validate(listCoursesSchema), controller.listCourses);
+learningMaterialsRoutes.post("/courses", requireRole("admin"), requirePermission("learning_materials.create"), validate(createCourseSchema), controller.createCourse);
+learningMaterialsRoutes.get("/courses/:id", requireRole("admin"), requirePermission("learning_materials.view"), validate(getCourseSchema), controller.getCourse);
+learningMaterialsRoutes.patch("/courses/:id", requireRole("admin"), requirePermission("learning_materials.update"), validate(updateCourseSchema), controller.updateCourse);
 
 learningMaterialsRoutes.get("/modules", requirePermission("learning_materials.view"), validate(listModulesSchema), controller.listModules);
 learningMaterialsRoutes.post("/modules", requirePermission("learning_materials.create"), validate(createModuleSchema), controller.createModule);
@@ -37,28 +37,38 @@ learningMaterialsRoutes.get("/modules/:id", requirePermission("learning_material
 learningMaterialsRoutes.patch("/modules/:id", requirePermission("learning_materials.update"), validate(updateModuleSchema), controller.updateModule);
 learningMaterialsRoutes.put(
   "/modules/:id/teachers",
+  requireRole("admin"),
   requirePermission("learning_materials.manage_access"),
   validate(replaceModuleTeachersSchema),
   controller.replaceModuleTeachers
 );
 learningMaterialsRoutes.get(
   "/teacher-access",
+  requireRole("admin"),
   requirePermission("learning_materials.manage_access"),
   validate(listTeacherAccessSchema),
   controller.listTeacherAccess
 );
 learningMaterialsRoutes.get(
   "/teachers/:teacherId/modules",
+  requireRole("admin"),
   requirePermission("learning_materials.manage_access"),
   validate(getTeacherModulesSchema),
   controller.getTeacherModules
 );
 learningMaterialsRoutes.put(
   "/teachers/:teacherId/modules",
+  requireRole("admin"),
   requirePermission("learning_materials.manage_access"),
   validate(replaceTeacherModulesSchema),
   controller.replaceTeacherModules
 );
+
+learningMaterialsRoutes.get("/my/modules", requirePermission("learning_materials.modules.view"), controller.listMyModules);
+learningMaterialsRoutes.get("/my/classes", requirePermission("learning_materials.classes.view"), controller.listMyLessons);
+learningMaterialsRoutes.get("/my/modules/:id", requirePermission("learning_materials.modules.view"), validate(getModuleSchema), controller.getMyModule);
+learningMaterialsRoutes.get("/my/classes/:id", requirePermission("learning_materials.classes.view"), validate(getLessonSchema), controller.getMyLesson);
+learningMaterialsRoutes.get("/my/materials/:id/download", requirePermission("learning_materials.classes.view"), validate(getMaterialSchema), controller.downloadMyMaterial);
 
 learningMaterialsRoutes.get("/lessons", requirePermission("learning_materials.view"), validate(listLessonsSchema), controller.listLessons);
 learningMaterialsRoutes.post("/lessons", requirePermission("learning_materials.create"), validate(createLessonSchema), controller.createLesson);

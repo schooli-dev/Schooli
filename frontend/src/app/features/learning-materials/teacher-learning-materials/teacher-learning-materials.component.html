@@ -1,0 +1,43 @@
+<main class="learning-page">
+  <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3 mb-4">
+    <div><span class="section-kicker">LEARNING MATERIALS</span><h1 class="mb-1">{{ mode === 'modules' ? 'Modules' : 'Curriculum Classes' }}</h1><p class="text-muted mb-0">Only learning materials assigned to you are shown here.</p></div>
+  </div>
+  <section class="toolbar mb-4">
+    <div class="input-group search-control"><span class="input-group-text"><i class="bi bi-search"></i></span><input class="form-control" [(ngModel)]="searchText" [placeholder]="mode === 'modules' ? 'Search modules...' : 'Search classes, modules, or courses...'" /></div>
+    @if (mode === 'modules') { <select class="form-select" [(ngModel)]="courseFilter"><option value="">All courses</option>@for (course of assignedCourses(); track course.id) { <option [value]="course.id">{{ course.name }}</option> }</select><select class="form-select" [(ngModel)]="sort"><option value="order">Sort by order</option><option value="name">Sort by name</option><option value="updatedAt">Recently updated</option></select> }
+  </section>
+
+  @if (loading()) {
+    <div class="empty-state">Loading your learning materials…</div>
+  } @else if (mode === 'modules' && !modules().length) {
+    <div class="empty-state"><i class="bi bi-layers"></i><h2>No modules assigned</h2><p>Your administrator has not assigned a module to you yet.</p></div>
+  } @else if (mode === 'classes' && !lessons().length) {
+    <div class="empty-state"><i class="bi bi-journal-text"></i><h2>No curriculum classes assigned</h2><p>Curriculum classes will appear once they are added to one of your modules.</p></div>
+  } @else if (mode === 'modules') {
+    <section class="row g-3">@for (module of filteredModules(); track module.id) { <div class="col-12 col-md-6 col-xl-4"><article class="module-card h-100"><div class="d-flex justify-content-between gap-3"><span class="module-order">{{ module.sortOrder }}</span><span class="status-badge">Active</span></div><span class="course-name">{{ module.courseName }}</span><h2>{{ module.name }}</h2><p>{{ module.description || 'No description added yet.' }}</p><div class="module-stats"><span><i class="bi bi-journal-text me-1"></i>{{ module.lessonCount }} classes</span></div><footer class="d-flex justify-content-between align-items-center gap-2 mt-auto pt-3"><small class="text-muted">Updated {{ module.updatedAt | date:'MMM d, y' }}</small><div class="btn-group btn-group-sm"><button class="btn btn-outline-secondary" type="button" (click)="viewModule(module)" title="View details"><i class="bi bi-eye"></i></button></div></footer></article></div> }</section>
+  } @else {
+    <section class="table-responsive"><table class="table align-middle lesson-table"><thead><tr><th>Class</th><th>Course / Module</th><th>Order</th><th>Materials</th><th class="text-end">Action</th></tr></thead><tbody>@for (lesson of filteredLessons(); track lesson.id) { <tr><td><strong>{{ lesson.lessonNumber }}. {{ lesson.title }}</strong><small class="d-block text-muted text-truncate">{{ lesson.description || 'No description added.' }}</small></td><td><span class="d-block fw-semibold">{{ lesson.courseName }}</span><small class="text-muted">{{ lesson.moduleName }}</small></td><td>{{ lesson.sortOrder }}</td><td><span class="material-count"><i class="bi bi-paperclip me-1"></i>{{ lesson.materialCount }}</span></td><td class="text-end"><div class="btn-group btn-group-sm"><button class="btn btn-outline-primary" type="button" title="View class" (click)="viewLesson(lesson)"><i class="bi bi-eye"></i></button></div></td></tr> }</tbody></table></section>
+  }
+
+  @if (detailLoading() || selectedModule() || selectedLesson()) {
+    <div class="detail-backdrop" (click)="closeDetail()">
+      <section class="detail-dialog" role="dialog" aria-modal="true" aria-label="Learning material details" (click)="$event.stopPropagation()">
+        <button class="close-button" type="button" aria-label="Close" (click)="closeDetail()"><i class="bi bi-x-lg"></i></button>
+        @if (detailLoading()) {
+          <div class="detail-loading">Loading details…</div>
+        } @else if (selectedModule(); as module) {
+          <span class="section-kicker">{{ module.courseName }}</span><h2>{{ module.name }}</h2><p>{{ module.description || 'No description provided.' }}</p>
+          <h3>Curriculum Classes</h3>
+          @if (module.lessons.length) { <ul class="detail-list">@for (lesson of module.lessons; track lesson.id) { <li><strong>{{ lesson.lessonNumber }}. {{ lesson.title }}</strong><span>{{ lesson.materialCount }} materials</span></li> }</ul> }
+          @else { <p>No curriculum classes have been added yet.</p> }
+        } @else if (selectedLesson(); as lesson) {
+          <span class="section-kicker">{{ lesson.courseName }} · {{ lesson.moduleName }}</span><h2>{{ lesson.lessonNumber }}. {{ lesson.title }}</h2><p>{{ lesson.description || 'No description provided.' }}</p>
+          <h3>Materials</h3>
+          @if (lesson.materials.length) {
+            <ul class="detail-list">@for (material of lesson.materials; track material.id) { <li><span><strong>{{ material.title }}</strong><small>{{ material.section.replace('_', ' ') }} · Version {{ material.version }}</small></span>@if (material.sourceType === 'link' && material.externalUrl) { <a class="btn btn-outline-primary btn-sm" [href]="material.externalUrl" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right me-1"></i>Open link</a> } @else { <button class="btn btn-outline-primary btn-sm" type="button" (click)="openFile(material.id)"><i class="bi bi-eye me-1"></i>View file</button> }</li> }</ul>
+          } @else { <p>No materials have been added yet.</p> }
+        }
+      </section>
+    </div>
+  }
+</main>

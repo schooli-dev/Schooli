@@ -111,6 +111,7 @@ Core features include class scheduling, live video sessions (Daily.co), attendan
 - Make minimal, targeted changes. Do not rewrite working sections unless asked.
 - Preserve all existing functionality, routes, guards, and middleware.
 - Reuse existing services, components, and utilities before creating new ones.
+- For a feature page available to Admin, Teacher, or Student, build one shared page/component by default. Scope its data and show or hide its actions from the authenticated user's permissions; do not create portal-specific duplicate pages merely to make a read-only or restricted variant. Create a separate page only when the user workflow or information architecture is materially different, and document why.
 - Do NOT remove or alter: auth guards, JWT interceptor, role-permission checks, migration files, Swagger annotations.
 - Do NOT invent new API routes, database tables, or environment variables without being asked.
 - Do NOT touch .env files or any file containing real secrets.

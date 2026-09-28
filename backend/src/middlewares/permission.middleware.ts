@@ -16,3 +16,11 @@ export function requirePermission(permission: string) {
     next();
   };
 }
+
+export function requireRole(role: string) {
+  return (req: Request, _res: Response, next: NextFunction): void => {
+    if (!req.user) return next(new ApiError(401, "Authentication required", "UNAUTHORIZED"));
+    if (!req.user.roles.includes(role)) return next(new ApiError(403, "Role access denied", "FORBIDDEN"));
+    next();
+  };
+}

@@ -160,7 +160,7 @@
           <div class="mt-3"><label class="form-label">External URL <span class="text-danger">*</span></label><input class="form-control" type="url" [(ngModel)]="material.url" placeholder="https://..." /></div>
         }
         <div class="mt-3"><label class="form-label">Audience</label><select class="form-select" [(ngModel)]="material.audience"><option value="teachers_only">Teachers only</option><option value="students_and_teachers">Students and teachers</option></select></div>
-        @if (material.section === 'homework') { <label class="form-check mt-3"><input class="form-check-input" type="checkbox" [(ngModel)]="material.allowLateSubmission" /><span class="form-check-label">Allow late submission</span></label> }
+        @if (material.section === 'homework') { <label class="form-check homework-late-submission mt-3"><input class="form-check-input" type="checkbox" [(ngModel)]="material.allowLateSubmission" /><span class="form-check-label">Allow late submission</span></label> }
       </div>
       <footer class="modal-footer"><button class="btn btn-outline-secondary" type="button" [disabled]="saving()" (click)="closeMaterial()">Cancel</button><button class="btn btn-primary" type="button" [disabled]="saving()" (click)="saveMaterial()"><i class="bi bi-cloud-arrow-up me-1"></i>{{ replacingMaterial() ? 'Replace file' : material.source === 'upload' ? 'Upload and add' : 'Add link' }}</button></footer>
     </div></div>
