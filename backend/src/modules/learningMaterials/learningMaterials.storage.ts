@@ -5,19 +5,19 @@ import type { Readable } from "stream";
 import { env } from "../../config/env.js";
 import { ApiError } from "../../utils/ApiError.js";
 
-const allowedMimeTypes = new Set([
-  "application/pdf",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/vnd.ms-powerpoint",
-  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-  "application/vnd.ms-excel",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "text/plain",
-  "text/csv",
-  "image/jpeg",
-  "image/png",
-  "image/webp"
+// Files are validated by extension, not the browser-supplied MIME type, because that is unreliable.
+// Only types the in-site viewer can render are accepted: legacy binary Office formats (doc/ppt/xls)
+// are rejected outright since there is no server-side converter for them.
+const allowedFileTypes = new Map<string, string>([
+  ["pdf", "application/pdf"],
+  ["docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+  ["pptx", "application/vnd.openxmlformats-officedocument.presentationml.presentation"],
+  ["txt", "text/plain"],
+  ["jpg", "image/jpeg"],
+  ["jpeg", "image/jpeg"],
+  ["png", "image/png"],
+  ["webp", "image/webp"],
+  ["gif", "image/gif"]
 ]);
 
 let client: S3Client | null = null;
@@ -49,8 +49,10 @@ export async function uploadLearningMaterial(file: Express.Multer.File): Promise
   if (!isConfigured()) {
     throw new ApiError(503, "File uploads are not configured. Add the Cloudflare R2 settings first.", "R2_NOT_CONFIGURED");
   }
-  if (!allowedMimeTypes.has(file.mimetype)) {
-    throw new ApiError(422, "This file type is not supported. Upload a document, spreadsheet, presentation, PDF, text file, or image.", "UNSUPPORTED_FILE_TYPE");
+  const extension = file.originalname.includes(".") ? file.originalname.slice(file.originalname.lastIndexOf(".") + 1).toLowerCase() : "";
+  const mimeType = allowedFileTypes.get(extension);
+  if (!mimeType) {
+    throw new ApiError(422, "This file type is not supported. Upload a PDF, DOCX, PPTX, TXT, or image (JPG, PNG, WEBP, GIF) file.", "UNSUPPORTED_FILE_TYPE");
   }
 
   const fileName = sanitiseFileName(file.originalname);
@@ -59,11 +61,11 @@ export async function uploadLearningMaterial(file: Express.Multer.File): Promise
     Bucket: env.R2_BUCKET_NAME!,
     Key: storageKey,
     Body: file.buffer,
-    ContentType: file.mimetype,
+    ContentType: mimeType,
     ContentDisposition: `attachment; filename="${fileName}"`
   }));
 
-  return { storageKey, fileName, mimeType: file.mimetype, sizeBytes: file.size };
+  return { storageKey, fileName, mimeType, sizeBytes: file.size };
 }
 
 export async function downloadLearningMaterial(storageKey: string, fileName: string, mimeType: string): Promise<DownloadedLearningMaterialFile> {

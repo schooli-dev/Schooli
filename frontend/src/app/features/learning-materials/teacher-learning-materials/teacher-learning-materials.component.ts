@@ -2,14 +2,17 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit, signal } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { LearningLesson, LearningMaterialsApiService, LearningModule, LessonDetail, TeacherModuleDetail } from '../../../core/learning-materials/learning-materials-api.service';
+import { Observable } from 'rxjs';
+import { MaterialViewerComponent } from '../../../shared/material-viewer/material-viewer.component';
+import { LearningLesson, LearningMaterial, LearningMaterialsApiService, LearningModule, LessonDetail, TeacherModuleDetail } from '../../../core/learning-materials/learning-materials-api.service';
 import { ToastService } from '../../../core/toast/toast.service';
 
-@Component({ selector: 'app-teacher-learning-materials', standalone: true, imports: [CommonModule, FormsModule], templateUrl: './teacher-learning-materials.component.html', styleUrl: './teacher-learning-materials.component.scss' })
+@Component({ selector: 'app-teacher-learning-materials', standalone: true, imports: [CommonModule, FormsModule, MaterialViewerComponent], templateUrl: './teacher-learning-materials.component.html', styleUrl: './teacher-learning-materials.component.scss' })
 export class TeacherLearningMaterialsComponent implements OnInit {
   protected readonly modules = signal<LearningModule[]>([]);
   protected readonly lessons = signal<LearningLesson[]>([]);
   protected readonly loading = signal(true);
+  protected readonly viewing = signal<LearningMaterial | null>(null);
   protected readonly detailLoading = signal(false);
   protected readonly selectedModule = signal<TeacherModuleDetail | null>(null);
   protected readonly selectedLesson = signal<LessonDetail | null>(null);
@@ -57,20 +60,13 @@ export class TeacherLearningMaterialsComponent implements OnInit {
     this.selectedLesson.set(null);
   }
 
-  protected openFile(materialId: string): void {
-    this.api.downloadMyMaterial(materialId).subscribe({
-      next: (file) => {
-        const url = URL.createObjectURL(file);
-        const link = document.createElement('a');
-        link.href = url;
-        link.target = '_blank';
-        link.rel = 'noopener';
-        link.click();
-        setTimeout(() => URL.revokeObjectURL(url), 60_000);
-      },
-      error: () => this.toasts.error('This file could not be opened.')
-    });
+  protected openFile(material: LearningMaterial): void {
+    this.viewing.set(material);
   }
+
+  protected closeViewer(): void { this.viewing.set(null); }
+
+  protected readonly viewerLoader = (): Observable<Blob> => this.api.downloadMyMaterial(this.viewing()!.id);
 
   protected filteredModules(): LearningModule[] {
     const query = this.searchText.trim().toLowerCase();

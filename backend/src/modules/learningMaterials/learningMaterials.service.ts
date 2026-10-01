@@ -771,7 +771,10 @@ export async function deleteMaterial(materialId: string, _actor: AuthenticatedUs
   const material = result.rows[0];
   if (!material) throw new ApiError(404, "Learning material not found", "MATERIAL_NOT_FOUND");
 
-  if (material.storage_key) await deleteLearningMaterial(material.storage_key);
+  if (material.storage_key) {
+    await deleteLearningMaterial(material.storage_key);
+    await deleteLearningMaterial(`${material.storage_key}.preview.pdf`).catch(() => undefined);
+  }
   await pool.query("UPDATE curriculum_materials SET status = 'inactive', updated_at = NOW() WHERE id = $1", [materialId]);
 }
 

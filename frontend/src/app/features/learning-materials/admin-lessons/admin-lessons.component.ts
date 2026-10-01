@@ -1,14 +1,15 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { finalize, switchMap } from 'rxjs';
+import { Observable, finalize, switchMap } from 'rxjs';
+import { MaterialViewerComponent } from '../../../shared/material-viewer/material-viewer.component';
 import { LearningLesson, LearningMaterial, LearningMaterialsApiService, LearningModule, LessonDetail } from '../../../core/learning-materials/learning-materials-api.service';
 import { ToastService } from '../../../core/toast/toast.service';
 
 type LessonForm = { moduleId: string; lessonNumber: number; title: string; description: string; sortOrder: number; status: 'active' | 'inactive' };
 type MaterialForm = { section: 'presentation' | 'lesson_plan' | 'homework' | 'file'; source: 'upload' | 'link'; title: string; url: string; audience: 'teachers_only' | 'students_and_teachers'; allowLateSubmission: boolean };
 
-@Component({ selector: 'app-admin-lessons', standalone: true, imports: [CommonModule, FormsModule], templateUrl: './admin-lessons.component.html', styleUrl: './admin-lessons.component.scss' })
+@Component({ selector: 'app-admin-lessons', standalone: true, imports: [CommonModule, FormsModule, MaterialViewerComponent], templateUrl: './admin-lessons.component.html', styleUrl: './admin-lessons.component.scss' })
 export class AdminLessonsComponent implements OnInit {
   protected readonly lessons = signal<LearningLesson[]>([]);
   protected readonly modules = signal<LearningModule[]>([]);
@@ -18,6 +19,7 @@ export class AdminLessonsComponent implements OnInit {
   protected readonly materialOpen = signal(false);
   protected readonly saving = signal(false);
   protected readonly openingMaterialId = signal<string | null>(null);
+  protected readonly viewing = signal<LearningMaterial | null>(null);
   protected readonly replacingMaterial = signal<LearningMaterial | null>(null);
   protected readonly detailsMode = signal<'view' | 'edit'>('view');
   protected search = '';
@@ -46,6 +48,15 @@ export class AdminLessonsComponent implements OnInit {
 
   protected openCreate(): void { this.form = this.emptyLesson(); this.createOpen.set(true); }
   protected closeCreate(): void { if (!this.saving()) this.createOpen.set(false); }
+
+  /** Defaults class number / sort order to the next free value for the chosen module (both
+   * fields stay editable - this only sets the starting point). Considers inactive lessons too,
+   * since (module_id, lesson_number) and (module_id, sort_order) are unique regardless of status. */
+  protected onCreateModuleChanged(): void {
+    const lessonsForModule = this.lessons().filter((lesson) => lesson.moduleId === this.form.moduleId);
+    this.form.lessonNumber = lessonsForModule.length ? Math.max(...lessonsForModule.map((lesson) => lesson.lessonNumber)) + 1 : 1;
+    this.form.sortOrder = lessonsForModule.length ? Math.max(...lessonsForModule.map((lesson) => lesson.sortOrder)) + 1 : 1;
+  }
 
   protected saveLesson(): void {
     if (!this.form.moduleId || this.form.title.trim().length < 2) {
@@ -195,22 +206,12 @@ export class AdminLessonsComponent implements OnInit {
       else this.toasts.error('This file is no longer available.');
       return;
     }
-
-    const preview = window.open('', '_blank');
-    this.openingMaterialId.set(item.id);
-    this.api.downloadMaterial(item.id).pipe(finalize(() => this.openingMaterialId.set(null))).subscribe({
-      next: (file) => {
-        const objectUrl = URL.createObjectURL(file);
-        if (preview) preview.location.href = objectUrl;
-        else window.open(objectUrl, '_blank', 'noopener');
-        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
-      },
-      error: (error) => {
-        preview?.close();
-        this.toasts.error(error?.error?.message ?? 'The file could not be opened.');
-      }
-    });
+    this.viewing.set(item);
   }
+
+  protected closeViewer(): void { this.viewing.set(null); }
+
+  protected readonly viewerLoader = (): Observable<Blob> => this.api.downloadMaterial(this.viewing()!.id);
 
   protected deleteMaterial(item: LearningMaterial): void {
     if (this.saving() || !window.confirm(`Delete “${item.title}”? This cannot be undone.`)) return;

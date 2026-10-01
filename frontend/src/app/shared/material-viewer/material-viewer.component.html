@@ -1,0 +1,40 @@
+<div class="viewer-backdrop" (click)="close()"></div>
+<section class="viewer-dialog" role="dialog" aria-modal="true" [attr.aria-label]="'Preview of ' + material.title" (contextmenu)="blockContextMenu($event)">
+  <header class="viewer-header">
+    <div class="viewer-title">
+      <i class="bi" [ngClass]="{
+        'bi-file-earmark-pdf': kind() === 'pdf',
+        'bi-image': kind() === 'image',
+        'bi-camera-video': kind() === 'video',
+        'bi-file-earmark-code': kind() === 'text',
+        'bi-file-earmark-word': kind() === 'docx',
+        'bi-file-earmark-slides': kind() === 'pptx',
+        'bi-file-earmark': kind() === 'unsupported'
+      }"></i>
+      <div class="min-w-0"><strong class="text-truncate d-block">{{ material.title }}</strong>@if (material.fileName) { <small class="text-truncate d-block">{{ material.fileName }}</small> }</div>
+    </div>
+    <div class="viewer-actions">
+      @if (canDownload && !loading() && !error()) { <button class="btn btn-outline-primary btn-sm" type="button" (click)="download()"><i class="bi bi-download me-1"></i>Download</button> }
+      <button class="btn-close" type="button" aria-label="Close preview" (click)="close()"></button>
+    </div>
+  </header>
+
+  <div class="viewer-body" [attr.data-kind]="kind()">
+    @if (loading()) {
+      <div class="viewer-state"><span class="spinner-border spinner-border-sm" aria-hidden="true"></span><span>Opening file…</span></div>
+    } @else if (error()) {
+      <div class="viewer-state is-error"><i class="bi bi-exclamation-triangle"></i><span>{{ error() }}</span></div>
+    } @else if (kind() === 'unsupported') {
+      <div class="viewer-state"><i class="bi bi-eye-slash"></i><span>{{ extensionLabel() }} files cannot be previewed on the website. Ask an administrator to upload a PDF, DOCX or PPTX version.</span></div>
+    }
+
+    @if (frameUrl()) { <iframe class="viewer-frame" [src]="frameUrl()!" title="Document preview"></iframe> }
+    @switch (kind()) {
+      @case ('image') { @if (mediaUrl()) { <img class="viewer-image" [src]="mediaUrl()!" [alt]="material.title" draggable="false" /> } }
+      @case ('video') { @if (mediaUrl()) { <video class="viewer-video" [src]="mediaUrl()!" controls controlsList="nodownload noremoteplayback" disablePictureInPicture playsinline></video> } }
+      @case ('text') { @if (!loading() && !error()) { <pre class="viewer-text">{{ textContent() }}</pre> } }
+      @case ('docx') { <div #officeHost class="viewer-office" [hidden]="loading() || !!error()"></div> }
+      @case ('pptx') { <div #officeHost class="viewer-office" [hidden]="loading() || !!error()"></div> }
+    }
+  </div>
+</section>

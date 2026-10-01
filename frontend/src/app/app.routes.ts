@@ -14,7 +14,6 @@ import { RoleRedirectComponent } from './core/auth/role-redirect.component';
 import { ErrorPageComponent } from './features/errors/error-page/error-page.component';
 import { AdminCoursesComponent } from './features/learning-materials/admin-courses/admin-courses.component';
 import { AdminModulesComponent } from './features/learning-materials/admin-modules/admin-modules.component';
- import { AdminLessonsComponent } from './features/learning-materials/admin-lessons/admin-lessons.component';
 import { TeacherAccessComponent } from './features/learning-materials/teacher-access/teacher-access.component';
 
 export const routes: Routes = [
@@ -141,7 +140,7 @@ export const routes: Routes = [
       },
       {
         path: 'admin/learning-materials/classes',
-        component: AdminLessonsComponent,
+        loadComponent: () => import('./features/learning-materials/admin-lessons/admin-lessons.component').then((module) => module.AdminLessonsComponent),
         canActivate: [authGuard],
         data: { permission: 'learning_materials.view' },
         title: 'Curriculum Classes | SchooliEdu'

@@ -1,0 +1,19 @@
+:host { display: contents; }
+.min-w-0 { min-width: 0; }
+.viewer-backdrop { position: fixed; z-index: 1060; inset: 0; background: rgba(15, 23, 42, .62); backdrop-filter: blur(3px); }
+.viewer-dialog { position: fixed; z-index: 1065; inset: clamp(.5rem, 3vh, 2rem) clamp(.5rem, 4vw, 3rem); display: flex; flex-direction: column; overflow: hidden; background: var(--color-surface); border-radius: var(--radius-lg); box-shadow: 0 30px 80px rgba(15, 23, 42, .4); user-select: none; }
+.viewer-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .85rem 1.25rem; border-bottom: 1px solid var(--color-border); background: #fff; }
+.viewer-title { display: flex; align-items: center; gap: .75rem; min-width: 0; }
+.viewer-title > .bi { color: var(--color-primary); font-size: 1.5rem; }
+.viewer-title small { color: var(--color-muted); }
+.viewer-body { position: relative; flex: 1; min-height: 0; overflow: auto; background: var(--color-surface-raised); }
+.viewer-state { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .6rem; min-height: 100%; padding: 2rem; color: var(--color-text-soft); text-align: center; }
+.viewer-state .bi { color: var(--color-primary); font-size: 2rem; }
+.viewer-state.is-error .bi { color: var(--color-danger); }
+.viewer-frame { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
+.viewer-body[data-kind='image'], .viewer-body[data-kind='video'] { display: grid; place-items: center; background: #0f172a; }
+.viewer-image, .viewer-video { max-width: 100%; max-height: 100%; object-fit: contain; }
+.viewer-text { margin: 0; min-height: 100%; padding: 1.25rem; overflow: auto; color: var(--color-text); background: #fff; font: .85rem/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space: pre-wrap; word-break: break-word; user-select: text; }
+.viewer-office { padding: 1rem; overflow: auto; }
+@media (max-width: 575.98px) { .viewer-dialog { inset: 0; border-radius: 0; } .viewer-header { padding: .7rem 1rem; } }
+.viewer-actions { display: flex; align-items: center; gap: .75rem; flex-shrink: 0; }

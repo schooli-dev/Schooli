@@ -1,4 +1,4 @@
-import type { RequestHandler } from "express";
+import type { Request, RequestHandler, Response } from "express";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { sendSuccess } from "../../utils/apiResponse.js";
 import * as service from "./learningMaterials.service.js";
@@ -87,19 +87,23 @@ export const createMaterial: RequestHandler = asyncHandler(async (req, res) => {
 export const createMaterialRevision: RequestHandler = asyncHandler(async (req, res) => {
   sendSuccess(res, { statusCode: 201, message: "Learning material revision created", data: await service.createMaterialRevision(req.params.id as string, req.body, req.user!) });
 });
-export const downloadMaterial: RequestHandler = asyncHandler(async (req, res) => {
-  const material = await service.getMaterialFile(req.params.id as string);
+async function sendMaterialFile(
+  _req: Request,
+  res: Response,
+  material: { storageKey: string; fileName: string; mimeType: string }
+): Promise<void> {
+  const safeName = material.fileName.replace(/["\\]/g, "");
   const file = await downloadLearningMaterial(material.storageKey, material.fileName, material.mimeType);
   res.setHeader("Content-Type", file.mimeType);
-  res.setHeader("Content-Disposition", `inline; filename="${file.fileName.replace(/[\"\\\\]/g, "")}"`);
+  res.setHeader("Content-Disposition", `inline; filename="${safeName}"`);
   file.body.pipe(res);
+}
+
+export const downloadMaterial: RequestHandler = asyncHandler(async (req, res) => {
+  await sendMaterialFile(req, res, await service.getMaterialFile(req.params.id as string));
 });
 export const downloadMyMaterial: RequestHandler = asyncHandler(async (req, res) => {
-  const material = await service.getTeacherMaterialFile(req.user!.id, req.params.id as string);
-  const file = await downloadLearningMaterial(material.storageKey, material.fileName, material.mimeType);
-  res.setHeader("Content-Type", file.mimeType);
-  res.setHeader("Content-Disposition", `inline; filename="${file.fileName.replace(/[\"\\\\]/g, "")}"`);
-  file.body.pipe(res);
+  await sendMaterialFile(req, res, await service.getTeacherMaterialFile(req.user!.id, req.params.id as string));
 });
 export const deleteMaterial: RequestHandler = asyncHandler(async (req, res) => {
   await service.deleteMaterial(req.params.id as string, req.user!);
