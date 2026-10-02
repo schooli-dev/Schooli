@@ -337,7 +337,7 @@ export class AdminUsersComponent implements OnInit, OnDestroy {
         },
         error: () => {
           this.saving.set(false);
-          this.createError.set('Could not create user. Check required fields and duplicate email/username/phone.');
+          this.createError.set('Could not create user. Check required fields and duplicate email or username.');
         }
       });
   }

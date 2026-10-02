@@ -198,7 +198,7 @@ export async function createUser(input: CreateUserInput): Promise<UserListItem> 
     await client.query("ROLLBACK");
 
     if (isUniqueViolation(error)) {
-      throw new ApiError(409, "User email, username, or phone already exists", "USER_ALREADY_EXISTS");
+      throw new ApiError(409, "User email or username already exists", "USER_ALREADY_EXISTS");
     }
 
     throw error;
@@ -274,7 +274,7 @@ export async function updateUser(
     return await getUserById(id);
   } catch (error) {
     if (isUniqueViolation(error)) {
-      throw new ApiError(409, "User email, username, or phone already exists", "USER_ALREADY_EXISTS");
+      throw new ApiError(409, "User email or username already exists", "USER_ALREADY_EXISTS");
     }
 
     throw error;
