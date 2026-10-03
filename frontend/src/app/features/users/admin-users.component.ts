@@ -446,9 +446,8 @@ export class AdminUsersComponent implements OnInit, OnDestroy {
   protected isCreateFormValid(): boolean {
     const hasBaseFields =
       this.createForm.firstName.trim().length > 0 &&
-      this.createForm.lastName.trim().length > 0 &&
       /^[A-Za-z][A-Za-z\s'-]*$/.test(this.createForm.firstName) &&
-      /^[A-Za-z][A-Za-z\s'-]*$/.test(this.createForm.lastName) &&
+      (!this.createForm.lastName.trim() || /^[A-Za-z][A-Za-z\s'-]*$/.test(this.createForm.lastName)) &&
       (!this.createForm.username || /^[A-Za-z0-9._-]{3,50}$/.test(this.createForm.username)) &&
       /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(this.createForm.email) &&
       /^\+\d{1,4}$/.test(this.createForm.isdCode) &&

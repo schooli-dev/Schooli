@@ -120,46 +120,6 @@
   overflow: hidden;
 }
 
-.class-tabs {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  border-bottom: 1px solid var(--color-border-soft);
-  padding: 16px 20px;
-  overflow-x: auto;
-  white-space: nowrap;
-}
-
-.class-tabs button {
-  min-height: 38px;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--color-text-soft);
-  padding: 0 14px;
-  font-weight: 800;
-}
-
-.class-tabs button.is-active {
-  border-color: rgba(37, 99, 235, 0.18);
-  background: #eef4ff;
-  color: var(--color-primary);
-}
-
-.tab-count {
-  min-width: 24px;
-  height: 24px;
-  display: grid;
-  place-items: center;
-  border-radius: 999px;
-  background: #ffffff;
-  color: currentColor;
-  font-size: 12px;
-}
-
 .class-filters {
   display: grid;
   grid-template-columns: minmax(260px, 1fr) 180px 180px 220px;
@@ -532,7 +492,6 @@
   font-weight: 700;
 }
 
-.full-field,
 .schedule-form-grid .full {
   grid-column: 1 / -1;
 }
@@ -569,31 +528,6 @@
   color: var(--color-text-soft);
   padding: 8px 12px;
   font-weight: 700;
-}
-
-.slot-list span.is-match {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-  background: #eef4ff;
-}
-
-.info-card {
-  border: 1px solid var(--color-border-soft);
-  border-radius: 16px;
-  background: var(--color-surface-soft);
-  padding: 16px;
-}
-
-.conflict-card {
-  border-color: #fecaca !important;
-  background: #fff1f2 !important;
-  color: var(--color-danger) !important;
-}
-
-.success-card {
-  border-color: #bbf7d0 !important;
-  background: #f0fdf4 !important;
-  color: var(--color-success) !important;
 }
 
 .video-link-box {
@@ -781,7 +715,6 @@
     padding: 18px;
   }
 
-  .full-field,
   .schedule-form-grid .full {
     grid-column: auto;
   }
@@ -818,10 +751,6 @@
 
   .class-metric-card {
     min-height: auto;
-  }
-
-  .class-tabs {
-    padding: 12px;
   }
 
   .mobile-actions {
@@ -984,6 +913,50 @@
   color: #9a3412;
 }
 
+.teacher-empty-state i { color: #d97706; }
+
+.teacher-option-list { display: grid; gap: 10px; }
+
+.teacher-option-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 46px 14px 14px;
+  border: 1.5px solid var(--color-border-soft);
+  border-radius: 16px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.teacher-option-card:hover, .teacher-option-card.selected { border-color: var(--color-primary); }
+.teacher-option-card.selected { background: #eef4ff; }
+.teacher-option-card:focus-within { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.teacher-option-input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.teacher-option-card.selected .schedule-mini-icon { background: var(--color-primary); color: #fff; }
+
+.teacher-option-body { display: grid; gap: 4px; min-width: 0; }
+.teacher-option-name { display: flex; align-items: center; gap: 8px; }
+.teacher-option-name strong { color: var(--color-text); font-size: 15px; }
+
+.teacher-option-check {
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1.5px solid var(--color-border-soft);
+  border-radius: 999px;
+  background: #fff;
+  color: transparent;
+  font-size: 13px;
+  transform: translateY(-50%);
+}
+
+.teacher-option-card.selected .teacher-option-check { border-color: var(--color-primary); background: var(--color-primary); color: #fff; }
+
 .schedule-field {
   display: grid;
   gap: 8px;
@@ -1009,15 +982,6 @@
   color: var(--color-muted);
   transform: translateY(-50%);
   pointer-events: none;
-}
-
-.schedule-field-error {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--color-danger);
-  font-size: 12px;
-  font-weight: 800;
 }
 
 
@@ -1228,7 +1192,7 @@
 
 .schedule-tabs {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   border: 1px solid var(--color-border-soft);
   border-radius: 20px;
@@ -1284,11 +1248,14 @@
   place-items: center;
   flex: 0 0 38px;
   border-radius: 999px;
-  background: currentColor;
-  color: #ffffff;
+  background: var(--color-border-soft);
+  color: var(--color-muted);
   font-size: 14px;
   font-weight: 950;
 }
+
+.schedule-tab-link.active .tab-index { background: var(--color-primary); color: #fff; }
+.schedule-tab-link.is-complete .tab-index { background: var(--color-success); color: #fff; }
 
 .tab-text {
   display: grid;

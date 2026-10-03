@@ -4,13 +4,17 @@ import { requirePermission } from "../../middlewares/permission.middleware.js";
 import { validate } from "../../middlewares/validate.middleware.js";
 import * as classesController from "./classes.controller.js";
 import {
+  autoCancelClassSchema,
+  availableTeachersForSeriesSchema,
   cancelClassSchema,
   checkConflictsSchema,
   classIdSchema,
   createClassSchema,
   createClassSeriesSchema,
   listClassesSchema,
+  requestRescheduleSchema,
   rescheduleClassSchema,
+  rescheduleSlotsSchema,
   updateClassSchema
 } from "./classes.validation.js";
 
@@ -30,6 +34,12 @@ classesRoutes.post(
   requirePermission("class.create"),
   validate(createClassSeriesSchema),
   classesController.checkSeriesConflicts
+);
+classesRoutes.post(
+  "/series/available-teachers",
+  requirePermission("class.create"),
+  validate(availableTeachersForSeriesSchema),
+  classesController.getAvailableTeachersForSeries
 );
 classesRoutes.get("/", requirePermission("class.view"), validate(listClassesSchema), classesController.listClasses);
 classesRoutes.post("/", requirePermission("class.create"), validate(createClassSchema), classesController.createClass);
@@ -52,6 +62,24 @@ classesRoutes.post(
   requirePermission("class.reschedule"),
   validate(rescheduleClassSchema),
   classesController.rescheduleClass
+);
+classesRoutes.post(
+  "/:id/cancel-auto",
+  requirePermission("class.request_cancel"),
+  validate(autoCancelClassSchema),
+  classesController.requestAutoCancel
+);
+classesRoutes.post(
+  "/:id/reschedule-slots",
+  requirePermission("class.request_reschedule"),
+  validate(rescheduleSlotsSchema),
+  classesController.getRescheduleSlots
+);
+classesRoutes.post(
+  "/:id/reschedule-request",
+  requirePermission("class.request_reschedule"),
+  validate(requestRescheduleSchema),
+  classesController.requestReschedule
 );
 classesRoutes.post("/:id/join", requirePermission("class.join"), validate(classIdSchema), classesController.joinClass);
 classesRoutes.get("/:id/ics", requirePermission("class.view"), validate(classIdSchema), classesController.getIcs);

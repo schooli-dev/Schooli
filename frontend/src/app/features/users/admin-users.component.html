@@ -757,12 +757,11 @@
           </div>
 
           <div class="col-12 col-md-6">
-            <label class="form-label">Last Name <span class="required">*</span></label>
+            <label class="form-label">Last Name <span class="text-muted">(optional)</span></label>
             <input
               class="form-control"
               name="lastName"
               [(ngModel)]="createForm.lastName"
-              required
               pattern="^[A-Za-z][A-Za-z\\s'-]*$"
               #lastNameRef="ngModel"
             />

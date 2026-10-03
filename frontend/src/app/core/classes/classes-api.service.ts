@@ -77,13 +77,41 @@ export type SeriesWeekdaySchedule = {
 export type CreateClassSeriesRequest = {
   teacherId: string;
   studentId: string;
-  title: string;
+  curriculumModuleId: string;
+  /** Optional: start mapping at this curriculum class instead of the module's first. */
+  startingLessonId?: string;
+  /** No longer typed by hand: left unset, each occurrence's title is auto-populated from the
+   * module's ordered curriculum classes. */
+  title?: string;
   startDate: string;
   timezone: string;
   weeklySchedules: SeriesWeekdaySchedule[];
   classCount: number;
   notes?: string;
   overrideConflicts?: boolean;
+};
+
+/** Body for step 3 of the wizard: same schedule shape, minus the teacher (that's what this answers). */
+export type AvailableTeachersForSeriesRequest = {
+  studentId: string;
+  curriculumModuleId: string;
+  startDate: string;
+  timezone: string;
+  weeklySchedules: SeriesWeekdaySchedule[];
+  classCount: number;
+};
+
+export type AvailableTeacherOption = {
+  teacherId: string;
+  name: string;
+  hasModuleAccess: boolean;
+  skillLevel: string | null;
+};
+
+export type AvailableTeachersForSeriesResponse = {
+  occurrences: Array<{ occurrenceNumber: number; startTime: string }>;
+  studentConflicts: SchedulingConflict[];
+  teachers: AvailableTeacherOption[];
 };
 
 export type ClassSeriesResult = {
@@ -198,6 +226,10 @@ export class ClassesApiService {
 
   checkSeriesConflicts(payload: CreateClassSeriesRequest) {
     return this.api.post<CheckSeriesConflictsResponse>('/classes/series/check-conflicts', payload);
+  }
+
+  getAvailableTeachersForSeries(payload: AvailableTeachersForSeriesRequest) {
+    return this.api.post<AvailableTeachersForSeriesResponse>('/classes/series/available-teachers', payload);
   }
 
   joinClass(id: string) {

@@ -14,6 +14,13 @@ type LocalDateTimeParts = { date: string; time: string; dayOfWeek: string };
 type TimeInterval = { start: Date; end: Date };
 
 export async function checkSchedulingConflicts(input: CheckConflictsInput): Promise<SchedulingConflict[]> {
+  return [...(await checkTeacherConflicts(input)), ...(await checkStudentConflicts(input))];
+}
+
+/** Teacher-side only: availability windows, unavailable-date blocks, and teacher double-booking. */
+export async function checkTeacherConflicts(
+  input: Pick<CheckConflictsInput, "teacherId" | "startTime" | "durationMinutes" | "timezone" | "excludeClassId">
+): Promise<SchedulingConflict[]> {
   const start = new Date(input.startTime);
   const end = new Date(start.getTime() + input.durationMinutes * 60 * 1000);
   const conflicts: SchedulingConflict[] = [];
@@ -76,11 +83,112 @@ export async function checkSchedulingConflicts(input: CheckConflictsInput): Prom
   for (const overlap of await findTeacherOverlaps(input.teacherId, start, end, input.excludeClassId)) {
     conflicts.push({ type: "teacher_overlap", message: "Teacher has another class during this time", details: mapOverlap(overlap) });
   }
+
+  return conflicts;
+}
+
+/** Student-side only: double-booking against the student's other scheduled/live classes. */
+export async function checkStudentConflicts(
+  input: Pick<CheckConflictsInput, "studentId" | "startTime" | "durationMinutes" | "excludeClassId">
+): Promise<SchedulingConflict[]> {
+  const start = new Date(input.startTime);
+  const end = new Date(start.getTime() + input.durationMinutes * 60 * 1000);
+  const conflicts: SchedulingConflict[] = [];
+
   for (const overlap of await findStudentOverlaps(input.studentId, start, end, input.excludeClassId)) {
     conflicts.push({ type: "student_overlap", message: "Student has another class during this time", details: mapOverlap(overlap) });
   }
 
   return conflicts;
+}
+
+const SLOT_STEP_MINUTES = 30;
+
+/**
+ * Student self-service reschedule, "calendar-day-first, then that day's slots": candidate
+ * start times for the SAME teacher on one specific local date, of the class's own duration,
+ * with teacher availability/unavailable-date blocks and both sides' double-booking already
+ * excluded. An empty result means "no availability that day - pick another day" per the spec.
+ */
+export async function findAvailableSlotsForTeacherOnDate(input: {
+  teacherId: string;
+  studentId: string;
+  date: string;
+  durationMinutes: number;
+  timezone: string;
+  excludeClassId?: string;
+}): Promise<string[]> {
+  const dayOfWeek = weekdayForDate(input.date);
+
+  const availabilityResult = await pool.query<AvailabilityRow>(
+    `SELECT id, day_of_week, start_time, end_time, timezone
+     FROM teacher_availability
+     WHERE teacher_id = $1 AND is_active = TRUE AND day_of_week = $2::day_of_week
+     ORDER BY start_time`,
+    [input.teacherId, dayOfWeek]
+  );
+  if (!availabilityResult.rows.length) return [];
+  const teacherTimezone = availabilityResult.rows[0].timezone;
+
+  const dayIntervals = mergeIntervals(
+    availabilityResult.rows
+      .map((slot) => {
+        const start = localDateTimeToUtc(input.date, slot.start_time, teacherTimezone);
+        const end = localDateTimeToUtc(input.date, slot.end_time, teacherTimezone);
+        return start && end && start < end ? { start, end } : null;
+      })
+      .filter((interval): interval is TimeInterval => interval !== null)
+  );
+  if (!dayIntervals.length) return [];
+
+  const unavailableResult = await pool.query<UnavailableDateRow>(
+    `SELECT id, unavailable_date::TEXT, start_time, end_time, reason
+     FROM teacher_unavailable_dates
+     WHERE teacher_id = $1 AND unavailable_date = $2::DATE`,
+    [input.teacherId, input.date]
+  );
+  const blocks = unavailableResult.rows
+    .map((block) => {
+      const start = localDateTimeToUtc(block.unavailable_date, block.start_time ?? "00:00", teacherTimezone);
+      const end = localDateTimeToUtc(block.unavailable_date, block.end_time ?? "24:00", teacherTimezone);
+      return start && end ? { start, end } : null;
+    })
+    .filter((interval): interval is TimeInterval => interval !== null);
+
+  const openIntervals = blocks.reduce((intervals, block) => subtractInterval(intervals, block), dayIntervals);
+  if (!openIntervals.length) return [];
+
+  const teacherOverlaps = await findTeacherOverlaps(input.teacherId, openIntervals[0].start, openIntervals[openIntervals.length - 1].end, input.excludeClassId);
+  const studentOverlaps = await findStudentOverlaps(input.studentId, openIntervals[0].start, openIntervals[openIntervals.length - 1].end, input.excludeClassId);
+  const busy = mergeIntervals([...teacherOverlaps, ...studentOverlaps].map((row) => ({ start: row.start_time, end: row.end_time })));
+  const freeIntervals = busy.reduce((intervals, block) => subtractInterval(intervals, block), openIntervals);
+
+  const durationMs = input.durationMinutes * 60 * 1000;
+  const stepMs = SLOT_STEP_MINUTES * 60 * 1000;
+  const now = new Date();
+  const slots: string[] = [];
+
+  for (const interval of freeIntervals) {
+    for (let start = interval.start.getTime(); start + durationMs <= interval.end.getTime(); start += stepMs) {
+      const startDate = new Date(start);
+      if (startDate > now) slots.push(startDate.toISOString());
+    }
+  }
+
+  return slots;
+}
+
+function subtractInterval(intervals: TimeInterval[], block: TimeInterval): TimeInterval[] {
+  const result: TimeInterval[] = [];
+  for (const interval of intervals) {
+    if (block.end <= interval.start || block.start >= interval.end) {
+      result.push(interval);
+      continue;
+    }
+    if (block.start > interval.start) result.push({ start: interval.start, end: new Date(Math.min(block.start.getTime(), interval.end.getTime())) });
+    if (block.end < interval.end) result.push({ start: new Date(Math.max(block.end.getTime(), interval.start.getTime())), end: interval.end });
+  }
+  return result.filter((interval) => interval.start < interval.end);
 }
 
 function buildAvailabilityIntervals(classStart: Date, classEnd: Date, availability: AvailabilityRow[], timezone: string): TimeInterval[] {
@@ -190,7 +298,7 @@ async function findTeacherOverlaps(teacherId: string, start: Date, end: Date, ex
   const result = await pool.query<OverlapRow>(
     `SELECT c.id, c.title, c.start_time, c.end_time, c.status
      FROM classes c
-     WHERE c.teacher_id = $1 AND c.status IN ('scheduled', 'live')
+     WHERE c.teacher_id = $1 AND c.status IN ('scheduled', 'live', 'rescheduled')
        AND c.start_time < $3 AND c.end_time > $2 ${excludeClause}
      ORDER BY c.start_time`,
     values
@@ -205,7 +313,7 @@ async function findStudentOverlaps(studentId: string, start: Date, end: Date, ex
   const result = await pool.query<OverlapRow>(
     `SELECT c.id, c.title, c.start_time, c.end_time, c.status
      FROM classes c JOIN class_participants cp ON cp.class_id = c.id
-     WHERE cp.student_id = $1 AND c.status IN ('scheduled', 'live')
+     WHERE cp.student_id = $1 AND c.status IN ('scheduled', 'live', 'rescheduled')
        AND c.start_time < $3 AND c.end_time > $2 ${excludeClause}
      ORDER BY c.start_time`,
     values

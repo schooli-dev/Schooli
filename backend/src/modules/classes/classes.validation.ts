@@ -60,30 +60,49 @@ export const createClassSchema = z.object({
   })
 });
 
+const weeklySchedulesArray = z.array(z.object({
+  dayOfWeek: weekday,
+  startTime: timeOfDay
+})).min(1).max(7).superRefine((schedules, context) => {
+  const seen = new Set<string>();
+  schedules.forEach((schedule, index) => {
+    if (seen.has(schedule.dayOfWeek)) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Each weekday can have only one class start time",
+        path: [index, "dayOfWeek"]
+      });
+    }
+    seen.add(schedule.dayOfWeek);
+  });
+});
+
+// Base fields shared by "check which teachers are free" (step 3) and the actual create call.
+const seriesScheduleFields = {
+  studentId: uuid,
+  curriculumModuleId: uuid,
+  startDate: z.string().date(),
+  timezone: ianaTimezone.default("Asia/Kolkata"),
+  weeklySchedules: weeklySchedulesArray,
+  classCount: z.number().int().positive().max(100)
+};
+
+export const availableTeachersForSeriesSchema = z.object({
+  body: z.object(seriesScheduleFields)
+});
+
 export const createClassSeriesSchema = z.object({
   body: z.object({
+    ...seriesScheduleFields,
+    // Chosen from the step-3 available-teachers list.
     teacherId: uuid,
-    studentId: uuid,
-    title: z.string().trim().min(1),
-    startDate: z.string().date(),
-    timezone: ianaTimezone.default("Asia/Kolkata"),
-    weeklySchedules: z.array(z.object({
-      dayOfWeek: weekday,
-      startTime: timeOfDay
-    })).min(1).max(7).superRefine((schedules, context) => {
-      const seen = new Set<string>();
-      schedules.forEach((schedule, index) => {
-        if (seen.has(schedule.dayOfWeek)) {
-          context.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: "Each weekday can have only one class start time",
-            path: [index, "dayOfWeek"]
-          });
-        }
-        seen.add(schedule.dayOfWeek);
-      });
-    }),
-    classCount: z.number().int().positive().max(100),
+    // Optional: begin mapping at this curriculum class of the module instead of its first one.
+    startingLessonId: uuid.optional(),
+    // No longer typed by hand: auto-populated per occurrence from the Module's ordered
+    // Curriculum Classes. Kept optional only so a title-less series still has something to
+    // fall back to before the curriculum mapping runs (it always does when curriculumModuleId
+    // is present).
+    title: z.string().trim().min(1).optional(),
     notes: z.string().trim().optional(),
     overrideConflicts: z.boolean().optional()
   })
@@ -124,10 +143,41 @@ export const rescheduleClassSchema = z.object({
   })
 });
 
+export const autoCancelClassSchema = z.object({
+  params: z.object({
+    id: uuid
+  }),
+  body: z.object({
+    reason: z.string().trim().max(500).optional()
+  })
+});
+
+export const rescheduleSlotsSchema = z.object({
+  params: z.object({
+    id: uuid
+  }),
+  body: z.object({
+    date: z.string().date()
+  })
+});
+
+export const requestRescheduleSchema = z.object({
+  params: z.object({
+    id: uuid
+  }),
+  body: z.object({
+    startTime: isoDateTime
+  })
+});
+
 export type ListClassesInput = z.infer<typeof listClassesSchema>["query"];
 export type CheckConflictsInput = z.infer<typeof checkConflictsSchema>["body"];
 export type CreateClassInput = z.infer<typeof createClassSchema>["body"];
 export type CreateClassSeriesInput = z.infer<typeof createClassSeriesSchema>["body"];
+export type AvailableTeachersForSeriesInput = z.infer<typeof availableTeachersForSeriesSchema>["body"];
 export type UpdateClassInput = z.infer<typeof updateClassSchema>["body"];
 export type CancelClassInput = z.infer<typeof cancelClassSchema>["body"];
 export type RescheduleClassInput = z.infer<typeof rescheduleClassSchema>["body"];
+export type AutoCancelClassInput = z.infer<typeof autoCancelClassSchema>["body"];
+export type RescheduleSlotsInput = z.infer<typeof rescheduleSlotsSchema>["body"];
+export type RequestRescheduleInput = z.infer<typeof requestRescheduleSchema>["body"];

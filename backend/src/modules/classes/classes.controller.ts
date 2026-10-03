@@ -50,6 +50,15 @@ export const checkSeriesConflicts: RequestHandler = asyncHandler(async (req, res
   });
 });
 
+export const getAvailableTeachersForSeries: RequestHandler = asyncHandler(async (req, res) => {
+  const result = await classesService.getAvailableTeachersForSeries(req.body);
+
+  sendSuccess(res, {
+    message: result.teachers.length ? "Available teachers found" : "No teacher is free for every occurrence in this series",
+    data: result
+  });
+});
+
 export const createClassSeries: RequestHandler = asyncHandler(async (req, res) => {
   if (!req.user) {
     throw new ApiError(401, "Authentication required", "UNAUTHORIZED");
@@ -109,6 +118,45 @@ export const rescheduleClass: RequestHandler = asyncHandler(async (req, res) => 
   }
 
   const classItem = await classesService.rescheduleClass(getIdParam(req), req.body, req.user);
+
+  sendSuccess(res, {
+    message: "Class rescheduled",
+    data: classItem
+  });
+});
+
+export const requestAutoCancel: RequestHandler = asyncHandler(async (req, res) => {
+  if (!req.user) {
+    throw new ApiError(401, "Authentication required", "UNAUTHORIZED");
+  }
+
+  const classItem = await classesService.requestAutoCancelClass(getIdParam(req), req.body, req.user);
+
+  sendSuccess(res, {
+    message: "Class cancelled",
+    data: classItem
+  });
+});
+
+export const getRescheduleSlots: RequestHandler = asyncHandler(async (req, res) => {
+  if (!req.user) {
+    throw new ApiError(401, "Authentication required", "UNAUTHORIZED");
+  }
+
+  const result = await classesService.getRescheduleSlots(getIdParam(req), req.body, req.user);
+
+  sendSuccess(res, {
+    message: result.slots.length ? "Available slots found" : "No availability on that date",
+    data: result
+  });
+});
+
+export const requestReschedule: RequestHandler = asyncHandler(async (req, res) => {
+  if (!req.user) {
+    throw new ApiError(401, "Authentication required", "UNAUTHORIZED");
+  }
+
+  const classItem = await classesService.requestReschedule(getIdParam(req), req.body, req.user);
 
   sendSuccess(res, {
     message: "Class rescheduled",

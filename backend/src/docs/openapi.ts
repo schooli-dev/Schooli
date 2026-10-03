@@ -226,13 +226,45 @@ export const openApiSpec = swaggerJSDoc({
             overrideConflicts: { type: "boolean", example: false }
           }
         },
+        AvailableTeachersForSeriesRequest: {
+          type: "object",
+          required: ["studentId", "curriculumModuleId", "startDate", "timezone", "weeklySchedules", "classCount"],
+          properties: {
+            studentId: { type: "string", format: "uuid" },
+            curriculumModuleId: { type: "string", format: "uuid" },
+            startDate: { type: "string", format: "date", example: "2026-09-07" },
+            timezone: { type: "string", example: "America/New_York" },
+            weeklySchedules: {
+              type: "array",
+              items: {
+                type: "object",
+                required: ["dayOfWeek", "startTime"],
+                properties: {
+                  dayOfWeek: { type: "string", enum: ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] },
+                  startTime: { type: "string", example: "09:00" }
+                }
+              }
+            },
+            classCount: { type: "integer", example: 20 }
+          }
+        },
         CreateClassSeriesRequest: {
           type: "object",
-          required: ["teacherId", "studentId", "title", "startDate", "timezone", "weeklySchedules", "classCount"],
+          required: ["teacherId", "studentId", "curriculumModuleId", "startDate", "timezone", "weeklySchedules", "classCount"],
           properties: {
-            teacherId: { type: "string", format: "uuid" },
+            teacherId: { type: "string", format: "uuid", description: "Chosen from the step-3 available-teachers response." },
             studentId: { type: "string", format: "uuid" },
-            title: { type: "string", example: "Math class" },
+            curriculumModuleId: { type: "string", format: "uuid" },
+            startingLessonId: {
+              type: "string",
+              format: "uuid",
+              description: "Optional. Begin mapping at this curriculum class of the module instead of its first one (e.g. a follow-up series finishing the remaining classes)."
+            },
+            title: {
+              type: "string",
+              example: "Math class",
+              description: "Optional. Left unset, each occurrence's title is auto-populated from the module's ordered curriculum classes."
+            },
             startDate: { type: "string", format: "date", example: "2026-09-07" },
             timezone: { type: "string", example: "America/New_York" },
             weeklySchedules: {
@@ -300,7 +332,17 @@ export const openApiSpec = swaggerJSDoc({
             teacherNotes: { type: "string", nullable: true, example: "Student joined on time and completed the lesson." },
             zoomJoinTime: { type: "string", format: "date-time", nullable: true },
             zoomLeaveTime: { type: "string", format: "date-time", nullable: true },
-            totalZoomMinutes: { type: "integer", nullable: true, example: 57 }
+            totalZoomMinutes: { type: "integer", nullable: true, example: 57 },
+            academicOutcome: {
+              type: "string",
+              enum: ["completed", "partially_completed", "continue_next_class"],
+              description: "Required when status is 'present'; rejected for any other status."
+            },
+            taughtSummary: { type: "string", nullable: true, description: "What was taught this session. Present only." },
+            continueSummary: { type: "string", nullable: true, description: "What should continue next session. Present only." },
+            homeworkType: { type: "string", enum: ["none", "curriculum", "custom"], default: "none" },
+            homeworkMaterialId: { type: "string", format: "uuid", nullable: true, description: "Required when homeworkType is 'curriculum'." },
+            homeworkCustomText: { type: "string", nullable: true, description: "Required when homeworkType is 'custom'." }
           }
         },
         UpdateAttendanceRequest: {
@@ -310,7 +352,13 @@ export const openApiSpec = swaggerJSDoc({
             teacherNotes: { type: "string", nullable: true },
             zoomJoinTime: { type: "string", format: "date-time", nullable: true },
             zoomLeaveTime: { type: "string", format: "date-time", nullable: true },
-            totalZoomMinutes: { type: "integer", nullable: true }
+            totalZoomMinutes: { type: "integer", nullable: true },
+            academicOutcome: { type: "string", enum: ["completed", "partially_completed", "continue_next_class"] },
+            taughtSummary: { type: "string", nullable: true },
+            continueSummary: { type: "string", nullable: true },
+            homeworkType: { type: "string", enum: ["none", "curriculum", "custom"] },
+            homeworkMaterialId: { type: "string", format: "uuid", nullable: true },
+            homeworkCustomText: { type: "string", nullable: true }
           }
         },
         CreateDailyRoomRequest: {
@@ -833,6 +881,19 @@ export const openApiSpec = swaggerJSDoc({
           responses: { "200": { description: "Recurring schedule conflict check completed" } }
         }
       },
+      "/api/classes/series/available-teachers": {
+        post: {
+          tags: ["Classes"],
+          summary: "Step 3 of the scheduling wizard: teachers free for every occurrence of this proposed series",
+          description: "A teacher only appears if they have zero teacher-side conflicts across the entire series. An empty `teachers` array blocks the wizard outright (no override).",
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { $ref: "#/components/schemas/AvailableTeachersForSeriesRequest" } } }
+          },
+          responses: { "200": { description: "Available teachers, occurrences, and any student-side conflicts" } }
+        }
+      },
       "/api/classes/series": {
         post: {
           tags: ["Classes"],
@@ -929,6 +990,54 @@ export const openApiSpec = swaggerJSDoc({
           },
           responses: {
             "200": { description: "Class cancelled" }
+          }
+        }
+      },
+      "/api/classes/{id}/cancel-auto": {
+        post: {
+          tags: ["Classes"],
+          summary: "Student self-service cancellation (fully automatic, no admin review)",
+          description: ">=4 hours before start: cancels immediately, same as an admin direct cancel. <4 hours: blocked with a fixed message, no request row is created.",
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+          requestBody: {
+            required: false,
+            content: { "application/json": { schema: { type: "object", properties: { reason: { type: "string" } } } } }
+          },
+          responses: {
+            "200": { description: "Class cancelled" },
+            "422": { description: "Cancellation window has closed (less than 4 hours before start)" }
+          }
+        }
+      },
+      "/api/classes/{id}/reschedule-slots": {
+        post: {
+          tags: ["Classes"],
+          summary: "Candidate reschedule slots for one date, same teacher only",
+          description: "Day-first, then that day's slots. Window is today through the end of the current calendar month.",
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { type: "object", required: ["date"], properties: { date: { type: "string", format: "date" } } } } }
+          },
+          responses: { "200": { description: "Candidate start times (may be empty - pick another day)" } }
+        }
+      },
+      "/api/classes/{id}/reschedule-request": {
+        post: {
+          tags: ["Classes"],
+          summary: "Student self-service reschedule to a chosen slot",
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+          requestBody: {
+            required: true,
+            content: { "application/json": { schema: { type: "object", required: ["startTime"], properties: { startTime: { type: "string", format: "date-time" } } } } }
+          },
+          responses: {
+            "200": { description: "Class rescheduled" },
+            "409": { description: "Scheduling conflicts found" },
+            "422": { description: "Outside the reschedule window" }
           }
         }
       },

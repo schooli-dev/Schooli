@@ -83,6 +83,7 @@ const learningMaterialsPaths = new Set([
 ]);
 
 const userManagementPaths = new Set([
+  '/admin/classes',
   '/admin/users',
   '/admin/roles'
 ]);

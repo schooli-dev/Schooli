@@ -3,12 +3,19 @@ import { Component, OnInit, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { finalize, forkJoin, of } from 'rxjs';
-import { ClassListItem, ClassesApiService, CreateClassSeriesRequest, SchedulingConflict, SeriesWeekdaySchedule } from '../../core/classes/classes-api.service';
+import {
+  AvailableTeacherOption,
+  ClassListItem,
+  ClassesApiService,
+  CreateClassSeriesRequest,
+  SchedulingConflict,
+  SeriesWeekdaySchedule
+} from '../../core/classes/classes-api.service';
 import { AuthTokenService } from '../../core/auth/auth-token.service';
 import { DateTimeService } from '../../core/datetime/date-time.service';
 import { timezoneShortLabel } from '../../core/datetime/timezone-options';
+import { LearningCourse, LearningLesson, LearningMaterialsApiService, LearningModule } from '../../core/learning-materials/learning-materials-api.service';
 import { PeopleApiService, PersonOption } from '../../core/people/people-api.service';
-import { TeacherAvailabilityApiService, TeacherAvailabilityItem } from '../../core/teachers/teacher-availability-api.service';
 
 type ClassTabKey =
   | 'all'
@@ -23,21 +30,12 @@ type ClassTabKey =
 
 type Weekday = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
 
-type ConvertedAvailabilityPreview = {
-  key: string;
-  scheduleDate: string;
-  dateLabel: string;
-  scheduleRange: string;
-  startsAt: number;
-};
-
 type WeeklyScheduleRow = {
   dayOfWeek: Weekday;
   dayLabel: string;
   scheduleDate: string;
   dateLabel: string;
   startTime: string;
-  availability: ConvertedAvailabilityPreview[];
 };
 
 @Component({
@@ -53,7 +51,7 @@ type WeeklyScheduleRow = {
 })
 export class AdminClassesComponent implements OnInit {
   protected readonly scheduleOpen = signal(false);
-  protected readonly scheduleStep = signal<1 | 2>(1);
+  protected readonly scheduleStep = signal<1 | 2 | 3>(1);
   protected readonly searchText = signal('');
   protected readonly selectedTeacherIds = signal<string[]>([]);
   protected readonly selectedStudentIds = signal<string[]>([]);
@@ -67,7 +65,14 @@ export class AdminClassesComponent implements OnInit {
   protected readonly classes = signal<ClassListItem[]>([]);
   protected readonly teachers = signal<PersonOption[]>([]);
   protected readonly students = signal<PersonOption[]>([]);
-  protected readonly selectedTeacherAvailability = signal<TeacherAvailabilityItem[]>([]);
+  protected readonly courses = signal<LearningCourse[]>([]);
+  protected readonly modules = signal<LearningModule[]>([]);
+  protected readonly modulesLoading = signal(false);
+  protected readonly moduleLessons = signal<LearningLesson[]>([]);
+  protected readonly availableTeachers = signal<AvailableTeacherOption[]>([]);
+  protected readonly availableTeachersLoading = signal(false);
+  protected readonly availableTeachersLoaded = signal(false);
+  protected readonly studentConflicts = signal<SchedulingConflict[]>([]);
   protected readonly busySlots = signal<ClassListItem[]>([]);
   protected readonly conflicts = signal<SchedulingConflict[]>([]);
   protected readonly scheduleSubmitting = signal(false);
@@ -90,10 +95,11 @@ export class AdminClassesComponent implements OnInit {
   protected scheduleDate = '';
 
   protected scheduleForm = {
-    teacherId: '',
     studentId: '',
-    title: '',
-    description: '',
+    courseId: '',
+    curriculumModuleId: '',
+    startingLessonId: '',
+    teacherId: '',
     timezone: 'Asia/Kolkata',
     weekdays: [] as Weekday[],
     weeklySchedules: [] as SeriesWeekdaySchedule[],
@@ -121,8 +127,9 @@ export class AdminClassesComponent implements OnInit {
   }
 
   protected readonly steps = [
-    { index: 1, label: 'Participants' },
-    { index: 2, label: 'Date & Time' }
+    { index: 1, label: 'Student & Curriculum' },
+    { index: 2, label: 'Date & Time' },
+    { index: 3, label: 'Choose Teacher' }
   ];
 
   protected readonly classTabs: Array<{ key: ClassTabKey; label: string }> = [
@@ -181,7 +188,7 @@ export class AdminClassesComponent implements OnInit {
   constructor(
     private readonly classesApi: ClassesApiService,
     private readonly peopleApi: PeopleApiService,
-    private readonly availabilityApi: TeacherAvailabilityApiService,
+    private readonly learningMaterialsApi: LearningMaterialsApiService,
     private readonly dateTime: DateTimeService,
     private readonly authTokens: AuthTokenService
   ) {}
@@ -189,6 +196,7 @@ export class AdminClassesComponent implements OnInit {
   ngOnInit(): void {
     this.loadClasses();
     this.loadPeople();
+    this.loadCourses();
   }
 
   protected loadClasses(): void {
@@ -399,32 +407,141 @@ export class AdminClassesComponent implements OnInit {
       });
   }
 
-  protected nextFromParticipants(): void {
+  protected onCourseChanged(): void {
+    this.scheduleForm.curriculumModuleId = '';
+    this.scheduleForm.startingLessonId = '';
+    this.modules.set([]);
+    this.moduleLessons.set([]);
     this.scheduleMessage.set('');
-    if (!this.scheduleForm.teacherId || !this.scheduleForm.studentId || !this.scheduleForm.title.trim()) {
-      this.showScheduleError('Please select teacher, student, and class title before continuing.');
+    if (!this.scheduleForm.courseId) {
+      return;
+    }
+
+    this.modulesLoading.set(true);
+    this.learningMaterialsApi
+      .listModules({ courseId: this.scheduleForm.courseId, status: 'active' })
+      .pipe(finalize(() => this.modulesLoading.set(false)))
+      .subscribe({
+        next: (response) => this.modules.set(response.data),
+        error: () => this.modules.set([])
+      });
+  }
+
+  /** Module picked: reset the optional starting class and load that module's curriculum classes. */
+  protected onModuleChanged(): void {
+    this.scheduleForm.startingLessonId = '';
+    this.moduleLessons.set([]);
+    if (!this.scheduleForm.curriculumModuleId) {
+      return;
+    }
+
+    this.learningMaterialsApi.listLessons({ moduleId: this.scheduleForm.curriculumModuleId, status: 'active' }).subscribe({
+      next: (response) => this.moduleLessons.set([...response.data].sort((a, b) => a.sortOrder - b.sortOrder)),
+      error: () => this.moduleLessons.set([])
+    });
+  }
+
+  protected selectedModule(): LearningModule | null {
+    return this.modules().find((module) => module.id === this.scheduleForm.curriculumModuleId) ?? null;
+  }
+
+  /** Step 1 -> Step 2: student and curriculum module are required; no teacher, no manual title/description. */
+  protected goToStep2(): void {
+    this.scheduleMessage.set('');
+    if (!this.scheduleForm.studentId || !this.scheduleForm.curriculumModuleId) {
+      this.showScheduleError('Please select a student and a curriculum module before continuing.');
       return;
     }
     this.scheduleStep.set(2);
-    this.loadSelectedTeacherAvailability();
+    this.applyRecommendedScheduleTimezone();
     this.refreshBusySlots();
   }
 
+  /** Step 2 -> Step 3: validate the schedule, then fetch which teachers are free for every occurrence. */
+  protected goToStep3(): void {
+    this.scheduleMessage.set('');
+
+    if (!this.scheduleDate) {
+      this.showScheduleError('Please choose the schedule start date.');
+      return;
+    }
+
+    if (!this.scheduleForm.weekdays.length) {
+      this.showScheduleError('Select at least one weekday for this schedule.');
+      return;
+    }
+
+    if (this.scheduleForm.weeklySchedules.length !== this.scheduleForm.weekdays.length || this.scheduleForm.weeklySchedules.some((schedule) => !schedule.startTime)) {
+      this.showScheduleError('Choose a class start time for every selected repeat day.');
+      return;
+    }
+
+    if (this.hasSelectedScheduleInPast()) {
+      this.showScheduleError('Choose a future time for every selected repeat day.');
+      return;
+    }
+
+    this.scheduleStep.set(3);
+    this.loadAvailableTeachers();
+  }
+
+  protected loadAvailableTeachers(): void {
+    this.scheduleForm.teacherId = '';
+    this.availableTeachers.set([]);
+    this.studentConflicts.set([]);
+    this.availableTeachersLoaded.set(false);
+    this.availableTeachersLoading.set(true);
+    this.scheduleMessage.set('');
+
+    this.classesApi
+      .getAvailableTeachersForSeries({
+        studentId: this.scheduleForm.studentId,
+        curriculumModuleId: this.scheduleForm.curriculumModuleId,
+        startDate: this.scheduleDate,
+        timezone: this.scheduleForm.timezone,
+        weeklySchedules: this.scheduleForm.weeklySchedules.map((schedule) => ({ ...schedule })),
+        classCount: Number(this.scheduleForm.classCount)
+      })
+      .pipe(finalize(() => this.availableTeachersLoading.set(false)))
+      .subscribe({
+        next: (response) => {
+          this.availableTeachers.set(response.data.teachers);
+          this.studentConflicts.set(response.data.studentConflicts);
+          this.availableTeachersLoaded.set(true);
+        },
+        error: () => {
+          this.availableTeachersLoaded.set(true);
+          this.showScheduleError('Could not check teacher availability. Please check the backend connection.');
+        }
+      });
+  }
+
+  protected selectTeacher(teacherId: string): void {
+    this.scheduleForm.teacherId = teacherId;
+    this.scheduleMessage.set('');
+  }
+
+  protected selectedTeacherOption(): AvailableTeacherOption | null {
+    return this.availableTeachers().find((teacher) => teacher.teacherId === this.scheduleForm.teacherId) ?? null;
+  }
+
   protected previousStep(): void {
-    this.scheduleStep.set(1);
+    if (this.scheduleStep() === 3) {
+      this.scheduleStep.set(2);
+    } else {
+      this.scheduleStep.set(1);
+    }
     this.conflicts.set([]);
     this.scheduleMessage.set('');
   }
 
-  protected onTeacherChanged(): void {
-    this.selectedTeacherAvailability.set([]);
-    this.busySlots.set([]);
-    this.conflicts.set([]);
-    this.applyRecommendedScheduleTimezone();
-    if (this.scheduleForm.teacherId) {
-      this.loadSelectedTeacherAvailability();
+  protected goToTab(step: 1 | 2): void {
+    if (step >= this.scheduleStep()) {
+      return;
     }
-    this.refreshBusySlots();
+    this.scheduleStep.set(step);
+    this.conflicts.set([]);
+    this.scheduleMessage.set('');
   }
 
   protected onStudentChanged(): void {
@@ -449,7 +566,7 @@ export class AdminClassesComponent implements OnInit {
 
   protected refreshBusySlots(): void {
     this.conflicts.set([]);
-    if (!this.scheduleDate || (!this.scheduleForm.teacherId && !this.scheduleForm.studentId)) {
+    if (!this.scheduleDate || !this.scheduleForm.studentId) {
       this.busySlots.set([]);
       return;
     }
@@ -457,23 +574,18 @@ export class AdminClassesComponent implements OnInit {
     const from = this.dateTime.localDateTimeToUtc(`${this.scheduleDate}T00:00`, this.scheduleForm.timezone);
     const to = this.dateTime.localDateTimeToUtc(`${this.addCalendarDays(this.scheduleDate, 7)}T00:00`, this.scheduleForm.timezone);
 
-    const teacherRequest = this.scheduleForm.teacherId
-      ? this.classesApi.listClasses({ teacherId: this.scheduleForm.teacherId, from: from.toISOString(), to: to.toISOString(), limit: 100 })
-      : of({ data: [] as ClassListItem[] });
-    const studentRequest = this.scheduleForm.studentId
-      ? this.classesApi.listClasses({ studentId: this.scheduleForm.studentId, from: from.toISOString(), to: to.toISOString(), limit: 100 })
-      : of({ data: [] as ClassListItem[] });
-
-    forkJoin({ teacher: teacherRequest, student: studentRequest }).subscribe({
-      next: ({ teacher, student }) => {
-        const activeBookings = [...teacher.data, ...student.data].filter((item) => ['scheduled', 'live'].includes(item.status));
-        const byId = new Map(activeBookings.map((item) => [item.id, item]));
-        this.busySlots.set(Array.from(byId.values()).sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()));
-      },
-      error: () => this.busySlots.set([])
-    });
+    this.classesApi
+      .listClasses({ studentId: this.scheduleForm.studentId, from: from.toISOString(), to: to.toISOString(), limit: 100 })
+      .subscribe({
+        next: (response) => {
+          const activeBookings = response.data.filter((item) => ['scheduled', 'live', 'rescheduled'].includes(item.status));
+          this.busySlots.set(activeBookings.sort((a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()));
+        },
+        error: () => this.busySlots.set([])
+      });
   }
 
+  /** Step 3 submit: a teacher must already be selected from the available-teachers list. */
   protected validateAndSchedule(): void {
     if (this.scheduledClass()) {
       this.closeSchedule();
@@ -483,23 +595,8 @@ export class AdminClassesComponent implements OnInit {
     this.scheduleMessage.set('');
     this.conflicts.set([]);
 
-    if (!this.scheduleDate) {
-      this.showScheduleError('Please choose the schedule start date.');
-      return;
-    }
-
-    if (!this.scheduleForm.weekdays.length) {
-      this.showScheduleError('Select at least one weekday for this schedule.');
-      return;
-    }
-
-    if (this.scheduleForm.weeklySchedules.length !== this.scheduleForm.weekdays.length || this.scheduleForm.weeklySchedules.some((schedule) => !schedule.startTime)) {
-      this.showScheduleError('Choose a class start time for every selected repeat day.');
-      return;
-    }
-
-    if (this.hasSelectedScheduleInPast()) {
-      this.showScheduleError('Choose a future time for every selected repeat day.');
+    if (!this.scheduleForm.teacherId) {
+      this.showScheduleError('Please choose a teacher before scheduling.');
       return;
     }
 
@@ -507,12 +604,12 @@ export class AdminClassesComponent implements OnInit {
     const payload: CreateClassSeriesRequest = {
       teacherId: this.scheduleForm.teacherId,
       studentId: this.scheduleForm.studentId,
-      title: this.scheduleForm.title.trim(),
+      curriculumModuleId: this.scheduleForm.curriculumModuleId,
+      startingLessonId: this.scheduleForm.startingLessonId || undefined,
       startDate: this.scheduleDate,
       timezone: this.scheduleForm.timezone,
       weeklySchedules: this.scheduleForm.weeklySchedules.map((schedule) => ({ ...schedule })),
       classCount: Number(this.scheduleForm.classCount),
-      notes: this.scheduleForm.description.trim() || undefined,
       overrideConflicts: false
     };
 
@@ -605,53 +702,6 @@ export class AdminClassesComponent implements OnInit {
     return day.slice(0, 3).toUpperCase();
   }
 
-  protected selectedRepeatDayAvailability(): ConvertedAvailabilityPreview[] {
-    if (!this.scheduleDate || !this.scheduleForm.weekdays.length || !this.selectedTeacherAvailability().length) {
-      return [];
-    }
-
-    const scheduleTimezone = this.scheduleForm.timezone;
-    const previews: ConvertedAvailabilityPreview[] = [];
-
-    for (const scheduleDate of this.firstSelectedOccurrenceDates()) {
-      const dayStart = this.dateTime.localDateTimeToUtc(`${scheduleDate}T00:00`, scheduleTimezone);
-      const dayEnd = this.dateTime.localDateTimeToUtc(`${this.addCalendarDays(scheduleDate, 1)}T00:00`, scheduleTimezone);
-      const dateLabel = new Intl.DateTimeFormat('en-US', {
-        timeZone: scheduleTimezone,
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric'
-      }).format(dayStart);
-
-      for (const slot of this.selectedTeacherAvailability()) {
-        for (const teacherDate of this.teacherDatesWithin(dayStart, dayEnd, slot.timezone)) {
-          if (slot.dayOfWeek !== this.weekdayForDate(teacherDate)) {
-            continue;
-          }
-
-          const slotStart = this.dateTime.localDateTimeToUtc(`${teacherDate}T${slot.startTime.slice(0, 5)}`, slot.timezone);
-          const slotEnd = this.availabilitySlotEnd(teacherDate, slot.endTime, slot.timezone);
-
-          if (slotStart >= slotEnd || slotStart >= dayEnd || slotEnd <= dayStart) {
-            continue;
-          }
-
-          const visibleStart = slotStart > dayStart ? slotStart : dayStart;
-          const visibleEnd = slotEnd < dayEnd ? slotEnd : dayEnd;
-          previews.push({
-            key: `${scheduleDate}:${slot.id}:${teacherDate}`,
-            scheduleDate,
-            dateLabel,
-            scheduleRange: this.formatTimeRange(visibleStart, visibleEnd, scheduleTimezone),
-            startsAt: visibleStart.getTime()
-          });
-        }
-      }
-    }
-
-    return previews.sort((left, right) => left.startsAt - right.startsAt);
-  }
-
   protected conflictDetail(conflict: SchedulingConflict): string {
     const occurrence = conflict.occurrenceNumber ? ` (class ${conflict.occurrenceNumber})` : '';
     return conflict.details?.title ? `${occurrence}: ${conflict.details.title}` : occurrence;
@@ -674,8 +724,7 @@ export class AdminClassesComponent implements OnInit {
         dayLabel: dayOption?.label ?? dayOfWeek,
         scheduleDate,
         dateLabel,
-        startTime: schedule?.startTime ?? '',
-        availability: this.selectedRepeatDayAvailability().filter((slot) => slot.scheduleDate === scheduleDate)
+        startTime: schedule?.startTime ?? ''
       };
     });
   }
@@ -708,10 +757,6 @@ export class AdminClassesComponent implements OnInit {
     return this.dateTime.toLocalInputValue(new Date(), this.scheduleForm.timezone).slice(0, 10);
   }
 
-  protected selectedTeacher(): PersonOption | null {
-    return this.teachers().find((teacher) => teacher.id === this.scheduleForm.teacherId) ?? null;
-  }
-
   protected selectedStudent(): PersonOption | null {
     return this.students().find((student) => student.id === this.scheduleForm.studentId) ?? null;
   }
@@ -723,7 +768,6 @@ export class AdminClassesComponent implements OnInit {
   protected scheduleTimezoneOptions(): Array<{ label: string; value: string; hint: string }> {
     const options = [
       { label: `${timezoneShortLabel(this.adminTimezone())} (Admin)`, value: this.adminTimezone(), hint: 'Default scheduling view' },
-      { label: `${timezoneShortLabel(this.selectedTeacher()?.timezone)} (Teacher)`, value: this.selectedTeacher()?.timezone ?? '', hint: this.selectedTeacher()?.timezone ?? 'Select teacher first' },
       { label: `${timezoneShortLabel(this.selectedStudent()?.timezone)} (Student)`, value: this.selectedStudent()?.timezone ?? '', hint: this.selectedStudent()?.timezone ?? 'Select student first' },
       { label: 'UTC', value: 'UTC', hint: 'System storage reference' }
     ];
@@ -793,32 +837,32 @@ export class AdminClassesComponent implements OnInit {
     });
   }
 
-  private loadSelectedTeacherAvailability(): void {
-    if (!this.scheduleForm.teacherId) {
-      this.selectedTeacherAvailability.set([]);
-      return;
-    }
-
-    this.availabilityApi.listAvailability(this.scheduleForm.teacherId).subscribe({
-      next: (response) => this.selectedTeacherAvailability.set(response.data.availability.filter((slot) => slot.isActive)),
-      error: () => this.selectedTeacherAvailability.set([])
+  private loadCourses(): void {
+    this.learningMaterialsApi.listCourses({ status: 'active' }).subscribe({
+      next: (response) => this.courses.set(response.data),
+      error: () => this.courses.set([])
     });
   }
 
   private resetScheduleForm(): void {
     this.scheduleStep.set(1);
     this.scheduleForm = {
-      teacherId: '',
       studentId: '',
-      title: '',
-      description: '',
+      courseId: '',
+      curriculumModuleId: '',
+      startingLessonId: '',
+      teacherId: '',
       timezone: this.adminTimezone(),
       weekdays: [],
       weeklySchedules: [],
       classCount: 1
     };
     this.scheduleDate = '';
-    this.selectedTeacherAvailability.set([]);
+    this.modules.set([]);
+    this.moduleLessons.set([]);
+    this.availableTeachers.set([]);
+    this.availableTeachersLoaded.set(false);
+    this.studentConflicts.set([]);
     this.busySlots.set([]);
     this.conflicts.set([]);
     this.scheduledClass.set(null);
@@ -839,7 +883,7 @@ export class AdminClassesComponent implements OnInit {
       return;
     }
 
-    this.scheduleForm.timezone = this.selectedTeacher()?.timezone ?? this.selectedStudent()?.timezone ?? this.adminTimezone();
+    this.scheduleForm.timezone = this.selectedStudent()?.timezone ?? this.adminTimezone();
   }
 
   private firstSelectedOccurrenceDates(): string[] {
@@ -855,19 +899,6 @@ export class AdminClassesComponent implements OnInit {
     return dates;
   }
 
-  private teacherDatesWithin(start: Date, end: Date, timezone: string): string[] {
-    const startDate = this.dateTime.toLocalInputValue(start, timezone).slice(0, 10);
-    const endDate = this.dateTime.toLocalInputValue(new Date(end.getTime() - 1), timezone).slice(0, 10);
-    return [...new Set([startDate, endDate])];
-  }
-
-  private availabilitySlotEnd(date: string, endTime: string, timezone: string): Date {
-    const normalisedEnd = endTime.slice(0, 5);
-    const endDate = normalisedEnd === '24:00' ? this.addCalendarDays(date, 1) : date;
-    const time = normalisedEnd === '24:00' ? '00:00' : normalisedEnd;
-    return this.dateTime.localDateTimeToUtc(`${endDate}T${time}`, timezone);
-  }
-
   private weekdayForDate(date: string): Weekday {
     const [year, month, day] = date.split('-').map(Number);
     return ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][
@@ -879,15 +910,4 @@ export class AdminClassesComponent implements OnInit {
     const [year, month, day] = date.split('-').map(Number);
     return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
   }
-
-  private formatTimeRange(start: Date, end: Date, timezone: string): string {
-    const formatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: timezone,
-      hour: 'numeric',
-      minute: '2-digit'
-    });
-    return `${formatter.format(start)} – ${formatter.format(end)}`;
-  }
 }
-
-

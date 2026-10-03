@@ -33,6 +33,14 @@ const personName = z
   .min(1)
   .max(80)
   .regex(/^[A-Za-z][A-Za-z\s'-]*$/, "Only letters, spaces, apostrophes, and hyphens are allowed");
+const optionalPersonName = z
+  .string()
+  .trim()
+  .max(80)
+  .refine(
+    (value) => value === "" || /^[A-Za-z][A-Za-z\s'-]*$/.test(value),
+    "Only letters, spaces, apostrophes, and hyphens are allowed"
+  );
 
 export const listUsersSchema = z.object({
   query: z.object({
@@ -53,7 +61,7 @@ export const getUserSchema = z.object({
 export const createUserSchema = z.object({
   body: z.object({
     firstName: personName,
-    lastName: personName,
+    lastName: optionalPersonName,
     username: z.string().trim().min(3).max(50).regex(/^[a-zA-Z0-9._-]+$/).optional(),
     email: z.string().trim().email(),
     phone: z.string().trim().min(8).max(20).regex(/^\+\d{1,4}\d{6,15}$/, "Expected ISD code followed by phone number"),

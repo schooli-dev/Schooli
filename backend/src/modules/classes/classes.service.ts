@@ -4,6 +4,7 @@ import type { AuthenticatedUser } from "../../types/express.js";
 import { ApiError } from "../../utils/ApiError.js";
 import { getPagination, getPaginationMeta, type PaginationMeta } from "../../utils/pagination.js";
 import type {
+  AvailableTeachersForSeriesInput,
   CancelClassInput,
   CheckConflictsInput,
   CreateClassInput,
@@ -12,9 +13,21 @@ import type {
   RescheduleClassInput,
   UpdateClassInput
 } from "./classes.validation.js";
-import { checkSchedulingConflicts, type SchedulingConflict } from "./scheduling.service.js";
+import {
+  checkSchedulingConflicts,
+  checkStudentConflicts,
+  checkTeacherConflicts,
+  findAvailableSlotsForTeacherOnDate,
+  type SchedulingConflict
+} from "./scheduling.service.js";
 import { cancelDailyRoomForClass, createDailyRoomForClass } from "../daily/daily.service.js";
-import { createInAppNotifications } from "../notifications/notifications.service.js";
+import { createInAppNotifications, getAdminRecipientIds } from "../notifications/notifications.service.js";
+import {
+  genericOccurrenceTitle,
+  getModuleLessonsOrdered,
+  mappedOccurrenceTitle,
+  recalcRemainingCurriculumMappings
+} from "./curriculumMapping.service.js";
 
 export type ClassItem = {
   id: string;
@@ -113,6 +126,88 @@ export async function checkConflicts(input: CheckConflictsInput): Promise<{
   return {
     hasConflicts: conflicts.length > 0,
     conflicts
+  };
+}
+
+export type AvailableTeacherOption = {
+  teacherId: string;
+  name: string;
+  hasModuleAccess: boolean;
+  skillLevel: string | null;
+};
+
+/**
+ * Step 3 of the scheduling wizard: which active teachers are free for every occurrence of
+ * this proposed series. A teacher qualifies only if they have zero teacher-side conflicts
+ * (availability, unavailable-date blocks, double-booking) across the *entire* series - one
+ * bad occurrence disqualifies them. Student-side conflicts are independent of which teacher
+ * gets picked, so they're returned separately as `studentConflicts` rather than filtering the
+ * teacher list. An empty `teachers` array means the wizard is blocked outright (no override).
+ */
+export async function getAvailableTeachersForSeries(input: AvailableTeachersForSeriesInput): Promise<{
+  occurrences: Array<{ occurrenceNumber: number; startTime: Date }>;
+  studentConflicts: Array<SchedulingConflict & { occurrenceNumber: number; startTime: Date }>;
+  teachers: AvailableTeacherOption[];
+}> {
+  const occurrences = buildSeriesOccurrences(input);
+
+  const studentConflicts: Array<SchedulingConflict & { occurrenceNumber: number; startTime: Date }> = [];
+  for (const occurrence of occurrences) {
+    const conflicts = await checkStudentConflicts({
+      studentId: input.studentId,
+      startTime: occurrence.start.toISOString(),
+      durationMinutes: occurrence.durationMinutes
+    });
+    for (const conflict of conflicts) {
+      studentConflicts.push({ ...conflict, occurrenceNumber: occurrence.sequence, startTime: occurrence.start });
+    }
+  }
+
+  const teacherRows = await pool.query<{ id: string; first_name: string; last_name: string; teacher_skill_level: string | null; has_module_access: boolean }>(
+    `
+      SELECT u.id, u.first_name, u.last_name, u.teacher_skill_level,
+             EXISTS (
+               SELECT 1 FROM teacher_module_access tma
+               WHERE tma.teacher_id = u.id AND tma.module_id = $1 AND tma.is_active = TRUE
+             ) AS has_module_access
+      FROM users u
+      JOIN user_roles ur ON ur.user_id = u.id
+      JOIN roles r ON r.id = ur.role_id AND r.name = 'teacher'
+      WHERE u.is_active = TRUE AND u.status = 'active'
+      ORDER BY u.first_name, u.last_name
+    `,
+    [input.curriculumModuleId]
+  );
+
+  const teachers: AvailableTeacherOption[] = [];
+  for (const teacher of teacherRows.rows) {
+    let free = true;
+    for (const occurrence of occurrences) {
+      const conflicts = await checkTeacherConflicts({
+        teacherId: teacher.id,
+        startTime: occurrence.start.toISOString(),
+        durationMinutes: occurrence.durationMinutes,
+        timezone: input.timezone
+      });
+      if (conflicts.length > 0) {
+        free = false;
+        break;
+      }
+    }
+    if (free) {
+      teachers.push({
+        teacherId: teacher.id,
+        name: `${teacher.first_name} ${teacher.last_name}`.trim(),
+        hasModuleAccess: teacher.has_module_access,
+        skillLevel: teacher.teacher_skill_level
+      });
+    }
+  }
+
+  return {
+    occurrences: occurrences.map((occurrence) => ({ occurrenceNumber: occurrence.sequence, startTime: occurrence.start })),
+    studentConflicts,
+    teachers
   };
 }
 
@@ -256,19 +351,42 @@ export async function createClassSeries(input: CreateClassSeriesInput, user: Aut
 
   try {
     await client.query("BEGIN");
+
+    const moduleResult = await client.query<{ name: string }>(
+      `SELECT name FROM curriculum_modules WHERE id = $1 AND status = 'active'`,
+      [input.curriculumModuleId]
+    );
+    const moduleRow = moduleResult.rows[0];
+    if (!moduleRow) {
+      throw new ApiError(404, "Curriculum module not found or inactive", "CURRICULUM_MODULE_NOT_FOUND");
+    }
+    const seriesTitle = input.title ?? moduleRow.name;
+
+    // Optional starting class: must be an active curriculum class of the chosen module.
+    const startingLessonId = input.startingLessonId ?? null;
+    if (startingLessonId) {
+      const startLesson = await client.query(
+        `SELECT 1 FROM curriculum_lessons WHERE id = $1 AND module_id = $2 AND status = 'active'`,
+        [startingLessonId, input.curriculumModuleId]
+      );
+      if (!startLesson.rows[0]) {
+        throw new ApiError(422, "Starting class must be an active curriculum class of the selected module", "STARTING_LESSON_INVALID");
+      }
+    }
+
     const seriesResult = await client.query<{ id: string }>(
       `
         INSERT INTO class_series (
           teacher_id, student_id, title, notes, schedule_timezone, start_date, start_time,
-          duration_minutes, weekdays, scheduled_class_count, created_by_admin_id
+          duration_minutes, weekdays, scheduled_class_count, created_by_admin_id, curriculum_module_id, starting_lesson_id
         )
-        VALUES ($1, $2, $3, $4, $5, $6::DATE, $7::TIME, $8, $9::TEXT[], $10, $11)
+        VALUES ($1, $2, $3, $4, $5, $6::DATE, $7::TIME, $8, $9::TEXT[], $10, $11, $12, $13)
         RETURNING id
       `,
       [
         input.teacherId,
         input.studentId,
-        input.title,
+        seriesTitle,
         input.notes ?? null,
         input.timezone,
         initialLocal.date,
@@ -276,7 +394,9 @@ export async function createClassSeries(input: CreateClassSeriesInput, user: Aut
         SERIES_CLASS_DURATION_MINUTES,
         input.weeklySchedules.map((schedule) => schedule.dayOfWeek),
         input.classCount,
-        user.id
+        user.id,
+        input.curriculumModuleId,
+        startingLessonId
       ]
     );
     const seriesId = seriesResult.rows[0].id;
@@ -291,14 +411,44 @@ export async function createClassSeries(input: CreateClassSeriesInput, user: Aut
       );
     }
 
+    // teacher_module_access is a prerequisite for even appearing in the step-3 available-teachers
+    // list; granting it here just confirms the module the admin actually scheduled this teacher for.
+    await client.query(
+      `
+        INSERT INTO teacher_module_access (teacher_id, module_id, is_active, granted_by_user_id, granted_at, updated_at)
+        VALUES ($1, $2, TRUE, $3, NOW(), NOW())
+        ON CONFLICT (teacher_id, module_id) DO UPDATE
+        SET is_active = TRUE, updated_at = NOW()
+      `,
+      [input.teacherId, input.curriculumModuleId, user.id]
+    );
+
+    // Precompute the lesson-per-occurrence assignment so the very first Daily room topic and
+    // scheduling notification already carry the right title, instead of a placeholder that
+    // the recalc call below would immediately overwrite.
+    const lessons = await getModuleLessonsOrdered(client, input.curriculumModuleId, startingLessonId);
+
     for (const occurrence of occurrences) {
       const end = new Date(occurrence.start.getTime() + occurrence.durationMinutes * 60 * 1000);
-      const classId = await createClassRecords(client, input, user, occurrence.start, end, occurrence.durationMinutes, {
-        seriesId,
-        sequence: occurrence.sequence
-      });
+      const lesson = lessons[occurrence.sequence - 1] ?? null;
+      const occurrenceTitle =
+        input.title ?? (lesson ? mappedOccurrenceTitle(occurrence.sequence, lesson.title) : genericOccurrenceTitle(occurrence.sequence));
+      const occurrenceNotes = input.notes ?? lesson?.description ?? undefined;
+      const classId = await createClassRecords(
+        client,
+        { ...input, title: occurrenceTitle, notes: occurrenceNotes },
+        user,
+        occurrence.start,
+        end,
+        occurrence.durationMinutes,
+        { seriesId, sequence: occurrence.sequence, curriculumLessonId: lesson?.id ?? null }
+      );
       createdClassIds.push(classId);
     }
+
+    // Single reusable entry point: with nothing consumed yet, this performs the initial
+    // lesson-per-occurrence assignment exactly like any later remap trigger would.
+    await recalcRemainingCurriculumMappings(client, seriesId);
 
     await client.query("COMMIT");
 
@@ -351,6 +501,11 @@ export async function updateClass(id: string, input: UpdateClassInput, user: Aut
   addUpdate(updates, values, "title", input.title);
   addUpdate(updates, values, "notes", input.notes);
 
+  // A manually edited title stops the curriculum remap job from overwriting it later.
+  if (input.title !== undefined) {
+    updates.push("title_is_custom = TRUE");
+  }
+
   if (!updates.length) {
     throw new ApiError(400, "No update fields provided", "NO_UPDATE_FIELDS");
   }
@@ -374,24 +529,30 @@ export async function updateClass(id: string, input: UpdateClassInput, user: Aut
   return await getClassById(id, user);
 }
 
-export async function cancelClass(id: string, input: CancelClassInput, user: AuthenticatedUser): Promise<ClassItem> {
+export async function cancelClass(
+  id: string,
+  input: CancelClassInput,
+  user: AuthenticatedUser,
+  source: "admin" | "student_auto" = "admin"
+): Promise<ClassItem> {
   const client = await pool.connect();
 
   try {
     await client.query("BEGIN");
 
-    const result = await client.query<{ id: string }>(
+    const result = await client.query<{ id: string; class_series_id: string | null }>(
       `
         UPDATE classes
         SET status = 'cancelled',
             cancelled_at = NOW(),
             cancellation_reason = $1,
+            cancellation_source = $3,
             updated_at = NOW()
         WHERE id = $2
-          AND status IN ('scheduled', 'live')
-        RETURNING id
+          AND status IN ('scheduled', 'live', 'rescheduled')
+        RETURNING id, class_series_id
       `,
-      [input.reason, id]
+      [input.reason, id, source]
     );
 
     if (!result.rows[0]) {
@@ -414,7 +575,12 @@ export async function cancelClass(id: string, input: CancelClassInput, user: Aut
 
     await cancelDailyRoomForClass(id, client);
     await updateTeacherWorkSessionStatus(client, id, "cancelled");
-    await notifyClassCancelled(client, id, input.reason);
+    await notifyClassCancelled(client, id, input.reason, source);
+
+    const cancelledSeriesId = result.rows[0].class_series_id;
+    if (cancelledSeriesId) {
+      await recalcRemainingCurriculumMappings(client, cancelledSeriesId);
+    }
 
     await client.query("COMMIT");
   } catch (error) {
@@ -460,7 +626,7 @@ export async function rescheduleClass(
   try {
     await client.query("BEGIN");
 
-    const result = await client.query<{ id: string }>(
+    const result = await client.query<{ id: string; class_series_id: string | null }>(
       `
         UPDATE classes
         SET start_time = $1,
@@ -471,7 +637,7 @@ export async function rescheduleClass(
             updated_at = NOW()
         WHERE id = $5
           AND status IN ('scheduled', 'rescheduled')
-        RETURNING id
+        RETURNING id, class_series_id
       `,
       [start, end, input.durationMinutes, input.timezone, id]
     );
@@ -504,6 +670,15 @@ export async function rescheduleClass(
       client
     );
 
+    const rescheduledSeriesId = result.rows[0].class_series_id;
+    if (rescheduledSeriesId) {
+      // A plain time-move keeps the same curriculum_lesson_id, so this is a safe no-op here;
+      // it only actually shifts anything if the occurrence's consumed/open state changed too.
+      await recalcRemainingCurriculumMappings(client, rescheduledSeriesId);
+    }
+
+    await notifyClassRescheduled(client, id, start);
+
     await client.query("COMMIT");
   } catch (error) {
     await client.query("ROLLBACK");
@@ -513,6 +688,96 @@ export async function rescheduleClass(
   }
 
   return await getClassById(id, user);
+}
+
+const CANCELLATION_WINDOW_HOURS = 4;
+const CANCELLATION_WINDOW_MESSAGE =
+  `Classes can only be cancelled online at least ${CANCELLATION_WINDOW_HOURS} hours before the start time. ` +
+  "Please contact support if you need help with a class starting sooner than that.";
+
+/**
+ * Student self-service cancellation (class.request_cancel): fully automatic, no admin review.
+ * >=4h before start cancels immediately by reusing the same cancelClass path admins use;
+ * <4h is blocked outright with a fixed message and no request row is created at all.
+ */
+export async function requestAutoCancelClass(
+  id: string,
+  input: { reason?: string },
+  user: AuthenticatedUser
+): Promise<ClassItem> {
+  const existing = await getClassById(id, user); // Scopes to the caller's own class, else 404.
+
+  if (existing.status !== "scheduled" && existing.status !== "rescheduled") {
+    throw new ApiError(409, "Only a scheduled class can be cancelled", "CLASS_NOT_CANCELLABLE");
+  }
+
+  const hoursUntilStart = (existing.startTime.getTime() - Date.now()) / (60 * 60 * 1000);
+  if (hoursUntilStart < CANCELLATION_WINDOW_HOURS) {
+    throw new ApiError(422, CANCELLATION_WINDOW_MESSAGE, "CANCELLATION_WINDOW_CLOSED");
+  }
+
+  return await cancelClass(id, { reason: input.reason?.trim() || "Cancelled by student" }, user, "student_auto");
+}
+
+/**
+ * "Day of rescheduling -> end of current calendar month", evaluated against the class's own
+ * schedule timezone (the same one already stored on the class/series).
+ */
+function assertWithinRescheduleWindow(localDate: string, timezone: string): void {
+  const today = getLocalDateTimeParts(new Date(), timezone).date;
+  const [year, month] = today.split("-").map(Number);
+  const lastDayOfMonth = new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10); // day 0 of next month
+  if (localDate < today || localDate > lastDayOfMonth) {
+    throw new ApiError(422, "You can reschedule to any date from today through the end of this month.", "RESCHEDULE_WINDOW_INVALID");
+  }
+}
+
+/** Step 1 of student self-service reschedule: candidate slots for one local date, same teacher only. */
+export async function getRescheduleSlots(
+  id: string,
+  input: { date: string },
+  user: AuthenticatedUser
+): Promise<{ durationMinutes: number; timezone: string; slots: string[] }> {
+  const existing = await getClassById(id, user);
+  const student = existing.participants[0];
+  if (!student) {
+    throw new ApiError(422, "Class has no student participant", "CLASS_HAS_NO_STUDENT");
+  }
+
+  assertWithinRescheduleWindow(input.date, existing.timezone);
+
+  const slots = await findAvailableSlotsForTeacherOnDate({
+    teacherId: existing.teacherId,
+    studentId: student.studentId,
+    date: input.date,
+    durationMinutes: existing.durationMinutes,
+    timezone: existing.timezone,
+    excludeClassId: id
+  });
+
+  return { durationMinutes: existing.durationMinutes, timezone: existing.timezone, slots };
+}
+
+/**
+ * Step 2: actually reschedule to a chosen slot. Reuses rescheduleClass as-is - the teacher
+ * can never change here (only start time is student-supplied; duration/timezone come from the
+ * existing class), and a student has no class.override_conflict, so any conflict still blocks.
+ */
+export async function requestReschedule(id: string, input: { startTime: string }, user: AuthenticatedUser): Promise<ClassItem> {
+  const existing = await getClassById(id, user);
+
+  if (existing.status !== "scheduled" && existing.status !== "rescheduled") {
+    throw new ApiError(409, "Only a scheduled class can be rescheduled", "CLASS_NOT_RESCHEDULABLE");
+  }
+
+  const localDate = getLocalDateTimeParts(new Date(input.startTime), existing.timezone).date;
+  assertWithinRescheduleWindow(localDate, existing.timezone);
+
+  return await rescheduleClass(
+    id,
+    { startTime: input.startTime, durationMinutes: existing.durationMinutes, timezone: existing.timezone, overrideConflicts: false },
+    user
+  );
 }
 
 export async function getJoinPayload(id: string, user: AuthenticatedUser): Promise<unknown> {
@@ -584,15 +849,15 @@ async function createClassRecords(
   start: Date,
   end: Date,
   durationMinutes: number,
-  series?: { seriesId: string; sequence: number }
+  series?: { seriesId: string; sequence: number; curriculumLessonId?: string | null }
 ): Promise<string> {
   const classResult = await client.query<{ id: string }>(
     `
       INSERT INTO classes (
         teacher_id, title, start_time, end_time, duration_minutes, timezone, status,
-        created_by_admin_id, notes, class_series_id, series_sequence
+        created_by_admin_id, notes, class_series_id, series_sequence, curriculum_lesson_id
       )
-      VALUES ($1, $2, $3, $4, $5, $6, 'scheduled', $7, $8, $9, $10)
+      VALUES ($1, $2, $3, $4, $5, $6, 'scheduled', $7, $8, $9, $10, $11)
       RETURNING id
     `,
     [
@@ -605,7 +870,8 @@ async function createClassRecords(
       user.id,
       input.notes ?? null,
       series?.seriesId ?? null,
-      series?.sequence ?? null
+      series?.sequence ?? null,
+      series?.curriculumLessonId ?? null
     ]
   );
   const classId = classResult.rows[0].id;
@@ -629,15 +895,20 @@ async function createClassRecords(
     status: "scheduled",
     createdByUserId: user.id
   });
-  await createDailyRoomForClass({ classId, topic: input.title, startTime: start, endTime: end, durationMinutes }, client);
+  // input.title is only optional on the curriculum-linked series path, where the caller
+  // always supplies a concrete per-occurrence title (lesson title or the generic fallback)
+  // before calling this; the fallback here just satisfies the type for that union.
+  const title = input.title ?? genericOccurrenceTitle(series?.sequence ?? 1);
 
-  const notificationPayload = { classId, title: input.title, startTime: start, endTime: end };
+  await createDailyRoomForClass({ classId, topic: title, startTime: start, endTime: end, durationMinutes }, client);
+
+  const notificationPayload = { classId, title, startTime: start, endTime: end };
   await createInAppNotifications(
     {
       eventKey: "class.scheduled",
       recipientUserIds: [input.teacherId],
       title: "New class scheduled",
-      message: `${input.title} has been scheduled for ${formatNotificationTime(start)}.`,
+      message: `${title} has been scheduled for ${formatNotificationTime(start)}.`,
       linkPath: "/teacher/classes",
       payload: notificationPayload
     },
@@ -648,7 +919,7 @@ async function createClassRecords(
       eventKey: "class.scheduled",
       recipientUserIds: [input.studentId],
       title: "New class scheduled",
-      message: `${input.title} has been scheduled for ${formatNotificationTime(start)}.`,
+      message: `${title} has been scheduled for ${formatNotificationTime(start)}.`,
       linkPath: "/student/classes",
       payload: notificationPayload
     },
@@ -658,7 +929,9 @@ async function createClassRecords(
   return classId;
 }
 
-function buildSeriesOccurrences(input: CreateClassSeriesInput): SeriesOccurrence[] {
+function buildSeriesOccurrences(
+  input: Pick<CreateClassSeriesInput, "weeklySchedules" | "startDate" | "classCount" | "timezone">
+): SeriesOccurrence[] {
   const scheduleByWeekday = new Map(input.weeklySchedules.map((schedule) => [schedule.dayOfWeek, schedule]));
   const occurrences: SeriesOccurrence[] = [];
   let currentDate = input.startDate;
@@ -959,7 +1232,12 @@ async function updateTeacherWorkSessionStatus(
   );
 }
 
-async function notifyClassCancelled(client: PoolClient, classId: string, reason: string): Promise<void> {
+async function notifyClassCancelled(
+  client: PoolClient,
+  classId: string,
+  reason: string,
+  source: "admin" | "student_auto" = "admin"
+): Promise<void> {
   const result = await client.query<{
     title: string;
     teacher_id: string;
@@ -1003,6 +1281,56 @@ async function notifyClassCancelled(client: PoolClient, classId: string, reason:
       linkPath: "/student/classes",
       payload: { classId, reason }
     },
+    client
+  );
+
+  // The admin's own direct cancel needs no notification back to admins; a student's automatic
+  // self-cancel does, so an admin notices without having to watch the class list.
+  if (source === "student_auto") {
+    const adminIds = await getAdminRecipientIds(client);
+    await createInAppNotifications(
+      {
+        eventKey: "class.cancelled",
+        recipientUserIds: adminIds,
+        title: "Student cancelled a class",
+        message: `${classItem.title} was automatically cancelled by the student. Reason: ${reason}`,
+        linkPath: "/admin/classes",
+        payload: { classId, reason, source }
+      },
+      client
+    );
+  }
+}
+
+async function notifyClassRescheduled(client: PoolClient, classId: string, start: Date): Promise<void> {
+  const result = await client.query<{ title: string; teacher_id: string; student_ids: string[] }>(
+    `
+      SELECT c.title,
+             c.teacher_id,
+             COALESCE(ARRAY_AGG(cp.student_id) FILTER (WHERE cp.student_id IS NOT NULL), '{}') AS student_ids
+      FROM classes c
+      LEFT JOIN class_participants cp ON cp.class_id = c.id
+      WHERE c.id = $1
+      GROUP BY c.id
+    `,
+    [classId]
+  );
+  const classItem = result.rows[0];
+  if (!classItem) return;
+
+  const message = `${classItem.title} was rescheduled to ${formatNotificationTime(start)}.`;
+  const payload = { classId, startTime: start };
+
+  await createInAppNotifications(
+    { eventKey: "class.rescheduled", recipientUserIds: [classItem.teacher_id], title: "Class rescheduled", message, linkPath: "/teacher/classes", payload },
+    client
+  );
+  await createInAppNotifications(
+    { eventKey: "class.rescheduled", recipientUserIds: classItem.student_ids, title: "Class rescheduled", message, linkPath: "/student/classes", payload },
+    client
+  );
+  await createInAppNotifications(
+    { eventKey: "class.rescheduled", recipientUserIds: await getAdminRecipientIds(client), title: "Class rescheduled", message, linkPath: "/admin/classes", payload },
     client
   );
 }
