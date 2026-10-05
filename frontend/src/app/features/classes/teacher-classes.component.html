@@ -488,6 +488,13 @@
       Join Daily Room
     </button>
 
+    @if (selectedClass()!.curriculumModuleId) {
+      <button class="btn btn-outline-primary w-100 fw-bold d-inline-flex align-items-center justify-content-center gap-2 mb-3" type="button" (click)="openCurriculum(selectedClass()!)">
+        <i class="bi bi-journal-bookmark"></i>
+        Open Curriculum
+      </button>
+    }
+
     <div class="detail-grid mb-3">
       <div class="detail-box">
         <span>Schedule</span>
@@ -518,6 +525,47 @@
           <strong class="d-block">Cancellation Reason</strong>
           <span>{{ selectedClass()!.cancellationReason }}</span>
         </div>
+      </div>
+    }
+
+    @if (selectedClass()!.notes) {
+      <div class="evidence-card rounded-4 p-3 mb-3">
+        <strong class="d-block mb-2">
+          <i class="bi bi-card-text me-2"></i>
+          Class Description
+        </strong>
+        <p class="mb-0 text-muted" style="white-space: pre-line">{{ selectedClass()!.notes }}</p>
+      </div>
+    }
+
+    @if (materialsLoading() || lessonMaterials().length || materialsFailed()) {
+      <div class="evidence-card rounded-4 p-3 mb-3">
+        <strong class="d-block mb-2">
+          <i class="bi bi-folder2-open me-2"></i>
+          Class Materials
+        </strong>
+
+        @if (materialsLoading()) {
+          <p class="mb-0 text-muted small"><span class="spinner-border spinner-border-sm me-2"></span>Loading materials...</p>
+        } @else if (materialsFailed()) {
+          <p class="mb-0 text-muted small">Materials for this class could not be loaded.</p>
+        } @else {
+          <div class="d-grid gap-2">
+            @for (material of lessonMaterials(); track material.id) {
+              <button class="btn btn-light border text-start d-flex align-items-center gap-2" type="button" (click)="openMaterial(material)">
+                <i class="bi {{ materialIcon(material.section) }} text-primary flex-shrink-0"></i>
+                <span class="min-w-0 flex-grow-1">
+                  <strong class="d-block text-truncate">{{ material.title }}</strong>
+                  <small class="text-muted text-capitalize">{{ materialSection(material.section) }}</small>
+                </span>
+                @if (material.audience === 'teachers_only') {
+                  <span class="badge rounded-pill text-bg-warning flex-shrink-0">Teachers only</span>
+                }
+                <i class="bi {{ material.sourceType === 'link' ? 'bi-box-arrow-up-right' : 'bi-eye' }} text-muted flex-shrink-0"></i>
+              </button>
+            }
+          </div>
+        }
       </div>
     }
 
@@ -553,4 +601,8 @@
       </button>
     }
   </aside>
+}
+
+@if (viewing(); as material) {
+  <app-material-viewer [material]="material" [loader]="viewerLoader" (closed)="closeViewer()" />
 }

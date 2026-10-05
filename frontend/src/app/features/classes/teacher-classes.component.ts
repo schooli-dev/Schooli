@@ -1,4 +1,5 @@
 import { Component, OnInit, computed, signal } from '@angular/core';
+import { Observable } from 'rxjs';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AuthTokenService } from '../../core/auth/auth-token.service';
@@ -7,13 +8,15 @@ import { ClassSessionClockService } from '../../core/classes/class-session-clock
 import { isClassJoinWindowOpen } from '../../core/classes/class-session.utils';
 import { DateTimeService } from '../../core/datetime/date-time.service';
 import { ToastService } from '../../core/toast/toast.service';
+import { LearningMaterial, LearningMaterialsApiService } from '../../core/learning-materials/learning-materials-api.service';
+import { MaterialViewerComponent } from '../../shared/material-viewer/material-viewer.component';
 
 type TeacherClassTab = 'today' | 'upcoming' | 'completed' | 'cancelled' | 'all';
 
 @Component({
   selector: 'app-teacher-classes',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, MaterialViewerComponent],
   templateUrl: './teacher-classes.component.html',
   styleUrl: './teacher-classes.component.scss'
 })
@@ -27,6 +30,10 @@ export class TeacherClassesComponent implements OnInit {
   protected readonly drawerOpen = signal(false);
   protected readonly selectedClass = signal<ClassListItem | null>(null);
   protected readonly openedFromCalendar = signal(false);
+  protected readonly lessonMaterials = signal<LearningMaterial[]>([]);
+  protected readonly materialsLoading = signal(false);
+  protected readonly materialsFailed = signal(false);
+  protected readonly viewing = signal<LearningMaterial | null>(null);
   private requestedClassId: string | null = null;
   protected readonly tabs: Array<{ key: TeacherClassTab; label: string }> = [
     { key: 'today', label: 'Today' },
@@ -94,7 +101,8 @@ export class TeacherClassesComponent implements OnInit {
     private readonly authToken: AuthTokenService,
     private readonly sessionClock: ClassSessionClockService,
     private readonly dateTime: DateTimeService,
-    private readonly toasts: ToastService
+    private readonly toasts: ToastService,
+    private readonly learningMaterialsApi: LearningMaterialsApiService
   ) {}
 
   ngOnInit(): void {
@@ -133,10 +141,44 @@ export class TeacherClassesComponent implements OnInit {
     this.openedFromCalendar.set(false);
     this.selectedClass.set(item);
     this.drawerOpen.set(true);
+    this.loadMaterials(item);
+  }
+
+  /** Straight from a scheduled class to that student's own curriculum, landing on this class. */
+  protected openCurriculum(item: ClassListItem): void {
+    const studentId = item.participants[0]?.studentId;
+    if (!studentId) return;
+
+    const queryParams: Record<string, string> = {};
+    if (item.curriculumModuleId) queryParams['moduleId'] = item.curriculumModuleId;
+    if (item.curriculumLessonId) queryParams['lessonId'] = item.curriculumLessonId;
+    void this.router.navigate(['/teacher/students', studentId, 'curriculum'], { queryParams, skipLocationChange: true });
   }
 
   protected closeDrawer(): void {
     this.drawerOpen.set(false);
+  }
+
+  protected openMaterial(material: LearningMaterial): void {
+    if (material.sourceType === 'link') {
+      if (material.externalUrl) window.open(material.externalUrl, '_blank', 'noopener');
+      return;
+    }
+    this.viewing.set(material);
+  }
+
+  protected closeViewer(): void {
+    this.viewing.set(null);
+  }
+
+  protected readonly viewerLoader = (): Observable<Blob> => this.learningMaterialsApi.downloadMyMaterial(this.viewing()!.id);
+
+  protected materialIcon(section: string): string {
+    return ({ presentation: 'bi-easel2', lesson_plan: 'bi-journal-richtext', homework: 'bi-pencil-square', file: 'bi-file-earmark' } as Record<string, string>)[section] ?? 'bi-file-earmark';
+  }
+
+  protected materialSection(section: string): string {
+    return section.replace('_', ' ');
   }
 
   protected studentName(item: ClassListItem): string {
@@ -215,7 +257,31 @@ export class TeacherClassesComponent implements OnInit {
     this.selectedClass.set(item);
     this.openedFromCalendar.set(true);
     this.drawerOpen.set(true);
+    this.loadMaterials(item);
     this.requestedClassId = null;
+  }
+
+  /** Teacher-only: the materials of the curriculum class this session is mapped to (the backend
+   * checks the teacher's module access). Nothing is requested for unmapped/generic sessions. */
+  private loadMaterials(item: ClassListItem): void {
+    this.lessonMaterials.set([]);
+    this.materialsFailed.set(false);
+    if (!item.curriculumLessonId) {
+      this.materialsLoading.set(false);
+      return;
+    }
+
+    this.materialsLoading.set(true);
+    this.learningMaterialsApi.getMyClass(item.curriculumLessonId).subscribe({
+      next: (response) => {
+        if (this.selectedClass()?.id === item.id) this.lessonMaterials.set(response.data.materials);
+        this.materialsLoading.set(false);
+      },
+      error: () => {
+        this.materialsFailed.set(true);
+        this.materialsLoading.set(false);
+      }
+    });
   }
 
   private matchesTab(item: ClassListItem, tab: TeacherClassTab): boolean {

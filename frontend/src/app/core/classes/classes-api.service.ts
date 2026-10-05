@@ -27,6 +27,10 @@ export type ClassListItem = {
   status: string;
   seriesId?: string | null;
   seriesSequence?: number | null;
+  /** Curriculum class (lesson) this occurrence is currently mapped to; null when generic/unmapped. */
+  curriculumLessonId?: string | null;
+  /** Module of the series this occurrence belongs to (null for legacy, non-curriculum classes). */
+  curriculumModuleId?: string | null;
   notes?: string | null;
   cancellationReason?: string | null;
   cancellationRequestStatus?: string | null;
