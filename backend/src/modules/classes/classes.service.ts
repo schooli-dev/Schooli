@@ -72,6 +72,8 @@ export type ClassItem = {
   updatedAt: Date;
   seriesId: string | null;
   seriesSequence: number | null;
+  curriculumLessonId: string | null;
+  curriculumModuleId: string | null;
 };
 
 export type ClassSeriesResult = {
@@ -115,6 +117,8 @@ type ClassRow = {
   updated_at: Date;
   class_series_id: string | null;
   series_sequence: number | null;
+  curriculum_lesson_id: string | null;
+  curriculum_module_id: string | null;
 };
 
 export async function checkConflicts(input: CheckConflictsInput): Promise<{
@@ -1133,7 +1137,9 @@ function baseClassSelect(): string {
       c.created_at,
       c.updated_at,
       c.class_series_id,
-      c.series_sequence
+      c.series_sequence,
+      c.curriculum_lesson_id,
+      (SELECT cs_mod.curriculum_module_id FROM class_series cs_mod WHERE cs_mod.id = c.class_series_id) AS curriculum_module_id
     FROM classes c
     JOIN users teacher ON teacher.id = c.teacher_id
     LEFT JOIN class_participants cp ON cp.class_id = c.id
@@ -1365,7 +1371,9 @@ function mapClass(row: ClassRow): ClassItem {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     seriesId: row.class_series_id,
-    seriesSequence: row.series_sequence
+    seriesSequence: row.series_sequence,
+    curriculumLessonId: row.curriculum_lesson_id,
+    curriculumModuleId: row.curriculum_module_id
   };
 }
 
