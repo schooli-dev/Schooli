@@ -783,6 +783,29 @@ export const openApiSpec = swaggerJSDoc({
           }
         }
       },
+      "/api/students/my": {
+        get: {
+          tags: ["Students"],
+          summary: "My students (teacher-scoped)",
+          description: "One row per student and module for the signed-in teacher: student name, course, module and that student's own current curriculum class. Students come from non-cancelled classes (or an active assignment), so a student appears as soon as a class is scheduled. Position is per student (curriculum_progress), never per teacher.",
+          security: [{ bearerAuth: [] }],
+          responses: { "200": { description: "My students fetched" } }
+        }
+      },
+      "/api/students/my/{studentId}/curriculum": {
+        get: {
+          tags: ["Students"],
+          summary: "One of my students' own curriculum progress (Open Curriculum)",
+          description: "The module's classes with done / current / upcoming state for this student. Pass moduleId, or lessonId (module is derived from it, used when opening from a scheduled class). 404 if the student has no non-cancelled class with the signed-in teacher.",
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { name: "studentId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+            { name: "moduleId", in: "query", schema: { type: "string", format: "uuid" } },
+            { name: "lessonId", in: "query", schema: { type: "string", format: "uuid" } }
+          ],
+          responses: { "200": { description: "Student curriculum fetched" }, "404": { description: "Student or curriculum not found for this teacher" } }
+        }
+      },
       "/api/students/{id}": {
         get: {
           tags: ["Students"],

@@ -70,6 +70,7 @@ const implementedSidebarPaths = new Set([
   '/teacher/dashboard',
   '/teacher/classes',
   '/teacher/attendance',
+  '/teacher/students',
   '/student/dashboard',
   '/student/classes'
 ]);

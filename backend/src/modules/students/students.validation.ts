@@ -15,4 +15,14 @@ export const studentIdSchema = z.object({
   })
 });
 
+export const myStudentCurriculumSchema = z.object({
+  params: z.object({
+    studentId: z.string().uuid()
+  }),
+  query: z.object({
+    moduleId: z.string().uuid().optional(),
+    lessonId: z.string().uuid().optional()
+  })
+});
+
 export type ListStudentsInput = z.infer<typeof listStudentsSchema>["query"];

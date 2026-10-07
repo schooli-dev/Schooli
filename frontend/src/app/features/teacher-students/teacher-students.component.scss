@@ -1,0 +1,16 @@
+.student-card { border-radius: 18px; box-shadow: 0 8px 22px rgba(15, 23, 42, 0.05); }
+
+.student-avatar {
+  display: grid;
+  place-items: center;
+  flex: 0 0 48px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  color: #fff;
+  font-weight: 800;
+}
+
+.lesson-row.is-current { border-color: #2563eb !important; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12); }
+.lesson-toggle { padding: 14px 16px; border: 0; }

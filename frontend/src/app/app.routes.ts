@@ -187,6 +187,22 @@ export const routes: Routes = [
         title: 'Attendance | SchooliEdu'
       },
       {
+        path: 'teacher/students',
+        loadComponent: () =>
+          import('./features/teacher-students/teacher-students.component').then((module) => module.TeacherStudentsComponent),
+        canActivate: [authGuard],
+        data: { roles: ['teacher'], permission: 'student.view' },
+        title: 'My Students | SchooliEdu'
+      },
+      {
+        path: 'teacher/students/:studentId/curriculum',
+        loadComponent: () =>
+          import('./features/teacher-students/teacher-student-curriculum.component').then((module) => module.TeacherStudentCurriculumComponent),
+        canActivate: [authGuard],
+        data: { roles: ['teacher'], permission: 'student.view' },
+        title: 'Student Curriculum | SchooliEdu'
+      },
+      {
         path: 'teacher/classes/:id/room',
         loadComponent: () =>
           import('./features/classes/classroom/classroom.component').then((module) => module.ClassroomComponent),
