@@ -341,8 +341,24 @@ export const openApiSpec = swaggerJSDoc({
             taughtSummary: { type: "string", nullable: true, description: "What was taught this session. Present only." },
             continueSummary: { type: "string", nullable: true, description: "What should continue next session. Present only." },
             homeworkType: { type: "string", enum: ["none", "curriculum", "custom"], default: "none" },
-            homeworkMaterialId: { type: "string", format: "uuid", nullable: true, description: "Required when homeworkType is 'curriculum'." },
-            homeworkCustomText: { type: "string", nullable: true, description: "Required when homeworkType is 'custom'." }
+            homeworkMaterialId: { type: "string", format: "uuid", nullable: true, description: "Single curriculum homework (compatibility); prefer homeworkMaterialIds." },
+            homeworkMaterialIds: { type: "array", items: { type: "string", format: "uuid" }, description: "homeworkType curriculum: one or more homework materials of the mapped curriculum lesson. Each becomes an assignment visible in Student Homework immediately; re-saving does not duplicate." },
+            homeworkDueDate: { type: "string", format: "date-time", nullable: true, description: "Due date for the curriculum assignments (default 7 days)." },
+            homeworkCustomText: { type: "string", nullable: true, description: "Legacy free text; custom homework now comes from customHomework." },
+            customHomework: {
+              type: "object",
+              description: "The Create Custom Homework form. Allowed only with homeworkType 'custom'; created for this one student in the same transaction as the attendance. Omit on re-save to keep the homework assigned earlier.",
+              required: ["title"],
+              properties: {
+                title: { type: "string" },
+                instructions: { type: "string", nullable: true },
+                maxPoints: { type: "integer", default: 10 },
+                dueDate: { type: "string", format: "date-time", nullable: true },
+                submissionType: { type: "string", enum: ["file", "text", "link", "file_text"], default: "file" },
+                attachments: { type: "array", items: { type: "object", properties: { storageKey: { type: "string", description: "From POST /api/homework/uploads (must start with homework/)." }, fileName: { type: "string" }, mimeType: { type: "string" }, sizeBytes: { type: "integer" } } } },
+                saveToLibrary: { type: "boolean", default: false }
+              }
+            }
           }
         },
         UpdateAttendanceRequest: {
@@ -783,6 +799,67 @@ export const openApiSpec = swaggerJSDoc({
           }
         }
       },
+      "/api/homework/uploads": {
+        post: {
+          tags: ["Homework"],
+          summary: "Upload an attachment for custom homework (private R2, homework/ prefix)",
+          security: [{ bearerAuth: [] }],
+          requestBody: { required: true, content: { "multipart/form-data": { schema: { type: "object", properties: { file: { type: "string", format: "binary" } } } } } },
+          responses: { "201": { description: "Uploaded; returns storageKey, fileName, mimeType, sizeBytes" }, "503": { description: "R2 is not configured" } }
+        }
+      },
+      "/api/homework/library": {
+        get: {
+          tags: ["Homework"],
+          summary: "The signed-in teacher's saved homework library",
+          security: [{ bearerAuth: [] }],
+          responses: { "200": { description: "Homework library fetched" } }
+        }
+      },
+      "/api/homework/submission-uploads": {
+        post: { tags: ["Homework"], summary: "Upload a submission file (student; private R2, homework-submissions/ prefix)", security: [{ bearerAuth: [] }], requestBody: { required: true, content: { "multipart/form-data": { schema: { type: "object", properties: { file: { type: "string", format: "binary" } } } } } }, responses: { "201": { description: "Uploaded; returns storageKey, fileName, mimeType, sizeBytes" } } }
+      },
+      "/api/homework": {
+        get: {
+          tags: ["Homework"],
+          summary: "List homework (scoped: teacher own, student own, admin all) [homework.view]",
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { name: "status", in: "query", schema: { type: "string", enum: ["all", "pending", "submitted", "needs_revision", "completed", "completed_this_week", "overdue"] } },
+            { name: "search", in: "query", schema: { type: "string" } }
+          ],
+          responses: { "200": { description: "Homework fetched" } }
+        }
+      },
+      "/api/homework/summary": {
+        get: { tags: ["Homework"], summary: "Counts for the teacher dashboard cards / student tabs [homework.view]", security: [{ bearerAuth: [] }], responses: { "200": { description: "pending, submitted, needsRevision, completed, completedThisWeek, overdue, pendingReview, revisionRequired" } } }
+      },
+      "/api/homework/{id}": {
+        get: { tags: ["Homework"], summary: "Homework detail with instructions, files and every attempt [homework.view]", security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }], responses: { "200": { description: "Homework fetched" }, "404": { description: "Not found or not yours" } } }
+      },
+      "/api/homework/{id}/submissions": {
+        post: {
+          tags: ["Homework"],
+          summary: "Submit or resubmit (creates a NEW attempt; earlier attempts are never overwritten) [homework.submit]",
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+          requestBody: { required: true, content: { "application/json": { schema: { type: "object", properties: { text: { type: "string" }, link: { type: "string", format: "uri" }, comment: { type: "string" }, files: { type: "array", items: { type: "object", properties: { storageKey: { type: "string", description: "From /homework/submission-uploads" }, fileName: { type: "string" } } } } } } } } },
+          responses: { "201": { description: "Submitted; status becomes submitted and the teacher is notified" }, "409": { description: "Not open for submission" }, "422": { description: "Does not match the homework submission type" } }
+        }
+      },
+      "/api/homework/{id}/review": {
+        post: {
+          tags: ["Homework"],
+          summary: "Review the latest attempt: Complete or Revision Required [homework.review]",
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+          requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["result", "points"], properties: { result: { type: "string", enum: ["complete", "revision"] }, points: { type: "number", description: "0..maxPoints" }, feedback: { type: "string", description: "Required when result is revision." } } } } } },
+          responses: { "200": { description: "Reviewed; student notified" }, "403": { description: "Not your student homework" }, "409": { description: "Nothing waiting for review" } }
+        }
+      },
+      "/api/homework/{id}/document/file": { get: { tags: ["Homework"], summary: "Stream the curriculum homework document (access-checked)", security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }], responses: { "200": { description: "File" } } } },
+      "/api/homework/{id}/resources/{resourceId}/file": { get: { tags: ["Homework"], summary: "Stream a teacher attachment (access-checked)", security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }, { name: "resourceId", in: "path", required: true, schema: { type: "string", format: "uuid" } }], responses: { "200": { description: "File" } } } },
+      "/api/homework/{id}/submissions/{submissionId}/files/{fileId}/file": { get: { tags: ["Homework"], summary: "Stream a submitted file (the student, their teacher or admin)", security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }, { name: "submissionId", in: "path", required: true, schema: { type: "string", format: "uuid" } }, { name: "fileId", in: "path", required: true, schema: { type: "string", format: "uuid" } }], responses: { "200": { description: "File" } } } },
       "/api/students/my": {
         get: {
           tags: ["Students"],

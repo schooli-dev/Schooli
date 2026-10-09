@@ -18,6 +18,8 @@ export type ViewerMaterial = { title: string; fileName: string | null; mimeType:
 export class MaterialViewerComponent implements OnInit, OnDestroy {
   @Input({ required: true }) material!: ViewerMaterial;
   @Input({ required: true }) loader!: () => Observable<Blob>;
+  /** Lets non-admin users save a copy too (used for homework files, where students need their own documents). */
+  @Input() allowDownload = false;
   @Output() closed = new EventEmitter<void>();
   @ViewChild('officeHost') private officeHost?: ElementRef<HTMLDivElement>;
 
@@ -29,15 +31,38 @@ export class MaterialViewerComponent implements OnInit, OnDestroy {
   protected readonly textContent = signal('');
   private objectUrl: string | null = null;
 
-  /** Only administrators may save a copy of the original file. */
-  protected readonly canDownload: boolean;
+  /** Administrators may always save a copy; others only when the host allows it. */
+  protected canDownload = false;
+  private readonly isAdmin: boolean;
   private sourceBlob: Blob | null = null;
 
+  protected readonly zoom = signal(1);
+  private readonly zoomSteps = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3];
+
   constructor(private readonly sanitizer: DomSanitizer, tokens: AuthTokenService) {
-    this.canDownload = tokens.getRoles().includes('admin');
+    this.isAdmin = tokens.getRoles().includes('admin');
+  }
+
+  protected canZoom(): boolean {
+    return this.kind() !== 'video' && this.kind() !== 'unsupported' && !this.loading() && !this.error();
+  }
+
+  protected zoomIn(): void {
+    const next = this.zoomSteps.find((step) => step > this.zoom() + 0.001);
+    if (next) this.zoom.set(next);
+  }
+
+  protected zoomOut(): void {
+    const previous = [...this.zoomSteps].reverse().find((step) => step < this.zoom() - 0.001);
+    if (previous) this.zoom.set(previous);
+  }
+
+  protected resetZoom(): void {
+    this.zoom.set(1);
   }
 
   ngOnInit(): void {
+    this.canDownload = this.isAdmin || this.allowDownload;
     const kind = detectPreviewKind(this.material.fileName, this.material.mimeType);
     this.kind.set(kind);
     if (kind === 'unsupported') {

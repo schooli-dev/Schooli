@@ -20,6 +20,27 @@ const allowedFileTypes = new Map<string, string>([
   ["gif", "image/gif"]
 ]);
 
+// Student homework submissions accept far more than learning materials (documents, archives,
+// code, project files, video). Nothing here is rendered inline by the server: code and markup are
+// stored and served as plain text so an uploaded .html file can never run in the app's origin.
+const submissionFileTypes = new Map<string, string>([
+  ...allowedFileTypes,
+  ["doc", "application/msword"],
+  ["ppt", "application/vnd.ms-powerpoint"],
+  ["xls", "application/vnd.ms-excel"],
+  ["xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"],
+  ["csv", "text/csv"],
+  ["zip", "application/zip"],
+  ["rar", "application/vnd.rar"],
+  ["7z", "application/x-7z-compressed"],
+  ["mp4", "video/mp4"],
+  ["mov", "video/quicktime"],
+  ["webm", "video/webm"],
+  ...["py", "js", "ts", "tsx", "jsx", "java", "c", "cpp", "h", "cs", "go", "rs", "rb", "php", "swift", "kt", "sql", "sh", "html", "css", "json", "xml", "md", "yml", "yaml", "ipynb", "sb3"].map(
+    (extension) => [extension, "text/plain"] as [string, string]
+  )
+]);
+
 let client: S3Client | null = null;
 
 export type UploadedLearningMaterialFile = {
@@ -45,18 +66,27 @@ export function uploadLimitBytes(): number {
   return env.R2_MAX_UPLOAD_MB * 1024 * 1024;
 }
 
-export async function uploadLearningMaterial(file: Express.Multer.File): Promise<UploadedLearningMaterialFile> {
+export async function uploadLearningMaterial(
+  file: Express.Multer.File,
+  folder: "learning-materials" | "homework" | "homework-submissions" = "learning-materials"
+): Promise<UploadedLearningMaterialFile> {
   if (!isConfigured()) {
     throw new ApiError(503, "File uploads are not configured. Add the Cloudflare R2 settings first.", "R2_NOT_CONFIGURED");
   }
   const extension = file.originalname.includes(".") ? file.originalname.slice(file.originalname.lastIndexOf(".") + 1).toLowerCase() : "";
-  const mimeType = allowedFileTypes.get(extension);
+  const mimeType = (folder === "homework-submissions" ? submissionFileTypes : allowedFileTypes).get(extension);
   if (!mimeType) {
-    throw new ApiError(422, "This file type is not supported. Upload a PDF, DOCX, PPTX, TXT, or image (JPG, PNG, WEBP, GIF) file.", "UNSUPPORTED_FILE_TYPE");
+    throw new ApiError(
+      422,
+      folder === "homework-submissions"
+        ? "This file type is not supported. Upload a document, image, archive (ZIP), code, project file or video."
+        : "This file type is not supported. Upload a PDF, DOCX, PPTX, TXT, or image (JPG, PNG, WEBP, GIF) file.",
+      "UNSUPPORTED_FILE_TYPE"
+    );
   }
 
   const fileName = sanitiseFileName(file.originalname);
-  const storageKey = `learning-materials/${new Date().toISOString().slice(0, 7)}/${randomUUID()}-${fileName}`;
+  const storageKey = `${folder}/${new Date().toISOString().slice(0, 7)}/${randomUUID()}-${fileName}`;
   await getClient().send(new PutObjectCommand({
     Bucket: env.R2_BUCKET_NAME!,
     Key: storageKey,

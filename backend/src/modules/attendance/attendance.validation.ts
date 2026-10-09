@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { customHomeworkSchema } from "../homework/homework.validation.js";
 
 const uuid = z.string().uuid();
 const isoDateTime = z.string().refine((value) => !Number.isNaN(Date.parse(value)), {
@@ -19,7 +20,13 @@ const outcomeFields = {
   continueSummary: z.string().trim().max(4000).nullable().optional(),
   homeworkType: attendanceHomeworkTypeSchema.optional(),
   homeworkMaterialId: uuid.nullable().optional(),
-  homeworkCustomText: z.string().trim().max(4000).nullable().optional()
+  // Curriculum homework: any number of the homework items of the session's curriculum class,
+  // each becoming its own assignment for this student, due on homeworkDueDate (default 7 days).
+  homeworkMaterialIds: z.array(uuid).max(20).optional(),
+  homeworkDueDate: isoDateTime.nullable().optional(),
+  homeworkCustomText: z.string().trim().max(4000).nullable().optional(),
+  // The "Create Custom Homework" form: created for this student when the attendance is saved.
+  customHomework: customHomeworkSchema.optional()
 };
 
 /**
@@ -36,7 +43,10 @@ type OutcomeFieldsBody = {
   continueSummary?: string | null;
   homeworkType?: string;
   homeworkMaterialId?: string | null;
+  homeworkMaterialIds?: string[];
+  homeworkDueDate?: string | null;
   homeworkCustomText?: string | null;
+  customHomework?: unknown;
 };
 
 function refineOutcomeFields(body: OutcomeFieldsBody, context: z.RefinementCtx, statusKnown: boolean, requireOutcome = true) {
@@ -47,6 +57,7 @@ function refineOutcomeFields(body: OutcomeFieldsBody, context: z.RefinementCtx, 
     body.continueSummary ||
     (body.homeworkType && body.homeworkType !== "none") ||
     body.homeworkMaterialId ||
+    body.homeworkMaterialIds?.length ||
     body.homeworkCustomText;
 
   if (statusKnown && !isPresent && hasOutcomeData) {
@@ -65,23 +76,25 @@ function refineOutcomeFields(body: OutcomeFieldsBody, context: z.RefinementCtx, 
     });
   }
 
-  if (body.homeworkType === "curriculum" && !body.homeworkMaterialId) {
+  if (body.homeworkType === "curriculum" && !body.homeworkMaterialId && !body.homeworkMaterialIds?.length) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
-      message: "homeworkMaterialId is required when homeworkType is 'curriculum'",
-      path: ["homeworkMaterialId"]
+      message: "Select at least one curriculum homework when homeworkType is 'curriculum'",
+      path: ["homeworkMaterialIds"]
     });
   }
 
-  if (body.homeworkType === "custom" && !body.homeworkCustomText) {
+  // customHomework is optional on re-save (the homework assigned earlier is kept); the service
+  // rejects a first save with homeworkType 'custom' and no form.
+  if (body.customHomework && body.homeworkType !== "custom") {
     context.addIssue({
       code: z.ZodIssueCode.custom,
-      message: "homeworkCustomText is required when homeworkType is 'custom'",
-      path: ["homeworkCustomText"]
+      message: "customHomework requires homeworkType 'custom'",
+      path: ["customHomework"]
     });
   }
 
-  if ((!body.homeworkType || body.homeworkType === "none") && (body.homeworkMaterialId || body.homeworkCustomText)) {
+  if ((!body.homeworkType || body.homeworkType === "none") && (body.homeworkMaterialId || body.homeworkMaterialIds?.length || body.homeworkCustomText)) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
       message: "homeworkMaterialId/homeworkCustomText require homeworkType 'curriculum' or 'custom'",

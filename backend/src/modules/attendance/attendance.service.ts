@@ -8,6 +8,7 @@ import type {
   MarkAttendanceInput,
   UpdateAttendanceInput
 } from "./attendance.validation.js";
+import { deleteUnsubmittedHomeworkForClass, reconcileAttendanceHomework } from "../homework/homework.service.js";
 import {
   getCurriculumProgressForLesson,
   recalcRemainingCurriculumMappings,
@@ -45,6 +46,10 @@ export type AttendanceItem = {
   homeworkType: string;
   homeworkMaterialId: string | null;
   homeworkCustomText: string | null;
+  homeworkId: string | null;
+  homeworkTitle: string | null;
+  /** Every homework assigned to this student for this session (curriculum items and/or the custom one). */
+  assignedHomework: Array<{ id: string; title: string; type: string; materialId: string | null; hasSubmission: boolean }>;
   curriculumLessonId: string | null;
   /** Only populated by listClassAttendance/getAttendanceById, when the mapped lesson's
    * rollup for this student is 'partially_completed' or 'continue_from_previous'. Drives the
@@ -88,6 +93,9 @@ type AttendanceRow = {
   homework_type: string;
   homework_material_id: string | null;
   homework_custom_text: string | null;
+  homework_id: string | null;
+  homework_title: string | null;
+  assigned_homework: Array<{ id: string; title: string; type: string; materialId: string | null; hasSubmission: boolean }> | null;
   curriculum_lesson_id: string | null;
   created_at: Date;
   updated_at: Date;
@@ -192,6 +200,17 @@ export async function markAttendance(input: MarkAttendanceInput, user: Authentic
   try {
     await client.query("BEGIN");
 
+    const assigned = await reconcileAttendanceHomework(client, {
+      classId: input.classId,
+      studentId: input.studentId,
+      isPresent,
+      homeworkType: isPresent ? (input.homeworkType ?? "none") : "none",
+      materialIds: [...(input.homeworkMaterialIds ?? []), ...(input.homeworkMaterialId ? [input.homeworkMaterialId] : [])],
+      curriculumDueDate: input.homeworkDueDate ?? null,
+      custom: input.customHomework,
+      canAssign: user.permissions.includes("homework.create")
+    });
+
     const result = await client.query<{ id: string }>(
       `
         INSERT INTO class_attendance (
@@ -210,11 +229,12 @@ export async function markAttendance(input: MarkAttendanceInput, user: Authentic
           continue_summary,
           homework_type,
           homework_material_id,
-          homework_custom_text
+          homework_custom_text,
+          homework_id
         )
         VALUES (
           $1, $2, $3::attendance_status, $4, NOW(), $5::attendance_source, $6, $7, $8, $9,
-          $10::academic_outcome, $11, $12, $13::attendance_homework_type, $14, $15
+          $10::academic_outcome, $11, $12, $13::attendance_homework_type, $14, $15, $16
         )
         ON CONFLICT (class_id, student_id)
         DO UPDATE SET
@@ -232,6 +252,7 @@ export async function markAttendance(input: MarkAttendanceInput, user: Authentic
           homework_type = EXCLUDED.homework_type,
           homework_material_id = EXCLUDED.homework_material_id,
           homework_custom_text = EXCLUDED.homework_custom_text,
+          homework_id = EXCLUDED.homework_id,
           updated_at = NOW()
         RETURNING id
       `,
@@ -249,8 +270,9 @@ export async function markAttendance(input: MarkAttendanceInput, user: Authentic
         isPresent ? (input.taughtSummary ?? null) : null,
         isPresent ? (input.continueSummary ?? null) : null,
         isPresent ? (input.homeworkType ?? "none") : "none",
-        isPresent ? (input.homeworkMaterialId ?? null) : null,
-        isPresent ? (input.homeworkCustomText ?? null) : null
+        isPresent ? assigned.firstMaterialId : null,
+        isPresent ? (input.homeworkCustomText ?? null) : null,
+        assigned.firstHomeworkId
       ]
     );
     const attendanceId = result.rows[0].id;
@@ -320,7 +342,7 @@ export async function updateAttendance(
   // Switching to a non-present status must clear any leftover outcome/homework data so the
   // DB CHECK constraint (academic_outcome requires status = 'present') can never be violated.
   if (input.status !== undefined && input.status !== "present") {
-    updates.push("academic_outcome = NULL", "taught_summary = NULL", "continue_summary = NULL", "homework_type = 'none'", "homework_material_id = NULL", "homework_custom_text = NULL");
+    updates.push("academic_outcome = NULL", "taught_summary = NULL", "continue_summary = NULL", "homework_type = 'none'", "homework_material_id = NULL", "homework_custom_text = NULL", "homework_id = NULL");
   }
 
   values.push(user.id);
@@ -351,6 +373,11 @@ export async function updateAttendance(
 
     if (!updated) {
       throw new ApiError(404, "Attendance record not found", "ATTENDANCE_NOT_FOUND");
+    }
+
+    // Leaving Present withdraws custom homework that was assigned through the dialog (kept if already submitted).
+    if (input.status !== undefined && input.status !== "present") {
+      await deleteUnsubmittedHomeworkForClass(client, existing.classId, existing.studentId);
     }
 
     await syncParticipantAttendance(client, updated.class_id, updated.student_id, updated.status);
@@ -505,6 +532,12 @@ function baseAttendanceSelect(): string {
       ca.homework_type,
       ca.homework_material_id,
       ca.homework_custom_text,
+      ca.homework_id,
+      (SELECT hw.title FROM homework hw WHERE hw.id = ca.homework_id) AS homework_title,
+      (SELECT COALESCE(JSON_AGG(JSON_BUILD_OBJECT(
+          'id', hw.id, 'title', hw.title, 'type', hw.homework_type, 'materialId', hw.curriculum_material_id,
+          'hasSubmission', EXISTS (SELECT 1 FROM homework_submissions hs WHERE hs.homework_id = hw.id)) ORDER BY hw.created_at), '[]'::JSON)
+        FROM homework hw WHERE hw.class_id = ca.class_id AND hw.student_id = ca.student_id) AS assigned_homework,
       c.curriculum_lesson_id,
       COUNT(vae.id) FILTER (WHERE vae.event_type = 'join') AS zoom_join_count,
       COUNT(vae.id) FILTER (WHERE vae.event_type = 'leave') AS zoom_leave_count,
@@ -576,6 +609,9 @@ function mapAttendance(row: AttendanceRow): AttendanceItem {
     homeworkType: row.homework_type,
     homeworkMaterialId: row.homework_material_id,
     homeworkCustomText: row.homework_custom_text,
+    homeworkId: row.homework_id,
+    homeworkTitle: row.homework_title,
+    assignedHomework: row.assigned_homework ?? [],
     curriculumLessonId: row.curriculum_lesson_id,
     continuation: null,
     createdAt: row.created_at,

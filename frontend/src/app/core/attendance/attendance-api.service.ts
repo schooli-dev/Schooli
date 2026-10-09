@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { ApiClientService } from '../api/api-client.service';
+import type { CustomHomeworkDraft } from '../homework/homework-api.service';
 
 export type AttendanceStatus = 'present' | 'absent' | 'late' | 'excused';
 export type AttendanceRecordStatus = AttendanceStatus | 'pending';
@@ -48,6 +49,11 @@ export type AttendanceRecord = {
   homeworkType: AttendanceHomeworkType;
   homeworkMaterialId: string | null;
   homeworkCustomText: string | null;
+  /** Custom homework assigned through the Mark Attendance dialog. */
+  homeworkId: string | null;
+  homeworkTitle: string | null;
+  /** Every homework assigned to this student for this session. */
+  assignedHomework: Array<{ id: string; title: string; type: string; materialId: string | null; hasSubmission: boolean }>;
   curriculumLessonId: string | null;
   continuation: AttendanceContinuation | null;
   createdAt: string;
@@ -68,7 +74,12 @@ export type MarkAttendanceRequest = {
   continueSummary?: string | null;
   homeworkType?: AttendanceHomeworkType;
   homeworkMaterialId?: string | null;
+  /** With homeworkType 'curriculum': every selected homework of the mapped curriculum class. */
+  homeworkMaterialIds?: string[];
+  homeworkDueDate?: string | null;
   homeworkCustomText?: string | null;
+  /** With homeworkType 'custom': created for this student when the attendance is saved. */
+  customHomework?: CustomHomeworkDraft;
 };
 
 @Injectable({ providedIn: 'root' })

@@ -45,7 +45,7 @@
       </fieldset>
 
       @if (attendance === 'present') {
-        <fieldset class="mb-1">
+        <fieldset class="mb-3">
           <legend class="section-label">Class Outcome</legend>
           <div class="d-grid gap-2">
             @for (option of outcomes; track option.value) {
@@ -54,6 +54,65 @@
                 <span><strong class="d-block">{{ option.label }}</strong><small class="text-muted">{{ option.hint }}</small></span>
               </label>
             }
+          </div>
+        </fieldset>
+
+        <fieldset class="mb-1">
+          <legend class="section-label">Homework</legend>
+          <div class="d-grid gap-2">
+            <label class="choice" [class.selected]="homeworkType === 'curriculum'">
+              <input type="radio" name="homeworkType" value="curriculum" [(ngModel)]="homeworkType" />
+              Select Curriculum Homework
+            </label>
+            @if (homeworkType === 'curriculum') {
+              @if (homeworkMaterials().length) {
+                <div class="d-grid gap-1">
+                  @for (material of homeworkMaterials(); track material.id) {
+                    <label class="d-flex align-items-center gap-2 small">
+                      <input type="checkbox" [name]="'hw-' + material.id" [checked]="isSelected(material.id)" (change)="toggleMaterial(material.id)" />
+                      {{ material.title }}
+                    </label>
+                  }
+                  <label class="small mt-1">Due date (optional, default 7 days)
+                    <input class="form-control form-control-sm" type="datetime-local" name="homeworkDueDate" [(ngModel)]="homeworkDueDate" />
+                  </label>
+                </div>
+              } @else {
+                <small class="text-muted">{{ loading() ? 'Loading homework...' : 'This curriculum class has no homework material.' }}</small>
+              }
+            }
+
+            <label class="choice" [class.selected]="homeworkType === 'custom'">
+              <input type="radio" name="homeworkType" value="custom" [(ngModel)]="homeworkType" (change)="onCustomHomeworkSelected()" />
+              Create Custom Homework
+            </label>
+            @if (homeworkType === 'custom') {
+              <div class="homework-chip">
+                @if (customHomework(); as draft) {
+                  <i class="bi bi-check-circle-fill text-success"></i>
+                  <span class="flex-grow-1 min-w-0">
+                    <strong class="d-block text-truncate">{{ draft.title }}</strong>
+                    <small class="text-muted">Will be assigned to {{ student().studentName }} when you save attendance</small>
+                  </span>
+                  <button class="btn btn-sm btn-outline-primary" type="button" (click)="homeworkFormOpen.set(true)">Edit</button>
+                } @else if (existingHomework(); as assigned) {
+                  <i class="bi bi-check-circle-fill text-success"></i>
+                  <span class="flex-grow-1 min-w-0">
+                    <strong class="d-block text-truncate">{{ assigned.title }}</strong>
+                    <small class="text-muted">Already assigned to {{ student().studentName }}</small>
+                  </span>
+                  <button class="btn btn-sm btn-outline-primary" type="button" (click)="homeworkFormOpen.set(true)">Replace</button>
+                } @else {
+                  <span class="flex-grow-1 text-muted small">No custom homework yet.</span>
+                  <button class="btn btn-sm btn-primary" type="button" (click)="homeworkFormOpen.set(true)">Fill in form</button>
+                }
+              </div>
+            }
+
+            <label class="choice" [class.selected]="homeworkType === 'none'">
+              <input type="radio" name="homeworkType" value="none" [(ngModel)]="homeworkType" />
+              No Homework
+            </label>
           </div>
         </fieldset>
       } @else if (attendance === 'absent') {
@@ -76,4 +135,13 @@
       </button>
     </footer>
   </form>
+
+  @if (homeworkFormOpen()) {
+    <app-custom-homework-form
+      [studentName]="student().studentName"
+      [draft]="customHomework()"
+      (assigned)="onHomeworkAssigned($event)"
+      (closed)="homeworkFormOpen.set(false)"
+    />
+  }
 </div>

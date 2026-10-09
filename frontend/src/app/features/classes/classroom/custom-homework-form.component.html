@@ -1,0 +1,98 @@
+<div class="form-backdrop" role="presentation" (keydown.escape)="$event.stopPropagation(); closed.emit()">
+  <form class="form-card" role="dialog" aria-modal="true" aria-labelledby="customHomeworkTitle" (ngSubmit)="submit()">
+    <header class="form-header">
+      <div>
+        <h2 id="customHomeworkTitle" class="h5 fw-bold mb-0 text-uppercase">Create Custom Homework</h2>
+        <small class="text-muted">Assigned to {{ studentName }} only</small>
+      </div>
+      <button class="btn-close" type="button" aria-label="Close" (click)="closed.emit()"></button>
+    </header>
+
+    <div class="form-body">
+      @if (library().length) {
+        <label class="d-block mb-3">
+          <span class="field-label">Start from my homework library</span>
+          <select class="form-select" name="library" [(ngModel)]="libraryId" (ngModelChange)="useLibraryItem()">
+            <option value="">Choose a saved homework (optional)</option>
+            @for (item of library(); track item.id) {
+              <option [value]="item.id">{{ item.title }}</option>
+            }
+          </select>
+        </label>
+      }
+
+      <label class="d-block mb-3">
+        <span class="field-label">Title <b class="text-danger">*</b></span>
+        <input class="form-control" name="title" maxlength="200" required [(ngModel)]="title" />
+      </label>
+
+      <label class="d-block mb-3">
+        <span class="field-label">Instructions</span>
+        <textarea class="form-control" name="instructions" rows="4" [(ngModel)]="instructions"></textarea>
+      </label>
+
+      <div class="row g-3 mb-3">
+        <label class="col-12 col-sm-5">
+          <span class="field-label">Maximum Points</span>
+          <input class="form-control" name="maxPoints" type="number" min="1" max="1000" step="1" [(ngModel)]="maxPoints" />
+        </label>
+        <label class="col-12 col-sm-7">
+          <span class="field-label">Due Date</span>
+          <input class="form-control" name="dueDate" type="datetime-local" [(ngModel)]="dueDate" />
+        </label>
+      </div>
+
+      <div class="mb-3">
+        <span class="field-label">Attachments</span>
+        @if (attachments.length) {
+          <ul class="list-unstyled d-grid gap-2 mb-2">
+            @for (file of attachments; track file.storageKey; let index = $index) {
+              <li class="attachment">
+                <i class="bi bi-paperclip text-primary"></i>
+                <span class="text-truncate flex-grow-1">{{ file.fileName }} <small class="text-muted">{{ formatSize(file.sizeBytes) }}</small></span>
+                <button class="btn btn-sm btn-link text-danger p-0" type="button" [attr.aria-label]="'Remove ' + file.fileName" (click)="removeAttachment(index)">
+                  <i class="bi bi-x-lg"></i>
+                </button>
+              </li>
+            }
+          </ul>
+        }
+        <label class="btn btn-outline-secondary btn-sm" [class.disabled]="uploading()">
+          @if (uploading()) {
+            <span class="spinner-border spinner-border-sm me-2"></span>Uploading...
+          } @else {
+            <i class="bi bi-plus-lg me-1"></i>Upload File
+          }
+          <input class="visually-hidden" type="file" multiple accept=".pdf,.docx,.pptx,.txt,.jpg,.jpeg,.png,.webp,.gif" [disabled]="uploading()" (change)="onFilesSelected($event)" />
+        </label>
+        <small class="d-block text-muted mt-1">PDF, DOCX, PPTX, TXT or images. Up to 10 files.</small>
+      </div>
+
+      <fieldset class="mb-3">
+        <legend class="field-label">Submission Type</legend>
+        <div class="d-flex flex-wrap gap-2">
+          @for (type of submissionTypes; track type.value) {
+            <label class="choice" [class.selected]="submissionType === type.value">
+              <input type="radio" name="submissionType" [value]="type.value" [(ngModel)]="submissionType" />
+              {{ type.label }}
+            </label>
+          }
+        </div>
+      </fieldset>
+
+      <label class="save-library">
+        <input class="form-check-input" type="checkbox" name="saveToLibrary" [(ngModel)]="saveToLibrary" />
+        <span>Save to My Homework Library <small class="text-muted">(reuse it for other students)</small></span>
+      </label>
+
+      @if (error()) {
+        <div class="alert alert-danger py-2 mt-3 mb-0" role="alert">{{ error() }}</div>
+      }
+    </div>
+
+    <footer class="form-footer">
+      <button class="btn btn-outline-secondary fw-semibold" type="button" (click)="closed.emit()">Cancel</button>
+      <button class="btn btn-primary fw-bold" type="submit" [disabled]="uploading()">Create &amp; Assign</button>
+    </footer>
+  </form>
+</div>
