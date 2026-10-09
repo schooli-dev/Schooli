@@ -346,79 +346,10 @@
   </section>
 </section>
 
-@if (selectedRecord()) {
-  <div class="modal-backdrop-custom"></div>
-
-  <section class="verify-dialog" role="dialog" aria-modal="true" aria-labelledby="verifyAttendanceTitle">
-    <header class="verify-header">
-      <div class="d-flex align-items-start gap-3 min-w-0">
-        <span class="verify-avatar">{{ initials(selectedRecord()!.studentName) }}</span>
-
-        <div class="min-w-0">
-          <span class="section-kicker">Attendance Verification</span>
-          <h2 id="verifyAttendanceTitle" class="text-truncate">{{ selectedRecord()!.studentName }}</h2>
-          <p class="text-truncate">{{ selectedRecord()!.classTitle }}</p>
-        </div>
-      </div>
-
-      <button class="btn-close" type="button" aria-label="Close" (click)="closeVerify()"></button>
-    </header>
-
-    <div class="verify-body">
-      <section class="verify-session-card mb-3">
-        <div>
-          <span>Session Date</span>
-          <strong>{{ selectedRecord()!.classStartTime | date: 'MMM d, y' }}</strong>
-        </div>
-        <div>
-          <span>Time</span>
-          <strong>
-            {{ selectedRecord()!.classStartTime | date: 'h:mm a' }} - {{ selectedRecord()!.classEndTime | date: 'h:mm a' }}
-          </strong>
-        </div>
-      </section>
-
-      <div class="evidence-summary mb-3" [class]="evidenceTone(selectedRecord()!)">
-        <span>Daily.co Evidence</span>
-        <strong>
-          <i class="bi" [class.bi-camera-video]="evidenceTone(selectedRecord()!) !== 'absent'" [class.bi-camera-video-off]="evidenceTone(selectedRecord()!) === 'absent'"></i>
-          {{ evidenceText(selectedRecord()!) }}
-        </strong>
-      </div>
-
-      <label class="form-label fw-bold">Final Status</label>
-      <div class="status-options mb-3">
-        <button class="btn" [class.active]="selectedStatus === 'present'" type="button" (click)="selectedStatus = 'present'">
-          <i class="bi bi-check-circle"></i>
-          Present
-        </button>
-        <button class="btn" [class.active]="selectedStatus === 'late'" type="button" (click)="selectedStatus = 'late'">
-          <i class="bi bi-clock"></i>
-          Late
-        </button>
-        <button class="btn" [class.active]="selectedStatus === 'absent'" type="button" (click)="selectedStatus = 'absent'">
-          <i class="bi bi-x-circle"></i>
-          Absent
-        </button>
-        <button class="btn" [class.active]="selectedStatus === 'excused'" type="button" (click)="selectedStatus = 'excused'">
-          <i class="bi bi-info-circle"></i>
-          Excused
-        </button>
-      </div>
-
-      <label class="form-label fw-bold">Teacher Notes</label>
-      <textarea class="form-control notes-control" rows="4" [(ngModel)]="notes" placeholder="Add optional note for this attendance record..."></textarea>
-    </div>
-
-    <footer class="verify-footer">
-      <button class="btn btn-outline-secondary" type="button" [disabled]="saving()" (click)="closeVerify()">Cancel</button>
-
-      <button class="btn btn-primary fw-bold" type="button" [disabled]="saving()" (click)="saveAttendance()">
-        @if (saving()) {
-          <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>
-        }
-        Save Attendance
-      </button>
-    </footer>
-  </section>
+@if (selectedRecord(); as record) {
+  <app-mark-attendance-dialog
+    [target]="{ classId: record.classId, title: record.classTitle, studentId: record.studentId, studentName: record.studentName, curriculumLessonId: record.curriculumLessonId }"
+    (saved)="onAttendanceSaved()"
+    (closed)="closeVerify()"
+  />
 }

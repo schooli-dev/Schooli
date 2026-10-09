@@ -17,8 +17,8 @@ export type Queryable = Pick<PoolClient, "query">;
  * idempotent and safe to call after any of these - callers never special-case the mapping
  * logic themselves.
  *
- * Rule: a class's mapped lesson is "consumed" (locked, kept) only when that class is
- * `completed` AND its attendance is `present` with academic_outcome `completed`. Every other
+ * Rule: a class's mapped lesson is "consumed" (locked, kept) only when its attendance is
+ * `present` with academic_outcome `completed` (and it was not cancelled). Every other
  * class in the series - not yet happened, cancelled, absent, or present-but-partial/continue -
  * is "open" and eligible to receive the next unconsumed lesson, walked in series_sequence
  * order. Only future-facing statuses (`scheduled`, `rescheduled`) actually receive a new
@@ -89,9 +89,11 @@ export async function recalcRemainingCurriculumMappings(client: Queryable, class
   );
   const seriesClasses = classesResult.rows;
 
+  // The teacher records what happened while the meeting is still running, so attendance decides
+  // this - not the class status, which only flips to completed when the room is ended.
   const consumedLessonIds = new Set(
     seriesClasses
-      .filter((row) => row.status === "completed" && row.attendance_status === "present" && row.academic_outcome === "completed")
+      .filter((row) => row.status !== "cancelled" && row.attendance_status === "present" && row.academic_outcome === "completed")
       .map((row) => row.curriculum_lesson_id)
       .filter((id): id is string => Boolean(id))
   );
@@ -101,6 +103,9 @@ export async function recalcRemainingCurriculumMappings(client: Queryable, class
 
   for (const row of seriesClasses) {
     if (row.status !== "scheduled" && row.status !== "rescheduled") continue; // Only future-facing occurrences get (re)assigned.
+    // Attendance already recorded (Present/Absent/...): the session happened. It keeps its lesson as
+    // history even if its status has not flipped yet, so it must not absorb a lesson from the pool.
+    if (row.attendance_status && row.attendance_status !== "pending") continue;
 
     const lesson = pool[poolIndex] ?? null;
     if (lesson) poolIndex += 1;

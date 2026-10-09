@@ -47,29 +47,16 @@
           </div>
         </div>
 
-        <div class="btn-group w-100" role="group" aria-label="Mark attendance">
-          <button
-            class="btn btn-outline-success fw-semibold"
-            type="button"
-            [class.active]="attendanceStatus() === 'present'"
-            (click)="markAttendance('present')"
-          >
-            <i class="bi bi-check-circle me-1"></i>
-            Present
-          </button>
-
-          <button
-            class="btn btn-outline-danger fw-semibold"
-            type="button"
-            [class.active]="attendanceStatus() === 'absent'"
-            (click)="markAttendance('absent')"
-          >
-            <i class="bi bi-x-circle me-1"></i>
-            Absent
-          </button>
-        </div>
+        <button class="btn btn-primary fw-semibold w-100" type="button" (click)="openAttendanceDialog()">
+          <i class="bi bi-clipboard2-check me-1"></i>
+          Mark Attendance
+        </button>
       </div>
     </div>
+  }
+
+  @if (attendanceDialogOpen() && classItem(); as item) {
+    <app-mark-attendance-dialog [target]="{ classId: item.id, title: item.title, studentId: item.participants[0].studentId, studentName: item.participants[0].studentName, curriculumLessonId: item.curriculumLessonId ?? null }" (saved)="onAttendanceSaved($event)" (closed)="attendanceDialogOpen.set(false)" />
   }
 
   @if (sdkMessage() || sdkError()) {

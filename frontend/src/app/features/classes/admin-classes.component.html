@@ -544,22 +544,69 @@
 
             <div class="row g-3">
               <div class="col-12 col-md-6">
-                <label class="schedule-field">
-                  <span class="field-label">
+                <div class="schedule-field student-picker" (keydown.escape)="closeStudentPicker()">
+                  <span class="field-label" id="studentPickerLabel">
                     <i class="bi bi-backpack"></i>
                     Student <b>*</b>
                   </span>
 
-                  <div class="schedule-control-wrap">
-                    <span class="schedule-control-icon"><i class="bi bi-backpack"></i></span>
-                    <select class="form-select" name="studentId" [(ngModel)]="scheduleForm.studentId" required (ngModelChange)="onStudentChanged()">
-                      <option value="">Select student</option>
-                      @for (student of students(); track student.id) {
-                        <option [value]="student.id">{{ fullName(student) }}</option>
+                  <div class="filter-multiselect" [class.is-open]="studentPickerOpen()">
+                    <button
+                      class="filter-multiselect-toggle"
+                      style="min-height: 46px; font-size: 14px"
+                      type="button"
+                      aria-haspopup="listbox"
+                      aria-labelledby="studentPickerLabel"
+                      [attr.aria-expanded]="studentPickerOpen()"
+                      (click)="toggleStudentPicker()"
+                    >
+                      @if (selectedStudent(); as student) {
+                        <span class="text-truncate">{{ fullName(student) }}</span>
+                      } @else {
+                        <span class="text-truncate text-muted">Select student</span>
                       }
-                    </select>
+                      <i class="bi bi-chevron-down" aria-hidden="true"></i>
+                    </button>
+
+                    @if (studentPickerOpen()) {
+                      <div class="filter-multiselect-menu" style="width: 100%">
+                        <div class="filter-multiselect-header">
+                          <input
+                            #studentSearchInput
+                            class="form-control form-control-sm"
+                            type="search"
+                            name="studentSearch"
+                            placeholder="Search students by name or email"
+                            aria-label="Search students"
+                            autocomplete="off"
+                            [ngModel]="studentSearch()"
+                            (ngModelChange)="studentSearch.set($event)"
+                            (keydown.enter)="$event.preventDefault(); pickFirstMatchingStudent()"
+                          />
+                        </div>
+                        <div class="filter-multiselect-options" role="listbox" aria-label="Students">
+                          @for (student of pickableStudents(); track student.id) {
+                            <button
+                              class="filter-multiselect-option w-100 border-0 bg-transparent text-start"
+                              type="button"
+                              role="option"
+                              [attr.aria-selected]="scheduleForm.studentId === student.id"
+                              [class.text-primary]="scheduleForm.studentId === student.id"
+                              (click)="pickStudent(student)"
+                            >
+                              <span class="flex-grow-1 text-truncate">{{ fullName(student) }} <small class="text-muted">{{ student.email }}</small></span>
+                              @if (scheduleForm.studentId === student.id) {
+                                <i class="bi bi-check2" aria-hidden="true"></i>
+                              }
+                            </button>
+                          } @empty {
+                            <span class="filter-multiselect-empty">No students match your search.</span>
+                          }
+                        </div>
+                      </div>
+                    }
                   </div>
-                </label>
+                </div>
               </div>
             </div>
           </section>

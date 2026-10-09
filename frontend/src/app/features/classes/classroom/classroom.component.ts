@@ -2,17 +2,18 @@ import { CommonModule } from '@angular/common';
 import { AfterViewInit, Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { AttendanceApiService, AttendanceStatus } from '../../../core/attendance/attendance-api.service';
+import { AttendanceStatus } from '../../../core/attendance/attendance-api.service';
 import { AuthTokenService } from '../../../core/auth/auth-token.service';
 import { ClassListItem, ClassesApiService } from '../../../core/classes/classes-api.service';
 import { RuntimeConfigService } from '../../../core/config/runtime-config.service';
 import { DailyApiService } from '../../../core/daily/daily-api.service';
 import { ToastService } from '../../../core/toast/toast.service';
+import { MarkAttendanceDialogComponent } from './mark-attendance-dialog.component';
 
 @Component({
   selector: 'app-classroom',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, MarkAttendanceDialogComponent],
   templateUrl: './classroom.component.html',
   styleUrl: './classroom.component.scss'
 })
@@ -24,7 +25,6 @@ export class ClassroomComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly classesApi = inject(ClassesApiService);
   private readonly dailyApi = inject(DailyApiService);
-  private readonly attendanceApi = inject(AttendanceApiService);
   private readonly auth = inject(AuthTokenService);
   private readonly runtimeConfig = inject(RuntimeConfigService);
   private readonly toasts = inject(ToastService);
@@ -39,6 +39,7 @@ export class ClassroomComponent implements OnInit, AfterViewInit, OnDestroy {
   protected readonly canMarkAttendance = computed(() => Boolean(this.user?.roles.includes('teacher') || this.user?.roles.includes('admin')));
   protected readonly isTeacher = computed(() => Boolean(this.user?.roles.includes('teacher')));
   protected readonly attendancePosition = signal({ x: 16, y: 16 });
+  protected readonly attendanceDialogOpen = signal(false);
 
   private sdkStarted = false;
   private hasJoinedMeeting = false;
@@ -118,37 +119,29 @@ export class ClassroomComponent implements OnInit, AfterViewInit, OnDestroy {
     target.setPointerCapture?.(event.pointerId);
   }
 
-  protected markAttendance(status: AttendanceStatus): void {
-    const item = this.classItem();
-    const student = item?.participants[0];
-
-    if (!item || !student) {
-      return;
+  protected openAttendanceDialog(): void {
+    if (this.classItem()?.participants[0]) {
+      this.attendanceDialogOpen.set(true);
     }
+  }
 
-    this.attendanceApi
-      .markAttendance({
-        classId: item.id,
-        studentId: student.studentId,
-        status
-      })
-      .subscribe({
-        next: () => {
-          this.toasts.success(`Attendance marked ${status}.`);
-          this.classItem.update((current) => {
-            if (!current) {
-              return current;
-            }
-            return {
-              ...current,
-              participants: current.participants.map((participant) =>
-                participant.studentId === student.studentId ? { ...participant, attendanceStatus: status } : participant
-              )
-            };
-          });
-        },
-        error: () => this.toasts.error('Could not update attendance.')
-      });
+  /** The dialog saved Present/Absent (+ outcome): reflect it on the widget badge and close. */
+  protected onAttendanceSaved(status: AttendanceStatus): void {
+    const student = this.classItem()?.participants[0];
+    this.toasts.success(`Attendance marked ${status}.`);
+    this.attendanceDialogOpen.set(false);
+    if (!student) return;
+
+    this.classItem.update((current) =>
+      current
+        ? {
+            ...current,
+            participants: current.participants.map((participant) =>
+              participant.studentId === student.studentId ? { ...participant, attendanceStatus: status } : participant
+            )
+          }
+        : current
+    );
   }
 
   protected endClass(): void {

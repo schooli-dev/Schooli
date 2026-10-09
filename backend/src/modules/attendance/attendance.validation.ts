@@ -39,7 +39,7 @@ type OutcomeFieldsBody = {
   homeworkCustomText?: string | null;
 };
 
-function refineOutcomeFields(body: OutcomeFieldsBody, context: z.RefinementCtx, statusKnown: boolean) {
+function refineOutcomeFields(body: OutcomeFieldsBody, context: z.RefinementCtx, statusKnown: boolean, requireOutcome = true) {
   const isPresent = body.status === "present";
   const hasOutcomeData =
     body.academicOutcome !== undefined ||
@@ -57,7 +57,7 @@ function refineOutcomeFields(body: OutcomeFieldsBody, context: z.RefinementCtx, 
     });
   }
 
-  if (statusKnown && isPresent && body.academicOutcome === undefined) {
+  if (requireOutcome && statusKnown && isPresent && body.academicOutcome === undefined) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
       message: "Academic outcome is required when status is 'present'",
@@ -146,7 +146,9 @@ export const updateAttendanceSchema = z.object({
     .refine((body) => Object.keys(body).length > 0, {
       message: "At least one field is required"
     })
-    .superRefine((body, context) => refineOutcomeFields(body, context, body.status !== undefined))
+    // The retro-verify flow (PATCH) may confirm Present without a lesson outcome; the live
+    // Mark Attendance dialog (POST /attendance/mark) always requires one.
+    .superRefine((body, context) => refineOutcomeFields(body, context, body.status !== undefined, false))
 });
 
 export type ListAttendanceInput = z.infer<typeof listAttendanceSchema>["query"];

@@ -1,0 +1,79 @@
+<div class="dialog-backdrop" role="presentation" (keydown.escape)="closed.emit()">
+  <form class="dialog-card" role="dialog" aria-modal="true" aria-labelledby="markAttendanceTitle" (ngSubmit)="save()">
+    <header class="dialog-header">
+      <h2 id="markAttendanceTitle" class="h5 fw-bold mb-0">Mark Attendance</h2>
+      <button class="btn-close" type="button" aria-label="Close" (click)="closed.emit()"></button>
+    </header>
+
+    <div class="dialog-body">
+      <dl class="info-grid mb-3">
+        <div><dt>Student</dt><dd>{{ student().studentName }}</dd></div>
+        @if (lesson(); as lesson) {
+          <div><dt>Course</dt><dd>{{ lesson.courseName }}</dd></div>
+          <div><dt>Module</dt><dd>{{ lesson.moduleName }}</dd></div>
+        }
+        <div><dt>Scheduled Class</dt><dd>{{ target.title }}</dd></div>
+        @if (lesson(); as lesson) {
+          <div><dt>Curriculum Mapping</dt><dd>Class {{ lesson.lessonNumber }} - {{ lesson.title }}</dd></div>
+        }
+      </dl>
+
+      @if (continuation(); as previous) {
+        <section class="continue-banner mb-3" aria-label="Continue from previous class">
+          <strong class="d-block mb-2"><i class="bi bi-arrow-repeat me-2"></i>CONTINUE FROM PREVIOUS CLASS</strong>
+          <dl class="mb-0">
+            <dt>Curriculum Class</dt><dd>{{ previous.lessonTitle }}</dd>
+            @if (previous.taughtSummary) { <dt>Previously Taught</dt><dd>{{ previous.taughtSummary }}</dd> }
+            @if (previous.continueSummary) { <dt>Continue With</dt><dd>{{ previous.continueSummary }}</dd> }
+            @if (previous.teacherNotes) { <dt>Teacher Note</dt><dd>{{ previous.teacherNotes }}</dd> }
+          </dl>
+        </section>
+      }
+
+      <fieldset class="mb-3">
+        <legend class="section-label">Attendance</legend>
+        <div class="d-flex gap-2">
+          <label class="choice choice-present" [class.selected]="attendance === 'present'">
+            <input type="radio" name="attendance" value="present" [(ngModel)]="attendance" />
+            <i class="bi bi-check-circle"></i> Present
+          </label>
+          <label class="choice choice-absent" [class.selected]="attendance === 'absent'">
+            <input type="radio" name="attendance" value="absent" [(ngModel)]="attendance" />
+            <i class="bi bi-x-circle"></i> Absent
+          </label>
+        </div>
+      </fieldset>
+
+      @if (attendance === 'present') {
+        <fieldset class="mb-1">
+          <legend class="section-label">Class Outcome</legend>
+          <div class="d-grid gap-2">
+            @for (option of outcomes; track option.value) {
+              <label class="choice" [class.selected]="outcome === option.value">
+                <input type="radio" name="outcome" [value]="option.value" [(ngModel)]="outcome" />
+                <span><strong class="d-block">{{ option.label }}</strong><small class="text-muted">{{ option.hint }}</small></span>
+              </label>
+            }
+          </div>
+        </fieldset>
+      } @else if (attendance === 'absent') {
+        <label class="d-block mb-1">
+          <span class="section-label">Absence Note / Reason</span>
+          <textarea class="form-control" name="absenceNote" rows="3" [(ngModel)]="absenceNote"></textarea>
+        </label>
+      }
+
+      @if (error()) {
+        <div class="alert alert-danger py-2 mt-3 mb-0" role="alert">{{ error() }}</div>
+      }
+    </div>
+
+    <footer class="dialog-footer">
+      <button class="btn btn-outline-secondary fw-semibold" type="button" (click)="closed.emit()">Cancel</button>
+      <button class="btn btn-primary fw-bold" type="submit" [disabled]="saving()">
+        @if (saving()) { <span class="spinner-border spinner-border-sm me-2"></span> }
+        Save Attendance
+      </button>
+    </footer>
+  </form>
+</div>

@@ -1,5 +1,5 @@
 import { DatePipe } from '@angular/common';
-import { Component, OnInit, computed, signal } from '@angular/core';
+import { Component, ElementRef, HostListener, OnInit, ViewChild, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { finalize, forkJoin, of } from 'rxjs';
@@ -57,6 +57,8 @@ export class AdminClassesComponent implements OnInit {
   protected readonly selectedStudentIds = signal<string[]>([]);
   protected readonly teacherFilterOpen = signal(false);
   protected readonly studentFilterOpen = signal(false);
+  protected readonly studentPickerOpen = signal(false);
+  protected readonly studentSearch = signal('');
   protected readonly activeTab = signal<ClassTabKey>('all');
   protected readonly currentPage = signal(1);
   protected readonly pageSize = 10;
@@ -144,6 +146,15 @@ export class AdminClassesComponent implements OnInit {
     { key: 'cancellation_requests', label: 'Cancellation Requests' }
   ];
 
+  /** Students matching the wizard's search box (name or email), case-insensitive. */
+  protected readonly pickableStudents = computed(() => {
+    const query = this.studentSearch().trim().toLowerCase();
+    if (!query) {
+      return this.students();
+    }
+    return this.students().filter((student) => `${student.firstName} ${student.lastName} ${student.email}`.toLowerCase().includes(query));
+  });
+
   protected readonly filteredClasses = computed(() => {
     const query = this.searchText().trim().toLowerCase();
     const teacherIds = this.selectedTeacherIds();
@@ -192,6 +203,15 @@ export class AdminClassesComponent implements OnInit {
     private readonly dateTime: DateTimeService,
     private readonly authTokens: AuthTokenService
   ) {}
+
+  @ViewChild('studentSearchInput') private studentSearchInput?: ElementRef<HTMLInputElement>;
+
+  @HostListener('document:click', ['$event'])
+  protected closeStudentPickerOnOutsideClick(event: MouseEvent): void {
+    if (this.studentPickerOpen() && !(event.target as HTMLElement | null)?.closest('.student-picker')) {
+      this.closeStudentPicker();
+    }
+  }
 
   ngOnInit(): void {
     this.loadClasses();
@@ -544,6 +564,35 @@ export class AdminClassesComponent implements OnInit {
     this.scheduleMessage.set('');
   }
 
+  protected toggleStudentPicker(): void {
+    if (this.studentPickerOpen()) {
+      this.closeStudentPicker();
+      return;
+    }
+    this.studentSearch.set('');
+    this.studentPickerOpen.set(true);
+    setTimeout(() => this.studentSearchInput?.nativeElement.focus());
+  }
+
+  protected closeStudentPicker(): void {
+    this.studentPickerOpen.set(false);
+    this.studentSearch.set('');
+  }
+
+  /** Single selection: choosing a student replaces any previous choice and closes the list. */
+  protected pickStudent(student: PersonOption): void {
+    this.scheduleForm.studentId = student.id;
+    this.closeStudentPicker();
+    this.onStudentChanged();
+  }
+
+  protected pickFirstMatchingStudent(): void {
+    const first = this.pickableStudents()[0];
+    if (first) {
+      this.pickStudent(first);
+    }
+  }
+
   protected onStudentChanged(): void {
     this.applyRecommendedScheduleTimezone();
     this.refreshBusySlots();
@@ -845,6 +894,7 @@ export class AdminClassesComponent implements OnInit {
   }
 
   private resetScheduleForm(): void {
+    this.closeStudentPicker();
     this.scheduleStep.set(1);
     this.scheduleForm = {
       studentId: '',

@@ -11,6 +11,17 @@ export type AttendanceEvidence = {
   lastLeaveTime: string | null;
 };
 
+export type AcademicOutcome = 'completed' | 'partially_completed' | 'continue_next_class';
+export type AttendanceHomeworkType = 'none' | 'curriculum' | 'custom';
+
+/** Shown to the teacher when the previous session for this student+class ended Partial / Continue Next Class. */
+export type AttendanceContinuation = {
+  lessonTitle: string;
+  taughtSummary: string | null;
+  continueSummary: string | null;
+  teacherNotes: string | null;
+};
+
 export type AttendanceRecord = {
   id: string;
   classId: string;
@@ -31,6 +42,14 @@ export type AttendanceRecord = {
   zoomLeaveTime: string | null;
   totalZoomMinutes: number | null;
   zoomEvidence: AttendanceEvidence;
+  academicOutcome: AcademicOutcome | null;
+  taughtSummary: string | null;
+  continueSummary: string | null;
+  homeworkType: AttendanceHomeworkType;
+  homeworkMaterialId: string | null;
+  homeworkCustomText: string | null;
+  curriculumLessonId: string | null;
+  continuation: AttendanceContinuation | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -43,6 +62,13 @@ export type MarkAttendanceRequest = {
   zoomJoinTime?: string | null;
   zoomLeaveTime?: string | null;
   totalZoomMinutes?: number | null;
+  /** Present only: required by the live Mark Attendance endpoint, rejected for any other status. */
+  academicOutcome?: AcademicOutcome;
+  taughtSummary?: string | null;
+  continueSummary?: string | null;
+  homeworkType?: AttendanceHomeworkType;
+  homeworkMaterialId?: string | null;
+  homeworkCustomText?: string | null;
 };
 
 @Injectable({ providedIn: 'root' })
@@ -60,6 +86,11 @@ export class AttendanceApiService {
     to?: string;
   }) {
     return this.api.get<AttendanceRecord[]>('/attendance', params);
+  }
+
+  /** The class's attendance rows, including the continuation banner data for the mapped curriculum class. */
+  listClassAttendance(classId: string) {
+    return this.api.get<AttendanceRecord[]>(`/classes/${classId}/attendance`);
   }
 
   markAttendance(payload: MarkAttendanceRequest) {

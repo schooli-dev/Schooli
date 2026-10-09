@@ -8,6 +8,7 @@ import {
   AttendanceStatus
 } from '../../../core/attendance/attendance-api.service';
 import { ToastService } from '../../../core/toast/toast.service';
+import { MarkAttendanceDialogComponent } from '../../classes/classroom/mark-attendance-dialog.component';
 
 type DateRangeFilter = 'today' | '7days' | '30days' | 'all';
 type FinalStatusFilter = AttendanceRecordStatus | 'any';
@@ -17,22 +18,19 @@ const pageSize = 10;
 @Component({
   selector: 'app-teacher-attendance',
   standalone: true,
-  imports: [CommonModule, DatePipe, DecimalPipe, FormsModule],
+  imports: [CommonModule, DatePipe, DecimalPipe, FormsModule, MarkAttendanceDialogComponent],
   templateUrl: './teacher-attendance.component.html',
   styleUrl: './teacher-attendance.component.scss'
 })
 export class TeacherAttendanceComponent implements OnInit {
   protected readonly records = signal<AttendanceRecord[]>([]);
   protected readonly loading = signal(false);
-  protected readonly saving = signal(false);
   protected readonly selectedRecord = signal<AttendanceRecord | null>(null);
   protected readonly pagination = signal({ page: 1, limit: pageSize, total: 0, totalPages: 1 });
 
   protected dateRange: DateRangeFilter = 'all';
   protected classFilter = '';
   protected statusFilter: FinalStatusFilter = 'any';
-  protected notes = '';
-  protected selectedStatus: AttendanceStatus = 'present';
 
   protected readonly classOptions = computed(() => {
     const seen = new Map<string, string>();
@@ -89,46 +87,19 @@ export class TeacherAttendanceComponent implements OnInit {
     this.loadAttendance(1);
   }
 
+  /** Opens the same Mark Attendance dialog used in the live classroom. */
   protected openVerify(record: AttendanceRecord): void {
     this.selectedRecord.set(record);
-    this.selectedStatus = this.suggestStatus(record);
-    this.notes = record.teacherNotes ?? '';
   }
 
   protected closeVerify(): void {
-    if (this.saving()) {
-      return;
-    }
-
     this.selectedRecord.set(null);
-    this.notes = '';
   }
 
-  protected saveAttendance(): void {
-    const record = this.selectedRecord();
-
-    if (!record) {
-      return;
-    }
-
-    this.saving.set(true);
-    this.attendanceApi
-      .updateAttendance(record.id, {
-        status: this.selectedStatus,
-        teacherNotes: this.notes.trim() || null
-      })
-      .subscribe({
-        next: (response) => {
-          this.records.update((records) => records.map((item) => (item.id === record.id ? response.data : item)));
-          this.toasts.success('Attendance updated successfully.');
-          this.saving.set(false);
-          this.closeVerify();
-        },
-        error: () => {
-          this.toasts.error('Could not update attendance.');
-        },
-        complete: () => this.saving.set(false)
-      });
+  protected onAttendanceSaved(): void {
+    this.selectedRecord.set(null);
+    this.toasts.success('Attendance saved.');
+    this.loadAttendance(this.pagination().page);
   }
 
   protected goToPage(page: number): void {
