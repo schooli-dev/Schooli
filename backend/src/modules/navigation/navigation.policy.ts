@@ -349,6 +349,19 @@ const pages: NavigationPage[] = [
     ]
   },
   {
+    key: "student.homework",
+    label: "Homework",
+    path: "/student/homework",
+    icon: "doc",
+    section: "main",
+    roles: ["student"],
+    anyPermissions: ["homework.view"],
+    actions: [
+      { key: "read", permission: "homework.view" },
+      { key: "create", permission: "homework.submit" }
+    ]
+  },
+  {
     key: "student.credits",
     label: "Credits",
     path: "/student/credits",

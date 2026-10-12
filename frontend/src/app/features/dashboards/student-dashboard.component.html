@@ -209,16 +209,32 @@
 
         <div class="col-12">
           <article class="card border h-100 metric-card-modern">
-            <div class="card-body d-flex align-items-center gap-3">
-              <span class="icon-box icon-box-lg bg-warning-subtle text-warning-emphasis flex-shrink-0">
-                <i class="bi bi-check2-circle"></i>
-              </span>
-
-              <div class="min-w-0">
-                <p class="small fw-bold text-muted mb-1">Completed</p>
-                <h3 class="fw-bold mb-1">{{ completedCount() }}</h3>
-                <p class="small text-primary fw-semibold mb-0">Finished sessions</p>
+            <div class="card-body">
+              <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
+                <span class="d-flex align-items-center gap-2">
+                  <span class="icon-box bg-warning-subtle text-warning-emphasis flex-shrink-0"><i class="bi bi-journal-check"></i></span>
+                  <span class="small fw-bold text-muted">Homework</span>
+                </span>
+                <a class="small fw-bold text-primary text-decoration-none" routerLink="/student/homework" skipLocationChange>View all</a>
               </div>
+
+              @if (homework(); as hw) {
+                <div class="d-flex align-items-baseline gap-2 mb-2">
+                  <h3 class="fw-bold mb-0">{{ hw.completed }}/{{ homeworkTotal() }}</h3>
+                  <span class="small text-muted">completed</span>
+                </div>
+                <div class="progress mb-3" role="progressbar" [attr.aria-valuenow]="homeworkPercent()" aria-valuemin="0" aria-valuemax="100" style="height: 6px">
+                  <div class="progress-bar bg-success" [style.width.%]="homeworkPercent()"></div>
+                </div>
+                <div class="row g-2 text-center small">
+                  <div class="col-3"><strong class="d-block fs-6">{{ hw.pending }}</strong><span class="text-muted">Pending</span></div>
+                  <div class="col-3"><strong class="d-block fs-6">{{ hw.submitted }}</strong><span class="text-muted">Submitted</span></div>
+                  <div class="col-3"><strong class="d-block fs-6" [class.text-danger]="hw.needsRevision > 0">{{ hw.needsRevision }}</strong><span class="text-muted">Revision</span></div>
+                  <div class="col-3"><strong class="d-block fs-6" [class.text-danger]="hw.overdue > 0">{{ hw.overdue }}</strong><span class="text-muted">Overdue</span></div>
+                </div>
+              } @else {
+                <p class="small text-muted mb-0">No homework yet.</p>
+              }
             </div>
           </article>
         </div>

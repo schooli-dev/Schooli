@@ -203,6 +203,27 @@ export const routes: Routes = [
         title: 'Student Curriculum | SchooliEdu'
       },
       {
+        path: 'teacher/homework',
+        loadComponent: () => import('./features/homework/teacher-homework.component').then((module) => module.TeacherHomeworkComponent),
+        canActivate: [authGuard],
+        data: { roles: ['teacher'], permission: 'homework.view' },
+        title: 'Homework | SchooliEdu'
+      },
+      {
+        path: 'student/homework',
+        loadComponent: () => import('./features/homework/student-homework.component').then((module) => module.StudentHomeworkComponent),
+        canActivate: [authGuard],
+        data: { roles: ['student'], permission: 'homework.view' },
+        title: 'Homework | SchooliEdu'
+      },
+      {
+        path: 'student/homework/:id',
+        loadComponent: () => import('./features/homework/student-homework-detail.component').then((module) => module.StudentHomeworkDetailComponent),
+        canActivate: [authGuard],
+        data: { roles: ['student'], permission: 'homework.view' },
+        title: 'Homework | SchooliEdu'
+      },
+      {
         path: 'teacher/classes/:id/room',
         loadComponent: () =>
           import('./features/classes/classroom/classroom.component').then((module) => module.ClassroomComponent),

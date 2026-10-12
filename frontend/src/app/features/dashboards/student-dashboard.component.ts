@@ -2,6 +2,7 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AuthTokenService } from '../../core/auth/auth-token.service';
 import { ClassListItem, ClassesApiService } from '../../core/classes/classes-api.service';
+import { HomeworkApiService, HomeworkSummary } from '../../core/homework/homework-api.service';
 import { DateTimeService } from '../../core/datetime/date-time.service';
 
 @Component({
@@ -25,6 +26,15 @@ export class StudentDashboardComponent implements OnInit {
   );
   protected readonly upcomingPreview = computed(() => this.upcomingClasses().slice(0, 3));
   protected readonly nextClass = computed(() => this.upcomingClasses()[0] ?? null);
+  private readonly homeworkApi = inject(HomeworkApiService);
+  protected readonly homework = signal<HomeworkSummary | null>(null);
+  protected readonly homeworkTotal = computed(() => {
+    const hw = this.homework();
+    return hw ? hw.pending + hw.submitted + hw.needsRevision + hw.completed : 0;
+  });
+  protected readonly homeworkPercent = computed(() =>
+    this.homeworkTotal() ? Math.round(((this.homework()?.completed ?? 0) / this.homeworkTotal()) * 100) : 0
+  );
   protected readonly completedCount = computed(() => this.classes().filter((item) => item.status === 'completed').length);
   protected readonly cancelledCount = computed(() => this.classes().filter((item) => item.status === 'cancelled').length);
   protected readonly liveCount = computed(() => this.classes().filter((item) => item.status === 'live').length);
@@ -101,6 +111,10 @@ export class StudentDashboardComponent implements OnInit {
     this.classesApi.listClasses({ limit: 100 }).subscribe({
       next: (response) => this.classes.set(response.data),
       error: () => this.classes.set([])
+    });
+    this.homeworkApi.summary().subscribe({
+      next: (response) => this.homework.set(response.data),
+      error: () => this.homework.set(null)
     });
   }
 

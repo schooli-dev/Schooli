@@ -71,8 +71,10 @@ const implementedSidebarPaths = new Set([
   '/teacher/classes',
   '/teacher/attendance',
   '/teacher/students',
+  '/teacher/homework',
   '/student/dashboard',
-  '/student/classes'
+  '/student/classes',
+  '/student/homework'
 ]);
 
 const learningMaterialsPaths = new Set([
