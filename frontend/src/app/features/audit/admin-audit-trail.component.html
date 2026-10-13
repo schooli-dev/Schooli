@@ -1,0 +1,124 @@
+<section class="page">
+  <header class="mb-4">
+    <h1 class="h3 fw-bold mb-1">Audit Trail</h1>
+    <p class="text-muted mb-0">A read-only history of important actions, kept for academic records and administrative visibility.</p>
+  </header>
+
+  <section class="filter-card mb-3">
+    <div class="row g-3">
+      <div class="col-12 col-md-4 col-xl-3">
+        <label class="filter-label" for="auditModule">Module</label>
+        <select id="auditModule" class="form-select" name="module" [(ngModel)]="module" (ngModelChange)="onModuleChange()">
+          <option value="">All modules</option>
+          @for (option of modules(); track option.key) { <option [value]="option.key">{{ option.label }}</option> }
+        </select>
+      </div>
+      <div class="col-6 col-md-4 col-xl-2">
+        <label class="filter-label" for="auditFrom">From</label>
+        <input id="auditFrom" class="form-control" type="date" name="from" [(ngModel)]="from" [max]="to || null" (ngModelChange)="load(1)" />
+      </div>
+      <div class="col-6 col-md-4 col-xl-2">
+        <label class="filter-label" for="auditTo">To</label>
+        <input id="auditTo" class="form-control" type="date" name="to" [(ngModel)]="to" [min]="from || null" (ngModelChange)="load(1)" />
+      </div>
+      <div class="col-6 col-md-4 col-xl-2">
+        <label class="filter-label" for="auditRole">Done by</label>
+        <select id="auditRole" class="form-select" name="actorRole" [(ngModel)]="actorRole" (ngModelChange)="load(1)">
+          <option value="">Anyone</option>
+          <option value="teacher">Teacher</option>
+          <option value="student">Student</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+      <div class="col-6 col-md-4 col-xl-3">
+        <label class="filter-label" for="auditSort">Order</label>
+        <select id="auditSort" class="form-select" name="sort" [(ngModel)]="sort" (ngModelChange)="load(1)">
+          <option value="desc">Newest first</option>
+          <option value="asc">Oldest first</option>
+        </select>
+      </div>
+
+      <div class="col-12 col-lg-8">
+        <label class="filter-label" for="auditSearch">Search</label>
+        <div class="input-group">
+          <span class="input-group-text"><i class="bi bi-search"></i></span>
+          <input id="auditSearch" class="form-control" type="search" name="search" placeholder="Student, teacher, homework, course or module name" [(ngModel)]="search" (keyup.enter)="load(1)" />
+          <button class="btn btn-outline-primary" type="button" (click)="load(1)">Search</button>
+        </div>
+      </div>
+      <div class="col-12 col-lg-4 d-flex flex-wrap align-items-end gap-2">
+        <button class="btn btn-sm btn-outline-secondary" type="button" (click)="quickRange(1)">Today</button>
+        <button class="btn btn-sm btn-outline-secondary" type="button" (click)="quickRange(7)">Last 7 days</button>
+        <button class="btn btn-sm btn-outline-secondary" type="button" (click)="quickRange(30)">Last 30 days</button>
+        <button class="btn btn-sm btn-link fw-semibold" type="button" (click)="clear()">Clear all</button>
+      </div>
+
+      <div class="col-12">
+        <span class="filter-label">Include events <small class="text-muted text-lowercase fw-normal">(none selected = all events)</small></span>
+        <div class="d-flex flex-wrap gap-2">
+          @for (option of actionOptions(); track option.key) {
+            <button class="chip" type="button" [class.active]="selectedActions().includes(option.key)" [attr.aria-pressed]="selectedActions().includes(option.key)" (click)="toggleAction(option.key)">
+              {{ option.label }}
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+  </section>
+
+  @if (focus(); as selected) {
+    <div class="focus-banner mb-3">
+      <span class="min-w-0">
+        <i class="bi bi-clock-history me-2"></i>Full timeline of <strong>{{ selected.homeworkTitle || 'this record' }}</strong>@if (selected.studentName) { for {{ selected.studentName }} }
+      </span>
+      <button class="btn btn-sm btn-outline-primary flex-shrink-0" type="button" (click)="closeTimeline()">Back to all activity</button>
+    </div>
+  }
+
+  <p class="small text-muted mb-2">{{ pagination().total | number }} {{ pagination().total === 1 ? 'entry' : 'entries' }}</p>
+
+  @if (loading()) {
+    <div class="state-card"><span class="spinner-border spinner-border-sm text-primary me-2"></span>Loading audit trail...</div>
+  } @else if (!items().length) {
+    <div class="state-card"><i class="bi bi-journal-x d-block fs-3 mb-2"></i><strong>No activity matches these filters.</strong></div>
+  } @else {
+    @for (group of groups(); track group.day) {
+      <h2 class="day-heading">{{ group.day | date: 'EEEE, MMM d, y' }}</h2>
+      <ol class="timeline">
+        @for (item of group.items; track item.id) {
+          <li class="entry" [class]="'entry tone-' + tone(item.action)">
+            <span class="entry-icon"><i class="bi" [class]="icon(item.action)"></i></span>
+            <div class="entry-body">
+              <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                <strong>{{ item.summary }}</strong>
+                <span class="badge rounded-pill text-bg-light border">{{ moduleLabel(item.module) }}</span>
+                <span class="badge rounded-pill event-badge">{{ actionLabel(item.action) }}</span>
+                @if (item.backfilled) { <span class="badge rounded-pill text-bg-secondary" title="Rebuilt from records that existed before the audit trail">Imported</span> }
+              </div>
+              <div class="entry-meta">
+                <span>{{ item.createdAt | date: 'h:mm a' }}</span>
+                @if (item.actorName) { <span><i class="bi bi-person me-1"></i>{{ item.actorName }}@if (item.actorRole) { ({{ item.actorRole }}) }</span> }
+                @if (item.studentName) { <span><i class="bi bi-mortarboard me-1"></i>{{ item.studentName }}</span> }
+                @if (item.homeworkTitle) { <span><i class="bi bi-journal-text me-1"></i>{{ item.homeworkTitle }}</span> }
+                @if (item.curriculumModule) { <span><i class="bi bi-diagram-3 me-1"></i>{{ item.curriculumModule }}@if (item.lessonLabel) { &bull; {{ item.lessonLabel }} }</span> }
+                @if (item.attempt) { <span>Attempt #{{ item.attempt }}</span> }
+                @if (item.points !== null) { <span>Score {{ item.points }}@if (item.maxPoints) {/{{ item.maxPoints }}}</span> }
+              </div>
+            </div>
+            @if (item.entityId && !focus()) {
+              <button class="btn btn-sm btn-outline-secondary flex-shrink-0" type="button" (click)="openTimeline(item)">Full timeline</button>
+            }
+          </li>
+        }
+      </ol>
+    }
+
+    <nav class="d-flex align-items-center justify-content-between gap-3 mt-3" aria-label="Audit pagination">
+      <span class="small text-muted">Page {{ pagination().page }} of {{ pagination().totalPages }}</span>
+      <div class="btn-group">
+        <button class="btn btn-outline-secondary btn-sm" type="button" [disabled]="pagination().page <= 1" (click)="goToPage(pagination().page - 1)"><i class="bi bi-chevron-left"></i></button>
+        <button class="btn btn-outline-secondary btn-sm" type="button" [disabled]="pagination().page >= pagination().totalPages" (click)="goToPage(pagination().page + 1)"><i class="bi bi-chevron-right"></i></button>
+      </div>
+    </nav>
+  }
+</section>

@@ -203,6 +203,13 @@ export const routes: Routes = [
         title: 'Student Curriculum | SchooliEdu'
       },
       {
+        path: 'admin/audit-trail',
+        loadComponent: () => import('./features/audit/admin-audit-trail.component').then((module) => module.AdminAuditTrailComponent),
+        canActivate: [authGuard],
+        data: { roles: ['admin'], permission: 'audit.view' },
+        title: 'Audit Trail | SchooliEdu'
+      },
+      {
         path: 'teacher/homework',
         loadComponent: () => import('./features/homework/teacher-homework.component').then((module) => module.TeacherHomeworkComponent),
         canActivate: [authGuard],

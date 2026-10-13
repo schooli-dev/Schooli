@@ -61,6 +61,7 @@ const implementedSidebarPaths = new Set([
   '/admin/classes',
   '/admin/users',
   '/admin/roles',
+  '/admin/audit-trail',
   '/admin/learning-materials/courses',
   '/admin/learning-materials/modules',
   '/admin/learning-materials/classes',

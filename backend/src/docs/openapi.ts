@@ -816,6 +816,29 @@ export const openApiSpec = swaggerJSDoc({
           responses: { "200": { description: "Homework library fetched" } }
         }
       },
+      "/api/audit": {
+        get: {
+          tags: ["Audit"],
+          summary: "Audit trail: read-only history of important actions [audit.view, admin]",
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { name: "module", in: "query", schema: { type: "string", example: "homework" } },
+            { name: "actions", in: "query", description: "Comma separated event types to include (e.g. homework.submitted,homework.completed).", schema: { type: "string" } },
+            { name: "from", in: "query", schema: { type: "string", format: "date-time" } },
+            { name: "to", in: "query", schema: { type: "string", format: "date-time" } },
+            { name: "search", in: "query", description: "Matches summary, actor, student, teacher, homework, course or module name.", schema: { type: "string" } },
+            { name: "entityId", in: "query", description: "Only the history of one record (e.g. one homework).", schema: { type: "string", format: "uuid" } },
+            { name: "actorRole", in: "query", schema: { type: "string", enum: ["admin", "teacher", "student", "support"] } },
+            { name: "sort", in: "query", schema: { type: "string", enum: ["asc", "desc"], default: "desc" } },
+            { name: "page", in: "query", schema: { type: "integer" } },
+            { name: "limit", in: "query", schema: { type: "integer", maximum: 100 } }
+          ],
+          responses: { "200": { description: "Audit entries fetched (paginated)" }, "403": { description: "Requires audit.view" } }
+        }
+      },
+      "/api/audit/modules": {
+        get: { tags: ["Audit"], summary: "Modules and event types available as audit filters [audit.view]", security: [{ bearerAuth: [] }], responses: { "200": { description: "Modules fetched" } } }
+      },
       "/api/homework/submission-uploads": {
         post: { tags: ["Homework"], summary: "Upload a submission file (student; private R2, homework-submissions/ prefix)", security: [{ bearerAuth: [] }], requestBody: { required: true, content: { "multipart/form-data": { schema: { type: "object", properties: { file: { type: "string", format: "binary" } } } } } }, responses: { "201": { description: "Uploaded; returns storageKey, fileName, mimeType, sizeBytes" } } }
       },

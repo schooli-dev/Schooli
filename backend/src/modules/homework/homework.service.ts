@@ -2,6 +2,7 @@ import type { PoolClient } from "pg";
 import { pool } from "../../db/pool.js";
 import type { AuthenticatedUser } from "../../types/express.js";
 import { ApiError } from "../../utils/ApiError.js";
+import { recordAudit } from "../audit/audit.service.js";
 import { createInAppNotifications } from "../notifications/notifications.service.js";
 import type { CustomHomeworkInput, ListHomeworkInput, ReviewHomeworkInput, SubmitHomeworkInput } from "./homework.validation.js";
 
@@ -102,6 +103,76 @@ type InsertHomework = {
   materialId: string | null;
 };
 
+// ---------------------------------------------------------------------------------------------
+// Audit trail. Written inside the same transaction as the action, with the names copied onto the row.
+// ---------------------------------------------------------------------------------------------
+
+type AuditActor = { id: string; name: string; role: string };
+
+async function auditHomework(
+  client: PoolClient,
+  homeworkId: string,
+  action: string,
+  by: "teacher" | "student" | AuditActor,
+  summary: (context: { teacherName: string; studentName: string }) => string,
+  extra: Record<string, unknown> = {},
+  offsetMs = 0
+): Promise<void> {
+  const row = (await client.query<{
+    title: string; teacher_id: string; student_id: string; teacher_name: string; student_name: string; max_points: number | null;
+    course_name: string | null; module_name: string | null; lesson_number: number | null; lesson_title: string | null;
+  }>(
+    `SELECT h.title, h.teacher_id, h.student_id, h.max_points,
+            BTRIM(CONCAT(tu.first_name, ' ', tu.last_name)) AS teacher_name, BTRIM(CONCAT(su.first_name, ' ', su.last_name)) AS student_name,
+            co.name AS course_name, m.name AS module_name, cl.lesson_number, cl.title AS lesson_title
+     FROM homework h
+     JOIN users tu ON tu.id = h.teacher_id
+     JOIN users su ON su.id = h.student_id
+     LEFT JOIN curriculum_lessons cl ON cl.id = h.curriculum_lesson_id
+     LEFT JOIN curriculum_modules m ON m.id = cl.module_id
+     LEFT JOIN curriculum_courses co ON co.id = m.course_id
+     WHERE h.id = $1`,
+    [homeworkId]
+  )).rows[0];
+  if (!row) return;
+
+  const actor: AuditActor =
+    by === "teacher" ? { id: row.teacher_id, name: row.teacher_name, role: "teacher" }
+    : by === "student" ? { id: row.student_id, name: row.student_name, role: "student" }
+    : by;
+
+  await recordAudit(
+    {
+      module: "homework",
+      action,
+      entityType: "homework",
+      entityId: homeworkId,
+      actor,
+      subjectUserId: row.student_id,
+      summary: summary({ teacherName: row.teacher_name, studentName: row.student_name }),
+      offsetMs,
+      metadata: {
+        homeworkTitle: row.title,
+        studentName: row.student_name,
+        teacherName: row.teacher_name,
+        courseName: row.course_name,
+        moduleName: row.module_name,
+        lessonNumber: row.lesson_number,
+        lessonTitle: row.lesson_title,
+        maxPoints: row.max_points,
+        ...extra
+      }
+    },
+    client
+  );
+}
+
+async function auditWithdrawn(client: PoolClient, homeworkIds: string[]): Promise<void> {
+  for (const id of homeworkIds) {
+    await auditHomework(client, id, "homework.withdrawn", "teacher", ({ teacherName }) => `Homework withdrawn (${teacherName} changed the attendance before the student submitted)`);
+  }
+}
+
 async function insertHomework(client: PoolClient, value: InsertHomework): Promise<string> {
   const result = await client.query<{ id: string }>(
     `INSERT INTO homework (teacher_id, student_id, class_id, curriculum_lesson_id, curriculum_material_id, title, description,
@@ -111,6 +182,10 @@ async function insertHomework(client: PoolClient, value: InsertHomework): Promis
     [value.teacherId, value.studentId, value.classId, value.lessonId, value.materialId, value.title, value.description, value.type, value.dueDate, value.maxPoints, value.submissionType]
   );
   const id = result.rows[0].id;
+  await auditHomework(client, id, "homework.assigned", "teacher", ({ teacherName }) => `Homework assigned by ${teacherName}`, {
+    dueDate: value.dueDate,
+    homeworkType: value.type
+  });
 
   await createInAppNotifications(
     {
@@ -161,6 +236,7 @@ async function updateCustomHomework(client: PoolClient, homeworkId: string, teac
   await client.query(`DELETE FROM homework_resources WHERE homework_id = $1`, [homeworkId]);
   await insertResources(client, homeworkId, data.attachments);
   if (data.saveToLibrary) await saveToLibrary(client, teacherId, data);
+  await auditHomework(client, homeworkId, "homework.updated", "teacher", ({ teacherName }) => `Homework details updated by ${teacherName}`);
 }
 
 /** Removes homework assigned for this session that the student has not submitted yet. */
@@ -172,6 +248,7 @@ export async function deleteUnsubmittedHomeworkForClass(client: PoolClient, clas
     [classId, studentId]
   );
   const ids = removable.rows.map((row) => row.id);
+  await auditWithdrawn(client, ids);
   if (ids.length) await client.query(`DELETE FROM homework WHERE id = ANY($1::UUID[])`, [ids]);
 }
 
@@ -218,6 +295,7 @@ export async function reconcileAttendanceHomework(
 
   const removeUnsubmitted = async (ids: string[]) => {
     if (ids.length) {
+      await auditWithdrawn(client, ids);
       await client.query(`DELETE FROM homework WHERE id = ANY($1::UUID[])`, [ids]);
     }
   };
@@ -559,6 +637,14 @@ export async function submitHomework(user: AuthenticatedUser, homeworkId: string
     }
 
     await client.query(`UPDATE homework SET status = 'submitted', updated_at = NOW() WHERE id = $1`, [homeworkId]);
+    await auditHomework(
+      client,
+      homeworkId,
+      attempt > 1 ? "homework.resubmitted" : "homework.submitted",
+      "student",
+      ({ studentName }) => `${studentName} ${attempt > 1 ? "resubmitted" : "submitted"} Attempt #${attempt}`,
+      { attempt }
+    );
 
     await createInAppNotifications(
       {
@@ -619,6 +705,20 @@ export async function reviewHomework(user: AuthenticatedUser, homeworkId: string
     await client.query(
       `UPDATE homework SET status = $2::homework_status, completed_at = $3, updated_at = NOW() WHERE id = $1`,
       [homeworkId, complete ? "completed" : "needs_revision", complete ? new Date() : null]
+    );
+
+    const reviewer = (await client.query<{ name: string }>(`SELECT BTRIM(CONCAT(first_name, ' ', last_name)) AS name FROM users WHERE id = $1`, [user.id])).rows[0];
+    const actor: AuditActor = { id: user.id, name: reviewer?.name ?? "Reviewer", role: isAdmin ? "admin" : "teacher" };
+    const reviewMeta = { attempt: latest.attempt_number, points: input.points, feedback: input.feedback ?? null };
+    await auditHomework(client, homeworkId, "homework.reviewed", actor, () => `${actor.name} reviewed Attempt #${latest.attempt_number}`, reviewMeta);
+    await auditHomework(
+      client,
+      homeworkId,
+      complete ? "homework.completed" : "homework.revision_required",
+      actor,
+      () => (complete ? "Marked Complete" : "Marked Revision Required"),
+      reviewMeta,
+      1
     );
 
     const scoreText = homework.max_points ? `${input.points}/${homework.max_points}` : String(input.points);

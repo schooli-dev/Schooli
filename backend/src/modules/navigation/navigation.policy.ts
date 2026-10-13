@@ -75,6 +75,16 @@ const pages: NavigationPage[] = [
     ]
   },
   {
+    key: "admin.audit-trail",
+    label: "Audit Trail",
+    path: "/admin/audit-trail",
+    icon: "journal",
+    section: "operations",
+    roles: ["admin"],
+    anyPermissions: ["audit.view"],
+    actions: [{ key: "read", permission: "audit.view" }]
+  },
+  {
     key: "classes",
     label: "Classes",
     path: "/admin/classes",

@@ -1,0 +1,29 @@
+.filter-card { padding: 16px; border: 1px solid #e2e8f0; border-radius: 16px; background: #fff; }
+.filter-label { display: block; margin-bottom: 4px; color: #64748b; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+.chip { padding: 4px 14px; border: 1.5px solid #cbd5e1; border-radius: 999px; background: #fff; font-size: 13px; font-weight: 600; cursor: pointer; }
+.chip.active { border-color: var(--color-primary); background: var(--color-primary); color: #fff; }
+
+.focus-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border: 1px solid #bfdbfe; border-radius: 12px; background: #eff6ff; }
+.state-card { padding: 32px; border: 1px solid #e2e8f0; border-radius: 16px; background: #fff; text-align: center; color: #64748b; }
+
+.day-heading { margin: 20px 0 8px; color: #475569; font-size: 13px; font-weight: 800; letter-spacing: 0.03em; text-transform: uppercase; }
+.timeline { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.entry { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border: 1px solid #e2e8f0; border-left-width: 4px; border-radius: 12px; background: #fff; }
+.entry-icon { display: grid; flex-shrink: 0; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: #eef2ff; }
+.entry-body { flex: 1; min-width: 0; }
+.entry-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; color: #64748b; font-size: 13px; }
+.entry-meta span { overflow-wrap: anywhere; }
+.event-badge { background: #e2e8f0; color: #334155; }
+
+.tone-ok { border-left-color: var(--color-success); }
+.tone-ok .entry-icon { background: #dcfce7; color: #15803d; }
+.tone-danger { border-left-color: var(--color-danger); }
+.tone-danger .entry-icon { background: #fee2e2; color: #b91c1c; }
+.tone-info { border-left-color: #0ea5e9; }
+.tone-info .entry-icon { background: #e0f2fe; color: #0369a1; }
+.tone-warn { border-left-color: #f59e0b; }
+.tone-warn .entry-icon { background: #fef3c7; color: #b45309; }
+.tone-primary { border-left-color: var(--color-primary); }
+.tone-primary .entry-icon { color: var(--color-primary); }
+
+@media (max-width: 575px) { .entry { flex-wrap: wrap; } .entry-body { flex-basis: calc(100% - 50px); } }

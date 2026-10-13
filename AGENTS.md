@@ -35,7 +35,7 @@ Core features include class scheduling, live video sessions (Daily.co), attendan
         modules/              Feature modules (auth, users, classes, attendance, etc.)
         types/                Shared TypeScript types
         utils/                API response helpers, async handler, etc.
-      migrations/             Numbered SQL migration files (001-023; next is 024)
+      migrations/             Numbered SQL migration files (001-035; next is 036)
       docs/                   API guide (PDF + Markdown)
       package.json
 
