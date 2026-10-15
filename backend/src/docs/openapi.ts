@@ -839,6 +839,35 @@ export const openApiSpec = swaggerJSDoc({
       "/api/audit/modules": {
         get: { tags: ["Audit"], summary: "Modules and event types available as audit filters [audit.view]", security: [{ bearerAuth: [] }], responses: { "200": { description: "Modules fetched" } } }
       },
+      "/api/reports-analytics/curriculum/summary": {
+        get: { tags: ["Reports Analytics"], summary: "Curriculum structural totals: courses, modules, active/inactive modules, classes [reports_analytics.view]", security: [{ bearerAuth: [] }], responses: { "200": { description: "Summary fetched" } } }
+      },
+      "/api/reports-analytics/curriculum/filters": {
+        get: { tags: ["Reports Analytics"], summary: "Courses and modules available as curriculum analytics filters [reports_analytics.view]", security: [{ bearerAuth: [] }], responses: { "200": { description: "Filters fetched" } } }
+      },
+      "/api/reports-analytics/curriculum/modules": {
+        get: {
+          tags: ["Reports Analytics"],
+          summary: "Module-level curriculum analytics: classes count and teachers assigned per module [reports_analytics.view]",
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { name: "courseId", in: "query", schema: { type: "string", format: "uuid" } },
+            { name: "moduleId", in: "query", schema: { type: "string", format: "uuid" } },
+            { name: "status", in: "query", schema: { type: "string", enum: ["all", "active", "inactive"], default: "all" } },
+            { name: "sort", in: "query", schema: { type: "string", enum: ["courseName", "moduleName", "classesDesc", "teachersDesc"], default: "courseName" } }
+          ],
+          responses: { "200": { description: "Module analytics fetched" } }
+        }
+      },
+      "/api/reports-analytics/curriculum/modules/{moduleId}/teachers": {
+        get: {
+          tags: ["Reports Analytics"],
+          summary: "Teachers assigned to a module and their progress through its classes [reports_analytics.view]",
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: "moduleId", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+          responses: { "200": { description: "Module teacher progress fetched" } }
+        }
+      },
       "/api/homework/submission-uploads": {
         post: { tags: ["Homework"], summary: "Upload a submission file (student; private R2, homework-submissions/ prefix)", security: [{ bearerAuth: [] }], requestBody: { required: true, content: { "multipart/form-data": { schema: { type: "object", properties: { file: { type: "string", format: "binary" } } } } } }, responses: { "201": { description: "Uploaded; returns storageKey, fileName, mimeType, sizeBytes" } } }
       },

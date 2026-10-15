@@ -21,6 +21,7 @@ import { emailTemplatesRoutes } from "./modules/emailTemplates/emailTemplates.ro
 import { auditRoutes } from "./modules/audit/audit.routes.js";
 import { homeworkRoutes } from "./modules/homework/homework.routes.js";
 import { learningMaterialsRoutes } from "./modules/learningMaterials/learningMaterials.routes.js";
+import { reportsAnalyticsRoutes } from "./modules/reportsAnalytics/reportsAnalytics.routes.js";
 import {
   notificationDeliveryLogsRoutes,
   notificationsRoutes,
@@ -98,6 +99,7 @@ app.use("/api/email-templates", emailTemplatesRoutes);
 app.use("/api/learning-materials", learningMaterialsRoutes);
 app.use("/api/homework", homeworkRoutes);
 app.use("/api/audit", auditRoutes);
+app.use("/api/reports-analytics", reportsAnalyticsRoutes);
 app.use("/api/notifications", notificationsRoutes);
 app.use("/api/notification-rules", notificationRulesRoutes);
 app.use("/api/notification-delivery-logs", notificationDeliveryLogsRoutes);

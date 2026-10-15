@@ -1,0 +1,172 @@
+<main class="analytics-page">
+  <div class="mb-4">
+    <span class="section-kicker">REPORTS &amp; ANALYTICS</span>
+    <h1 class="mb-1">Curriculum Analytics</h1>
+    <p class="text-muted mb-0">Structural overview of your curriculum: courses, modules, classes and teacher assignment — not student or teacher progress.</p>
+  </div>
+
+  @if (summary(); as s) {
+    <section class="row g-3 mb-4">
+      <div class="col-6 col-lg">
+        <article class="stat-card">
+          <span class="stat-icon bg-primary-subtle text-primary"><i class="bi bi-journal-bookmark"></i></span>
+          <div><strong>{{ s.totalCourses }}</strong><span>Total Courses</span></div>
+        </article>
+      </div>
+      <div class="col-6 col-lg">
+        <article class="stat-card">
+          <span class="stat-icon bg-info-subtle text-info"><i class="bi bi-layers"></i></span>
+          <div><strong>{{ s.totalModules }}</strong><span>Total Modules</span></div>
+        </article>
+      </div>
+      <div class="col-6 col-lg">
+        <article class="stat-card">
+          <span class="stat-icon bg-secondary-subtle text-secondary"><i class="bi bi-calendar-event"></i></span>
+          <div><strong>{{ s.totalClasses }}</strong><span>Total Classes</span></div>
+        </article>
+      </div>
+      <div class="col-6 col-lg">
+        <article class="stat-card">
+          <span class="stat-icon bg-success-subtle text-success"><i class="bi bi-check2-circle"></i></span>
+          <div><strong>{{ s.activeModules }}</strong><span>Active Modules</span></div>
+        </article>
+      </div>
+      <div class="col-6 col-lg">
+        <article class="stat-card">
+          <span class="stat-icon bg-warning-subtle text-warning-emphasis"><i class="bi bi-pause-circle"></i></span>
+          <div><strong>{{ s.inactiveModules }}</strong><span>Inactive Modules</span></div>
+        </article>
+      </div>
+    </section>
+  }
+
+  <section class="toolbar mb-4">
+    <select class="form-select" [(ngModel)]="courseFilter" (change)="onCourseFilterChange()">
+      <option value="">All courses</option>
+      @for (course of filters().courses; track course.id) { <option [value]="course.id">{{ course.name }}</option> }
+    </select>
+    <select class="form-select" [(ngModel)]="moduleFilter" (change)="onFilterChange()">
+      <option value="">All modules</option>
+      @for (module of modulesForSelectedCourse(); track module.id) { <option [value]="module.id">{{ module.name }}</option> }
+    </select>
+    <select class="form-select" [(ngModel)]="statusFilter" (change)="onFilterChange()">
+      <option value="all">All statuses</option>
+      <option value="active">Active</option>
+      <option value="inactive">Inactive</option>
+    </select>
+    <select class="form-select" [(ngModel)]="sort" (change)="onFilterChange()">
+      <option value="courseName">Sort by course</option>
+      <option value="moduleName">Sort by module name</option>
+      <option value="classesDesc">Most classes first</option>
+      <option value="teachersDesc">Most teachers first</option>
+    </select>
+  </section>
+
+  <section class="mb-5">
+    <h2 class="section-title">Modules</h2>
+    @if (loading()) {
+      <div class="py-5 text-center"><span class="spinner-border text-primary"></span></div>
+    } @else if (!modules().length) {
+      <section class="empty-state"><i class="bi bi-layers"></i><h2>No modules found</h2><p>Try a different course or status filter.</p></section>
+    } @else {
+      <div class="table-responsive analytics-table">
+        <table class="table align-middle mb-0">
+          <thead>
+            <tr><th>Course</th><th>Module</th><th class="text-center">Classes</th><th class="text-center">Teachers Assigned</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+            @for (module of modules(); track module.moduleId) {
+              <tr>
+                <td class="text-muted">{{ module.courseName }}</td>
+                <td class="fw-semibold">{{ module.moduleName }}</td>
+                <td class="text-center">{{ module.classesCount }}</td>
+                <td class="text-center">
+                  @if (module.teachersAssignedCount > 0) {
+                    <button class="btn btn-sm btn-link p-0 fw-semibold" type="button" (click)="openTeachers(module)">{{ module.teachersAssignedCount }}</button>
+                  } @else {
+                    <span class="text-muted">0</span>
+                  }
+                </td>
+                <td><span class="status-badge" [class.inactive]="module.status === 'inactive'">{{ statusLabel(module.status) }}</span></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </section>
+</main>
+
+@if (teachersDrawerOpen()) {
+  <div class="drawer-backdrop" (click)="closeTeachers()"></div>
+  <aside class="details-drawer" role="dialog" aria-modal="true">
+    <header>
+      <div>
+        <span class="section-kicker"><i class="bi bi-people-fill me-1"></i>TEACHERS ASSIGNED</span>
+        <h2 class="mt-1">{{ teachersModule()?.moduleName }}</h2>
+        <span class="text-muted small">{{ teachersModule()?.courseName }}</span>
+      </div>
+      <button class="btn-close" type="button" (click)="closeTeachers()"></button>
+    </header>
+    <div class="drawer-body">
+      @if (teachersLoading()) {
+        <div class="py-5 text-center"><span class="spinner-border text-primary"></span></div>
+      } @else if (teachersProgress(); as progress) {
+        @if (!progress.teachers.length) {
+          <p class="text-muted small mb-0">No teachers are assigned to this module yet.</p>
+        } @else {
+          <div class="d-grid gap-3">
+            @for (teacher of progress.teachers; track teacher.teacherId) {
+              <article class="teacher-progress-card">
+                <div class="teacher-card-head">
+                  <span class="teacher-avatar">{{ initials(teacher.teacherName) }}</span>
+                  <div class="min-w-0">
+                    <strong class="d-block text-truncate">{{ teacher.teacherName }}</strong>
+                    <span class="small text-muted">Assigned on {{ teacher.assignedAt | date: 'MMM d, y' }}</span>
+                  </div>
+                </div>
+
+                <div class="teacher-stats-row">
+                  <div class="teacher-stat">
+                    <span class="teacher-stat-icon bg-primary-subtle text-primary"><i class="bi bi-calendar-event"></i></span>
+                    <div><strong>{{ teacher.classesScheduled }}</strong><span>Scheduled</span></div>
+                  </div>
+                  <div class="teacher-stat">
+                    <span class="teacher-stat-icon bg-success-subtle text-success"><i class="bi bi-check2-circle"></i></span>
+                    <div><strong>{{ teacher.classesCompleted }}</strong><span>Completed</span></div>
+                  </div>
+                </div>
+
+                <p class="scheduled-classes-title">Scheduled Classes</p>
+                @if (!teacher.scheduledClasses.length) {
+                  <p class="text-muted small mb-0">No classes scheduled yet.</p>
+                } @else {
+                  <div class="d-grid gap-2">
+                    @for (group of groupScheduledClasses(teacher.scheduledClasses); track group.lessonNumber) {
+                      <div class="class-group">
+                        <div class="class-group-head">
+                          <strong>{{ formatClass(group.lessonNumber) }}</strong>
+                          <span class="text-muted text-truncate">{{ group.lessonTitle }}</span>
+                        </div>
+                        <ul class="session-list">
+                          @for (session of group.sessions; track session.classId) {
+                            <li>
+                              <i class="bi bi-person-circle session-icon"></i>
+                              <span class="session-student">{{ session.studentName || 'No student assigned' }}</span>
+                              <span class="session-date"><i class="bi bi-calendar3 me-1"></i>{{ session.startTime | date: 'MMM d, y' }}</span>
+                              <span class="class-status-badge" [class]="session.status">{{ classStatusLabel(session.status) }}</span>
+                            </li>
+                          }
+                        </ul>
+                      </div>
+                    }
+                  </div>
+                }
+              </article>
+            }
+          </div>
+        }
+      }
+    </div>
+  </aside>
+}
