@@ -868,6 +868,57 @@ export const openApiSpec = swaggerJSDoc({
           responses: { "200": { description: "Module teacher progress fetched" } }
         }
       },
+      "/api/reports-analytics/homework/summary": {
+        get: { tags: ["Reports Analytics"], summary: "Homework lifecycle totals: assigned, pending, pending review, revision required, completed, overdue [reports_analytics.view]", security: [{ bearerAuth: [] }], responses: { "200": { description: "Summary fetched" } } }
+      },
+      "/api/reports-analytics/homework/filters": {
+        get: { tags: ["Reports Analytics"], summary: "Students, teachers, courses, modules and classes available as homework analytics filters [reports_analytics.view]", security: [{ bearerAuth: [] }], responses: { "200": { description: "Filters fetched" } } }
+      },
+      "/api/reports-analytics/homework/assignments": {
+        get: {
+          tags: ["Reports Analytics"],
+          summary: "One row per student homework assignment, paginated [reports_analytics.view]",
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { name: "search", in: "query", description: "Matches homework title or student name.", schema: { type: "string" } },
+            { name: "status", in: "query", schema: { type: "string", enum: ["all", "pending", "pending_review", "revision_required", "completed", "overdue"], default: "all" } },
+            { name: "studentId", in: "query", schema: { type: "string", format: "uuid" } },
+            { name: "teacherId", in: "query", schema: { type: "string", format: "uuid" } },
+            { name: "courseId", in: "query", schema: { type: "string", format: "uuid" } },
+            { name: "moduleId", in: "query", schema: { type: "string", format: "uuid" } },
+            { name: "lessonId", in: "query", schema: { type: "string", format: "uuid" } },
+            { name: "homeworkType", in: "query", schema: { type: "string", enum: ["all", "curriculum", "custom"], default: "all" } },
+            { name: "dateFrom", in: "query", schema: { type: "string", format: "date-time" } },
+            { name: "dateTo", in: "query", schema: { type: "string", format: "date-time" } },
+            { name: "sort", in: "query", schema: { type: "string", enum: ["assignedDesc", "assignedAsc", "dueDateAsc", "dueDateDesc", "studentName"], default: "assignedDesc" } },
+            { name: "page", in: "query", schema: { type: "integer" } },
+            { name: "limit", in: "query", schema: { type: "integer", maximum: 100 } }
+          ],
+          responses: { "200": { description: "Assignments fetched (paginated)" } }
+        }
+      },
+      "/api/reports-analytics/homework/assignments/{id}": {
+        get: {
+          tags: ["Reports Analytics"],
+          summary: "Full lifecycle of one student homework assignment: assignment info + every submission attempt [reports_analytics.view]",
+          security: [{ bearerAuth: [] }],
+          parameters: [{ name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } }],
+          responses: { "200": { description: "Assignment detail fetched" }, "404": { description: "Not found" } }
+        }
+      },
+      "/api/reports-analytics/homework/assignments/{id}/submissions/{submissionId}/files/{fileId}/file": {
+        get: {
+          tags: ["Reports Analytics"],
+          summary: "Download one submission attachment [reports_analytics.view]",
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+            { name: "submissionId", in: "path", required: true, schema: { type: "string", format: "uuid" } },
+            { name: "fileId", in: "path", required: true, schema: { type: "string", format: "uuid" } }
+          ],
+          responses: { "200": { description: "File stream" }, "404": { description: "Not found" } }
+        }
+      },
       "/api/homework/submission-uploads": {
         post: { tags: ["Homework"], summary: "Upload a submission file (student; private R2, homework-submissions/ prefix)", security: [{ bearerAuth: [] }], requestBody: { required: true, content: { "multipart/form-data": { schema: { type: "object", properties: { file: { type: "string", format: "binary" } } } } } }, responses: { "201": { description: "Uploaded; returns storageKey, fileName, mimeType, sizeBytes" } } }
       },

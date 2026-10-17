@@ -1,0 +1,221 @@
+<main class="analytics-page">
+  <div class="mb-4">
+    <span class="section-kicker">REPORTS &amp; ANALYTICS</span>
+    <h1 class="mb-1">Homework Analytics</h1>
+    <p class="text-muted mb-0">Every student homework assignment, its current status, score and full submission history.</p>
+  </div>
+
+  @if (summary(); as s) {
+    <section class="row g-3 mb-4">
+      <div class="col-6 col-md-4 col-lg">
+        <article class="stat-card">
+          <span class="stat-icon bg-primary-subtle text-primary"><i class="bi bi-journal-text"></i></span>
+          <div><strong>{{ s.totalAssigned }}</strong><span>Total Assigned</span></div>
+        </article>
+      </div>
+      <div class="col-6 col-md-4 col-lg">
+        <article class="stat-card">
+          <span class="stat-icon bg-secondary-subtle text-secondary"><i class="bi bi-hourglass-split"></i></span>
+          <div><strong>{{ s.pending }}</strong><span>Pending</span></div>
+        </article>
+      </div>
+      <div class="col-6 col-md-4 col-lg">
+        <article class="stat-card">
+          <span class="stat-icon bg-info-subtle text-info"><i class="bi bi-eye"></i></span>
+          <div><strong>{{ s.pendingReview }}</strong><span>Pending Review</span></div>
+        </article>
+      </div>
+      <div class="col-6 col-md-4 col-lg">
+        <article class="stat-card">
+          <span class="stat-icon bg-warning-subtle text-warning-emphasis"><i class="bi bi-arrow-repeat"></i></span>
+          <div><strong>{{ s.revisionRequired }}</strong><span>Revision Required</span></div>
+        </article>
+      </div>
+      <div class="col-6 col-md-4 col-lg">
+        <article class="stat-card">
+          <span class="stat-icon bg-success-subtle text-success"><i class="bi bi-check2-circle"></i></span>
+          <div><strong>{{ s.completed }}</strong><span>Completed</span></div>
+        </article>
+      </div>
+      <div class="col-6 col-md-4 col-lg">
+        <article class="stat-card">
+          <span class="stat-icon bg-danger-subtle text-danger"><i class="bi bi-exclamation-triangle"></i></span>
+          <div><strong>{{ s.overdue }}</strong><span>Overdue</span></div>
+        </article>
+      </div>
+    </section>
+  }
+
+  <section class="toolbar mb-4">
+    <div class="input-group search-control">
+      <span class="input-group-text"><i class="bi bi-search"></i></span>
+      <input class="form-control" [(ngModel)]="search" (change)="onFilterChange()" placeholder="Search student or homework..." />
+    </div>
+    <select class="form-select" [(ngModel)]="status" (change)="onFilterChange()">
+      <option value="all">All statuses</option>
+      <option value="pending">Pending</option>
+      <option value="pending_review">Pending Review</option>
+      <option value="revision_required">Revision Required</option>
+      <option value="completed">Completed</option>
+      <option value="overdue">Overdue</option>
+    </select>
+    <select class="form-select" [(ngModel)]="studentId" (change)="onFilterChange()">
+      <option value="">All students</option>
+      @for (student of filters().students; track student.id) { <option [value]="student.id">{{ student.name }}</option> }
+    </select>
+    <select class="form-select" [(ngModel)]="teacherId" (change)="onFilterChange()">
+      <option value="">All teachers</option>
+      @for (teacher of filters().teachers; track teacher.id) { <option [value]="teacher.id">{{ teacher.name }}</option> }
+    </select>
+    <select class="form-select" [(ngModel)]="courseId" (change)="onCourseFilterChange()">
+      <option value="">All courses</option>
+      @for (course of filters().courses; track course.id) { <option [value]="course.id">{{ course.name }}</option> }
+    </select>
+    <select class="form-select" [(ngModel)]="moduleId" (change)="onModuleFilterChange()">
+      <option value="">All modules</option>
+      @for (module of modulesForSelectedCourse(); track module.id) { <option [value]="module.id">{{ module.name }}</option> }
+    </select>
+    <select class="form-select" [(ngModel)]="lessonId" (change)="onFilterChange()">
+      <option value="">All classes</option>
+      @for (lesson of lessonsForSelectedModule(); track lesson.id) { <option [value]="lesson.id">Class {{ lesson.lessonNumber }}: {{ lesson.title }}</option> }
+    </select>
+    <select class="form-select" [(ngModel)]="homeworkType" (change)="onFilterChange()">
+      <option value="all">Curriculum &amp; Custom</option>
+      <option value="curriculum">Curriculum</option>
+      <option value="custom">Custom</option>
+    </select>
+    <input class="form-control" type="date" [(ngModel)]="dateFrom" (change)="onFilterChange()" title="Assigned from" />
+    <input class="form-control" type="date" [(ngModel)]="dateTo" (change)="onFilterChange()" title="Assigned to" />
+    <select class="form-select" [(ngModel)]="sort" (change)="onFilterChange()">
+      <option value="assignedDesc">Newest assigned first</option>
+      <option value="assignedAsc">Oldest assigned first</option>
+      <option value="dueDateAsc">Due date (earliest)</option>
+      <option value="dueDateDesc">Due date (latest)</option>
+      <option value="studentName">Student name</option>
+    </select>
+  </section>
+
+  @if (loading()) {
+    <div class="py-5 text-center"><span class="spinner-border text-primary"></span></div>
+  } @else if (!items().length) {
+    <section class="empty-state"><i class="bi bi-journal-text"></i><h2>No homework assignments found</h2><p>Try a different filter combination.</p></section>
+  } @else {
+    <div class="table-responsive analytics-table mb-3">
+      <table class="table align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Student</th><th>Homework</th><th>Course</th><th>Module</th><th>Class</th><th>Assigned By</th>
+            <th>Assigned Date</th><th>Due Date</th><th>Status</th><th class="text-center">Score</th><th class="text-center">Attempts</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (item of items(); track item.id) {
+            <tr>
+              <td class="fw-semibold">{{ item.studentName }}</td>
+              <td>{{ item.title }}</td>
+              <td class="text-muted">{{ item.courseName || '—' }}</td>
+              <td class="text-muted">{{ item.moduleName || '—' }}</td>
+              <td class="text-muted">{{ formatClass(item.lessonNumber) }}</td>
+              <td class="text-muted">{{ item.teacherName }}</td>
+              <td class="text-muted">{{ item.assignedAt | date: 'MMM d, y' }}</td>
+              <td class="text-muted">{{ item.dueDate ? (item.dueDate | date: 'MMM d, y') : '—' }}</td>
+              <td><span class="status-badge" [class]="item.displayStatus">{{ statusLabel(item.displayStatus) }}</span></td>
+              <td class="text-center">{{ formatScore(item.latestPoints, item.maxPoints) }}</td>
+              <td class="text-center">{{ item.attempts }}</td>
+              <td><button class="btn btn-sm btn-outline-primary" type="button" (click)="openDetails(item.id)">View Details</button></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    @if (pagination(); as p) {
+      <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <span class="small text-muted">Page {{ p.page }} of {{ p.totalPages || 1 }} · {{ p.total }} total</span>
+        <div class="btn-group btn-group-sm">
+          <button class="btn btn-outline-secondary" type="button" [disabled]="p.page <= 1" (click)="goToPage(p.page - 1)">Previous</button>
+          <button class="btn btn-outline-secondary" type="button" [disabled]="p.page >= p.totalPages" (click)="goToPage(p.page + 1)">Next</button>
+        </div>
+      </div>
+    }
+  }
+</main>
+
+@if (drawerOpen()) {
+  <div class="drawer-backdrop" (click)="closeDrawer()"></div>
+  <aside class="details-drawer" role="dialog" aria-modal="true">
+    @if (detailLoading()) {
+      <div class="py-5 text-center flex-grow-1"><span class="spinner-border text-primary"></span></div>
+    } @else if (detail(); as d) {
+      <header>
+        <div>
+          <span class="status-badge" [class]="d.assignment.displayStatus">{{ statusLabel(d.assignment.displayStatus) }}</span>
+          <h2 class="text-uppercase mt-2">{{ d.assignment.title }}</h2>
+        </div>
+        <button class="btn-close" type="button" (click)="closeDrawer()"></button>
+      </header>
+      <div class="drawer-body">
+        <div class="detail-grid">
+          <div><span>Student</span><strong>{{ d.assignment.studentName }}</strong></div>
+          <div><span>Teacher</span><strong>{{ d.assignment.teacherName }}</strong></div>
+          <div><span>Course</span><strong>{{ d.assignment.courseName || '—' }}</strong></div>
+          <div><span>Module</span><strong>{{ d.assignment.moduleName || '—' }}</strong></div>
+          <div><span>Class</span><strong>{{ formatClass(d.assignment.lessonNumber) }}</strong></div>
+          <div><span>Type</span><strong class="text-capitalize">{{ d.assignment.homeworkType }}</strong></div>
+          <div><span>Assigned</span><strong>{{ d.assignment.assignedAt | date: 'MMM d, y' }}</strong></div>
+          <div><span>Due</span><strong>{{ d.assignment.dueDate ? (d.assignment.dueDate | date: 'MMM d, y') : '—' }}</strong></div>
+          <div><span>Maximum Points</span><strong>{{ d.assignment.maxPoints ?? '—' }}</strong></div>
+          <div><span>Current Score</span><strong>{{ formatScore(d.assignment.latestPoints, d.assignment.maxPoints) }}</strong></div>
+          <div><span>Attempts</span><strong>{{ d.assignment.attempts }}</strong></div>
+        </div>
+
+        @if (d.assignment.description) {
+          <h3 class="mt-4">Instructions</h3>
+          <p style="white-space: pre-line">{{ d.assignment.description }}</p>
+        }
+
+        <h3 class="mt-4">Activity / Progress History</h3>
+        <ol class="timeline">
+          <li class="entry">
+            <div class="entry-dot"></div>
+            <div class="entry-body">
+              <p class="mb-1"><strong>{{ d.assignment.teacherName }}</strong> assigned <strong>{{ d.assignment.title }}</strong> to {{ d.assignment.studentName }}</p>
+              <p class="small text-muted mb-0">{{ d.assignment.assignedAt | date: 'MMM d, y, h:mm a' }}</p>
+            </div>
+          </li>
+
+          @for (attempt of d.attempts; track attempt.id) {
+            <li class="entry">
+              <div class="entry-dot"></div>
+              <div class="entry-body">
+                <p class="mb-1"><strong>{{ d.assignment.studentName }}</strong> submitted Attempt #{{ attempt.attemptNumber }}</p>
+                <p class="small text-muted mb-2">{{ attempt.submittedAt | date: 'MMM d, y, h:mm a' }}</p>
+                @if (attempt.submissionText) { <p class="mb-2" style="white-space: pre-line">{{ attempt.submissionText }}</p> }
+                @if (attempt.submissionLink) { <p class="mb-2"><i class="bi bi-link-45deg me-1"></i><a [href]="attempt.submissionLink" target="_blank" rel="noopener noreferrer">{{ attempt.submissionLink }}</a></p> }
+                @if (attempt.files.length) { <div class="mb-2"><app-homework-file-list [files]="attemptFileItems(d.assignment.id, attempt.id, attempt.files)" /></div> }
+                @if (attempt.studentComment) { <p class="small mb-0"><span class="text-muted">Student Comment:</span> "{{ attempt.studentComment }}"</p> }
+              </div>
+            </li>
+
+            @if (attempt.reviewedAt) {
+              <li class="entry">
+                <div class="entry-dot" [class.danger]="attempt.status === 'resubmission_requested'" [class.success]="attempt.status === 'accepted'"></div>
+                <div class="entry-body">
+                  <p class="mb-1"><strong>{{ attempt.reviewerName || d.assignment.teacherName }}</strong> reviewed Attempt #{{ attempt.attemptNumber }}</p>
+                  <p class="small text-muted mb-2">{{ attempt.reviewedAt | date: 'MMM d, y, h:mm a' }}</p>
+                  <div class="rounded-3 bg-light p-3">
+                    <p class="mb-1"><strong>Score:</strong> {{ formatScore(attempt.pointsAwarded, d.assignment.maxPoints) }}</p>
+                    @if (attempt.teacherFeedback) { <p class="mb-1" style="white-space: pre-line"><strong>Feedback:</strong> {{ attempt.teacherFeedback }}</p> }
+                    <p class="mb-0"><strong>Result:</strong> {{ attemptResultLabel(attempt.status) }}</p>
+                  </div>
+                </div>
+              </li>
+            }
+          } @empty {
+            <li class="entry"><div class="entry-dot"></div><div class="entry-body"><p class="text-muted mb-0">No submission received yet.</p></div></li>
+          }
+        </ol>
+      </div>
+    }
+  </aside>
+}

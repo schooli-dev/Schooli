@@ -217,6 +217,13 @@ export const routes: Routes = [
         title: 'Curriculum Analytics | SchooliEdu'
       },
       {
+        path: 'admin/reports-analytics/homework',
+        loadComponent: () => import('./features/reports-analytics/homework/homework-analytics.component').then((module) => module.HomeworkAnalyticsComponent),
+        canActivate: [authGuard],
+        data: { permission: 'reports_analytics.view' },
+        title: 'Homework Analytics | SchooliEdu'
+      },
+      {
         path: 'teacher/homework',
         loadComponent: () => import('./features/homework/teacher-homework.component').then((module) => module.TeacherHomeworkComponent),
         canActivate: [authGuard],

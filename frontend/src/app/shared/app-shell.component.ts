@@ -1,4 +1,4 @@
-﻿import { CommonModule } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, computed, signal } from '@angular/core';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { Subscription, filter, interval } from 'rxjs';
@@ -63,6 +63,8 @@ const implementedSidebarPaths = new Set([
   '/admin/roles',
   '/admin/audit-trail',
   '/admin/reports-analytics/curriculum',
+  '/admin/reports-analytics/homework',
+  '/admin/reports-analytics/student',
   '/admin/learning-materials/courses',
   '/admin/learning-materials/modules',
   '/admin/learning-materials/classes',
@@ -150,7 +152,10 @@ export class AppShellComponent implements OnDestroy {
 
   protected readonly navItems = computed(() => {
     const pages = this.policyPages();
-    return pages.length ? pages : fallbackNavByRole[this.role()];
+    // Temporarily hide the admin Attendance menu entry.
+    return (pages.length ? pages : fallbackNavByRole[this.role()]).filter(
+      (item) => item.path !== '/admin/attendance'
+    );
   });
 
   protected readonly learningMaterialsItems = computed(() =>
